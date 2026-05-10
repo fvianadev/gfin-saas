@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo } from 'react'
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts'
-import { ArrowLeft, TrendingUp, TrendingDown, Calendar, Filter, ArrowUpRight, ArrowDownLeft, Trash2, Edit2, Plus, Users, DollarSign, LayoutDashboard, MoreVertical, PieChart, List, Settings, Copy, Link2, CheckCircle, MessageCircle, ShieldAlert, History, User, Scissors, Search, X } from 'lucide-react'
+import { ArrowLeft, TrendingUp, TrendingDown, Calendar, Filter, ArrowUpRight, ArrowDownLeft, Trash2, Edit2, Plus, Users, DollarSign, LayoutDashboard, MoreVertical, PieChart, List, Settings, Copy, Link2, CheckCircle, MessageCircle, ShieldAlert, History, User, Scissors, Search, X, Download, Printer, CheckSquare, Square } from 'lucide-react'
 import { supabase } from '../lib/supabase'
 import { TransactionModal } from './TransactionModal'
 import { formatCurrency, formatDateTime } from '../lib/format'
@@ -13,10 +13,11 @@ interface AdminDashboardProps {
 }
 
 type Periodo = 'hoje' | '7dias' | '30dias' | 'todos'
-type Tab = 'resumo' | 'transacoes' | 'equipe' | 'config' | 'auditoria' | 'itens'
+type Tab = 'resumo' | 'transacoes' | 'equipe' | 'config' | 'auditoria' | 'itens' | 'relatorios'
 
 export function AdminDashboard({ onBack, estabelecimentoId, membroId, cargo }: AdminDashboardProps) {
   const [activeTab, setActiveTab] = useState<Tab>('resumo')
+  const [isMoreMenuOpen, setIsMoreMenuOpen] = useState(false)
   const [periodo, setPeriodo] = useState<Periodo>('30dias')
   
   const [transactions, setTransactions] = useState<any[]>([])
@@ -67,7 +68,8 @@ export function AdminDashboard({ onBack, estabelecimentoId, membroId, cargo }: A
   const [isMembroModalOpen, setIsMembroModalOpen] = useState(false)
   const [isItemModalOpen, setIsItemModalOpen] = useState(false)
 
-  const [novoMembro, setNovoMembro] = useState({ nome: '', pin: '', cargo: 'usuario', whatsapp: '', ativo: true })
+  const [novoMembro, setNovoMembro] = useState({ nome: '', pin: '', cargo: 'usuario', whatsapp: '', ativo: true, percentual_comissao: 0 })
+  const [membroParaEditar, setMembroParaEditar] = useState<string | null>(null)
   const [membroError, setMembroError] = useState('')
   const [salvandoMembro, setSalvandoMembro] = useState(false)
 
@@ -83,6 +85,67 @@ export function AdminDashboard({ onBack, estabelecimentoId, membroId, cargo }: A
 
   const [devPassword, setDevPassword] = useState('')
   const [isDevMode, setIsDevMode] = useState(false)
+
+  const [relatorioFiltro, setRelatorioFiltro] = useState({
+    dataInicio: new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString().split('T')[0],
+    dataFim: new Date().toISOString().split('T')[0],
+    membrosIds: [] as string[]
+  })
+  const [relatorioDados, setRelatorioDados] = useState<any[]>([])
+  const [gerandoRelatorio, setGerandoRelatorio] = useState(false)
+
+  const gerarRelatorio = async () => {
+    setGerandoRelatorio(true)
+    let query = supabase
+      .from('transacoes')
+      .select('*, membros_equipe!transacoes_membro_id_fkey(id, nome, percentual_comissao)')
+      .eq('estabelecimento_id', estabelecimentoId)
+      .eq('tipo', 'receita')
+      .eq('excluido', false)
+      .gte('created_at', new Date(relatorioFiltro.dataInicio + 'T00:00:00').toISOString())
+      .lte('created_at', new Date(relatorioFiltro.dataFim + 'T23:59:59').toISOString())
+
+    if (relatorioFiltro.membrosIds.length > 0) {
+      query = query.in('membro_id', relatorioFiltro.membrosIds)
+    }
+
+    const { data, error } = await query
+    
+    if (error) {
+      console.error("Erro ao gerar relatório:", error)
+      alert("Erro ao gerar relatório: " + error.message)
+    }
+    
+    if (data) {
+      const agrupado = data.reduce((acc: any, t: any) => {
+        const m = t.membros_equipe
+        if (!m) return acc
+        if (!acc[m.id]) {
+          acc[m.id] = { nome: m.nome, comissao_pct: m.percentual_comissao || 0, total_receita: 0, total_comissao: 0, qtd_servicos: 0 }
+        }
+        const valor = Number(t.valor) || 0
+        acc[m.id].total_receita += valor
+        acc[m.id].qtd_servicos += 1
+        acc[m.id].total_comissao += valor * ((m.percentual_comissao || 0) / 100)
+        return acc
+      }, {})
+      setRelatorioDados(Object.values(agrupado).sort((a: any, b: any) => b.total_receita - a.total_receita))
+    }
+    setGerandoRelatorio(false)
+  }
+
+  const baixarCSV = () => {
+    let csv = "Profissional,Servicos,Total Produzido,Comissao (%),Comissao Devida\n"
+    relatorioDados.forEach(row => {
+      csv += `${row.nome},${row.qtd_servicos},${row.total_receita.toFixed(2)},${row.comissao_pct}%,${row.total_comissao.toFixed(2)}\n`
+    })
+    const blob = new Blob([csv], { type: 'text/csv' })
+    const url = window.URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.setAttribute('href', url)
+    a.setAttribute('download', `relatorio_producao_${relatorioFiltro.dataInicio}_a_${relatorioFiltro.dataFim}.csv`)
+    a.click()
+  }
 
   const fetchEstab = async () => {
     const { data } = await supabase.from('estabelecimentos').select('*').eq('id', estabelecimentoId).single()
@@ -298,7 +361,7 @@ export function AdminDashboard({ onBack, estabelecimentoId, membroId, cargo }: A
 
   return (
     <div className="min-h-screen bg-slate-950 text-white flex flex-col lg:flex-row pb-24 lg:pb-0">
-      <aside className="hidden lg:flex w-64 bg-slate-900/50 border-r border-white/5 flex-col p-6 sticky top-0 h-screen">
+      <aside className="hidden lg:flex w-64 bg-slate-900/50 border-r border-white/5 flex-col p-6 sticky top-0 h-screen print:hidden">
         <div className="flex items-center gap-3 mb-10">
           {estab?.configuracoes?.logo_url ? (
             <img src={estab.configuracoes.logo_url} alt="Logo" className="w-10 h-10 rounded-xl object-cover shadow-lg border border-white/10" />
@@ -320,6 +383,7 @@ export function AdminDashboard({ onBack, estabelecimentoId, membroId, cargo }: A
             <>
               <button onClick={() => setActiveTab('equipe')} className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all ${activeTab === 'equipe' ? 'bg-emerald-500 text-white shadow-lg' : 'text-slate-500 hover:bg-white/5'}`}><Users size={18} /> Equipe</button>
               <button onClick={() => setActiveTab('auditoria')} className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all ${activeTab === 'auditoria' ? 'bg-emerald-500 text-white shadow-lg' : 'text-slate-500 hover:bg-white/5'}`}><ShieldAlert size={18} /> Auditoria</button>
+              <button onClick={() => setActiveTab('relatorios')} className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all ${activeTab === 'relatorios' ? 'bg-emerald-500 text-white shadow-lg' : 'text-slate-500 hover:bg-white/5'}`}><PieChart size={18} /> Relatórios</button>
               <button onClick={() => setActiveTab('config')} className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all ${activeTab === 'config' ? 'bg-emerald-500 text-white shadow-lg' : 'text-slate-500 hover:bg-white/5'}`}><Settings size={18} /> Configurações</button>
             </>
           )}
@@ -456,7 +520,11 @@ export function AdminDashboard({ onBack, estabelecimentoId, membroId, cargo }: A
            <div className="space-y-6 animate-in slide-in-from-right duration-300">
               <div className="flex justify-between items-center">
                 <h2 className="font-black text-lg uppercase tracking-widest text-slate-400">Equipe</h2>
-                <button onClick={() => setIsMembroModalOpen(true)} className="bg-emerald-500 text-white px-4 py-2 rounded-xl font-bold text-xs shadow-lg shadow-emerald-500/20 active:scale-95 transition-all flex items-center gap-2">
+                <button onClick={() => {
+                  setMembroParaEditar(null)
+                  setNovoMembro({ nome: '', pin: '', cargo: 'usuario', whatsapp: '', ativo: true, percentual_comissao: 0 })
+                  setIsMembroModalOpen(true)
+                }} className="bg-emerald-500 text-white px-4 py-2 rounded-xl font-bold text-xs shadow-lg shadow-emerald-500/20 active:scale-95 transition-all flex items-center gap-2">
                   <Plus size={14} /> Novo Membro
                 </button>
               </div>
@@ -465,7 +533,7 @@ export function AdminDashboard({ onBack, estabelecimentoId, membroId, cargo }: A
                 <div className="fixed inset-0 z-[60] flex items-end sm:items-center justify-center bg-black/60 backdrop-blur-sm p-4 sm:p-0">
                   <div className="bg-slate-950 w-full max-w-md rounded-3xl border border-white/10 shadow-2xl overflow-hidden animate-in slide-in-from-bottom-4 duration-300">
                     <div className="p-6 border-b border-white/5 flex justify-between items-center bg-slate-900/50">
-                      <h3 className="font-bold text-lg">Novo Membro</h3>
+                      <h3 className="font-bold text-lg">{membroParaEditar ? 'Editar Membro' : 'Novo Membro'}</h3>
                       <button onClick={() => setIsMembroModalOpen(false)} className="text-slate-500 hover:text-rose-500 p-2 rounded-full hover:bg-white/5 transition-all"><X size={20} /></button>
                     </div>
                     <form
@@ -477,21 +545,39 @@ export function AdminDashboard({ onBack, estabelecimentoId, membroId, cargo }: A
                         if (!nome) { setMembroError('O nome é obrigatório.'); return }
                         if (!/^\d{4}$/.test(pin)) { setMembroError('O PIN deve ter exatamente 4 dígitos numéricos.'); return }
                         setSalvandoMembro(true)
-                        const { error } = await supabase.from('membros_equipe').insert({
-                          estabelecimento_id: estabelecimentoId,
-                          nome,
-                          pin_hash: pin,
-                          cargo: novoMembro.cargo,
-                          whatsapp: novoMembro.whatsapp.trim(),
-                          ativo: true,
-                        })
+                        
+                        let error = null
+                        if (membroParaEditar) {
+                          const result = await supabase.from('membros_equipe').update({
+                            nome,
+                            pin_hash: pin,
+                            cargo: novoMembro.cargo,
+                            whatsapp: novoMembro.whatsapp.trim(),
+                            percentual_comissao: Number(novoMembro.percentual_comissao) || 0,
+                            ativo: novoMembro.ativo,
+                          }).eq('id', membroParaEditar)
+                          error = result.error
+                        } else {
+                          const result = await supabase.from('membros_equipe').insert({
+                            estabelecimento_id: estabelecimentoId,
+                            nome,
+                            pin_hash: pin,
+                            cargo: novoMembro.cargo,
+                            whatsapp: novoMembro.whatsapp.trim(),
+                            percentual_comissao: Number(novoMembro.percentual_comissao) || 0,
+                            ativo: true,
+                          })
+                          error = result.error
+                        }
+                        
                         setSalvandoMembro(false)
                         if (error) {
                           if (error.code === '23505') setMembroError('Já existe um membro com esse nome ou PIN neste estabelecimento.')
                           else setMembroError(error.message)
                           return
                         }
-                        setNovoMembro({ nome: '', pin: '', cargo: 'usuario', whatsapp: '', ativo: true })
+                        setNovoMembro({ nome: '', pin: '', cargo: 'usuario', whatsapp: '', ativo: true, percentual_comissao: 0 })
+                        setMembroParaEditar(null)
                         setIsMembroModalOpen(false)
                         fetchMembros()
                       }}
@@ -520,12 +606,24 @@ export function AdminDashboard({ onBack, estabelecimentoId, membroId, cargo }: A
                        <option value="usuario">Usuário</option>
                        <option value="administrador">Administrador</option>
                     </select>
-                    <input
+                     <input
                       className="w-full bg-slate-900 border border-white/5 rounded-xl p-4 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/50"
                       placeholder="WhatsApp (ex: 5511999999999)"
                       value={novoMembro.whatsapp}
                       onChange={e => setNovoMembro(prev => ({ ...prev, whatsapp: e.target.value.replace(/\D/g, '') }))}
                     />
+                 </div>
+                 <div className="space-y-1">
+                   <label className="text-[10px] font-bold text-slate-500 uppercase px-1">Comissão Padrão (%)</label>
+                   <input
+                     type="number"
+                     min="0"
+                     max="100"
+                     className="w-full bg-slate-900 border border-white/5 rounded-xl p-4 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/50"
+                     placeholder="Ex: 50"
+                     value={novoMembro.percentual_comissao === 0 ? '' : novoMembro.percentual_comissao}
+                     onChange={e => setNovoMembro(prev => ({ ...prev, percentual_comissao: Number(e.target.value) }))}
+                   />
                  </div>
                  <label className="flex items-center justify-between bg-slate-900 border border-white/5 rounded-xl px-4 py-3 cursor-pointer">
                    <span className="text-sm text-slate-300 font-medium">Membro ativo</span>
@@ -566,6 +664,24 @@ export function AdminDashboard({ onBack, estabelecimentoId, membroId, cargo }: A
                           <p className="text-[9px] text-slate-500 font-bold uppercase">PIN</p>
                           <p className="font-mono font-bold text-emerald-400">{m.pin_hash}</p>
                         </div>
+                        <button 
+                          onClick={() => {
+                            setMembroParaEditar(m.id)
+                            setNovoMembro({
+                              nome: m.nome,
+                              pin: m.pin_hash,
+                              cargo: m.cargo,
+                              whatsapp: m.whatsapp || '',
+                              ativo: m.ativo,
+                              percentual_comissao: m.percentual_comissao || 0
+                            })
+                            setIsMembroModalOpen(true)
+                          }}
+                          className="p-3 bg-white/5 text-slate-400 rounded-xl hover:bg-white/10 hover:text-white transition-all shadow-lg active:scale-90"
+                          title="Editar Membro"
+                        >
+                          <Edit2 size={20} />
+                        </button>
                         {m.whatsapp && (
                           <button 
                             onClick={() => {
@@ -808,40 +924,175 @@ export function AdminDashboard({ onBack, estabelecimentoId, membroId, cargo }: A
             )}
           </div>
         )}
+
+        {activeTab === 'relatorios' && (
+          <div className="space-y-6 animate-in fade-in duration-300 print:space-y-0">
+             <div className="flex items-center justify-between mb-6 print:hidden">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-xl bg-indigo-500/10 flex items-center justify-center text-indigo-500"><PieChart size={20} /></div>
+                  <div>
+                    <h2 className="font-bold text-lg text-white">Relatórios de Produção</h2>
+                    <p className="text-xs text-slate-400">Emissão de comissões e fechamento</p>
+                  </div>
+                </div>
+             </div>
+             
+             {/* Print Header */}
+             <div className="hidden print:block text-center mb-8">
+                <h1 className="text-2xl font-black text-black">{estab?.nome || 'GFin'}</h1>
+                <p className="text-sm text-gray-500">Relatório de Produção e Comissões</p>
+                <p className="text-xs text-gray-400">Período: {relatorioFiltro.dataInicio.split('-').reverse().join('/')} a {relatorioFiltro.dataFim.split('-').reverse().join('/')}</p>
+             </div>
+
+             <div className="glass-card p-6 border-white/5 space-y-6 print:hidden">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div className="space-y-1">
+                    <label className="text-[10px] font-bold text-slate-500 uppercase px-1">Data Inicial</label>
+                    <input type="date" className="w-full bg-slate-900 border border-white/5 rounded-xl p-3 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/50" value={relatorioFiltro.dataInicio} onChange={e => setRelatorioFiltro(prev => ({ ...prev, dataInicio: e.target.value }))} />
+                  </div>
+                  <div className="space-y-1">
+                    <label className="text-[10px] font-bold text-slate-500 uppercase px-1">Data Final</label>
+                    <input type="date" className="w-full bg-slate-900 border border-white/5 rounded-xl p-3 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/50" value={relatorioFiltro.dataFim} onChange={e => setRelatorioFiltro(prev => ({ ...prev, dataFim: e.target.value }))} />
+                  </div>
+                </div>
+
+                <div className="space-y-2">
+                   <label className="text-[10px] font-bold text-slate-500 uppercase px-1">Profissionais (Deixe vazio para todos)</label>
+                   <div className="flex flex-wrap gap-2">
+                     {membros.map(m => {
+                       const isSelected = relatorioFiltro.membrosIds.includes(m.id)
+                       return (
+                         <button 
+                           key={m.id}
+                           onClick={() => {
+                             setRelatorioFiltro(prev => ({
+                               ...prev,
+                               membrosIds: isSelected ? prev.membrosIds.filter(id => id !== m.id) : [...prev.membrosIds, m.id]
+                             }))
+                           }}
+                           className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-bold transition-all border ${isSelected ? 'bg-indigo-500/20 text-indigo-400 border-indigo-500/30' : 'bg-slate-900 text-slate-400 border-white/5 hover:border-white/20'}`}
+                         >
+                           {isSelected ? <CheckSquare size={14} /> : <Square size={14} />}
+                           {m.nome}
+                         </button>
+                       )
+                     })}
+                   </div>
+                </div>
+
+                <button 
+                  onClick={gerarRelatorio} 
+                  disabled={gerandoRelatorio}
+                  className="w-full py-3 bg-indigo-500 text-white rounded-xl font-bold shadow-lg shadow-indigo-500/20 active:scale-95 transition-all flex justify-center items-center gap-2"
+                >
+                  {gerandoRelatorio ? 'Processando...' : <><PieChart size={18} /> Gerar Relatório</>}
+                </button>
+             </div>
+
+             {relatorioDados.length > 0 && (
+               <div className="glass-card overflow-hidden border-white/5 print:border-none print:shadow-none print:bg-white print:text-black">
+                 <div className="overflow-x-auto">
+                   <table className="w-full text-left border-collapse">
+                     <thead>
+                       <tr className="bg-slate-900/50 text-[10px] uppercase tracking-widest text-slate-500 print:bg-gray-100 print:text-gray-700 border-b border-white/5 print:border-gray-200">
+                         <th className="p-4 font-bold">Profissional</th>
+                         <th className="p-4 font-bold text-center">Serviços</th>
+                         <th className="p-4 font-bold text-right">Total Produzido</th>
+                         <th className="p-4 font-bold text-center">Comissão (%)</th>
+                         <th className="p-4 font-bold text-right text-emerald-500 print:text-emerald-700">Comissão Devida</th>
+                       </tr>
+                     </thead>
+                     <tbody className="divide-y divide-white/5 print:divide-gray-200 text-sm">
+                       {relatorioDados.map((row, i) => (
+                         <tr key={i} className="hover:bg-white/5 print:hover:bg-transparent transition-colors">
+                           <td className="p-4 font-bold text-white print:text-black">{row.nome}</td>
+                           <td className="p-4 text-center text-slate-400 print:text-gray-600">{row.qtd_servicos}</td>
+                           <td className="p-4 text-right text-slate-300 print:text-gray-800">{formatCurrency(row.total_receita)}</td>
+                           <td className="p-4 text-center text-slate-500 print:text-gray-500">{row.comissao_pct}%</td>
+                           <td className="p-4 text-right font-black text-emerald-400 print:text-emerald-600">{formatCurrency(row.total_comissao)}</td>
+                         </tr>
+                       ))}
+                       {/* Linha de Totais */}
+                       <tr className="bg-slate-900/30 print:bg-gray-50 border-t-2 border-white/10 print:border-gray-300">
+                         <td className="p-4 font-black text-indigo-400 print:text-indigo-700">TOTAL</td>
+                         <td className="p-4 text-center font-bold text-slate-300 print:text-gray-700">{relatorioDados.reduce((a, b) => a + b.qtd_servicos, 0)}</td>
+                         <td className="p-4 text-right font-bold text-slate-300 print:text-gray-700">{formatCurrency(relatorioDados.reduce((a, b) => a + b.total_receita, 0))}</td>
+                         <td className="p-4 text-center font-bold text-slate-500 print:text-gray-500">-</td>
+                         <td className="p-4 text-right font-black text-emerald-400 print:text-emerald-700">{formatCurrency(relatorioDados.reduce((a, b) => a + b.total_comissao, 0))}</td>
+                       </tr>
+                     </tbody>
+                   </table>
+                 </div>
+                 
+                 <div className="p-4 bg-slate-900/50 border-t border-white/5 flex flex-col sm:flex-row gap-4 print:hidden">
+                   <button onClick={() => window.print()} className="flex-1 py-3 bg-white/5 text-white rounded-xl font-bold hover:bg-white/10 transition-all flex justify-center items-center gap-2">
+                     <Printer size={16} /> Salvar PDF
+                   </button>
+                   <button onClick={baixarCSV} className="flex-1 py-3 bg-indigo-500/10 text-indigo-400 rounded-xl font-bold hover:bg-indigo-500 hover:text-white transition-all flex justify-center items-center gap-2">
+                     <Download size={16} /> Baixar Planilha
+                   </button>
+                 </div>
+               </div>
+             )}
+          </div>
+        )}
       </main>
 
-      <nav className="lg:hidden fixed bottom-0 left-0 right-0 h-20 bg-slate-950/80 backdrop-blur-xl border-t border-white/5 flex items-center justify-around px-2 z-50">
-        <button onClick={() => setActiveTab('resumo')} className={`flex flex-col items-center gap-1 transition-all flex-1 ${activeTab === 'resumo' ? 'text-emerald-500 scale-110' : 'text-slate-500'}`}>
+      <nav className="lg:hidden fixed bottom-0 left-0 right-0 h-20 bg-slate-950/80 backdrop-blur-xl border-t border-white/5 flex items-center justify-around px-2 z-40">
+        <button onClick={() => { setActiveTab('resumo'); setIsMoreMenuOpen(false); }} className={`flex flex-col items-center gap-1 transition-all flex-1 ${activeTab === 'resumo' && !isMoreMenuOpen ? 'text-emerald-500 scale-110' : 'text-slate-500'}`}>
           <PieChart size={20} />
           <span className="text-[9px] font-bold uppercase">Resumo</span>
         </button>
-        <button onClick={() => setActiveTab('transacoes')} className={`flex flex-col items-center gap-1 transition-all flex-1 ${activeTab === 'transacoes' ? 'text-emerald-500 scale-110' : 'text-slate-500'}`}>
+        <button onClick={() => { setActiveTab('transacoes'); setIsMoreMenuOpen(false); }} className={`flex flex-col items-center gap-1 transition-all flex-1 ${activeTab === 'transacoes' && !isMoreMenuOpen ? 'text-emerald-500 scale-110' : 'text-slate-500'}`}>
           <List size={20} />
           <span className="text-[9px] font-bold uppercase">Lista</span>
         </button>
-        {cargo === 'administrador' && (
+        
+        {cargo === 'administrador' ? (
           <>
-            <button onClick={() => setActiveTab('equipe')} className={`flex flex-col items-center gap-1 transition-all flex-1 ${activeTab === 'equipe' ? 'text-emerald-500 scale-110' : 'text-slate-500'}`}>
+            <button onClick={() => { setActiveTab('equipe'); setIsMoreMenuOpen(false); }} className={`flex flex-col items-center gap-1 transition-all flex-1 ${activeTab === 'equipe' && !isMoreMenuOpen ? 'text-emerald-500 scale-110' : 'text-slate-500'}`}>
               <Users size={20} />
               <span className="text-[9px] font-bold uppercase">Equipe</span>
             </button>
-            <button onClick={() => setActiveTab('auditoria')} className={`flex flex-col items-center gap-1 transition-all flex-1 ${activeTab === 'auditoria' ? 'text-emerald-500 scale-110' : 'text-slate-500'}`}>
-              <ShieldAlert size={20} />
-              <span className="text-[9px] font-bold uppercase">Auditoria</span>
+            <button onClick={() => setIsMoreMenuOpen(!isMoreMenuOpen)} className={`flex flex-col items-center gap-1 transition-all flex-1 ${isMoreMenuOpen ? 'text-emerald-500 scale-110' : 'text-slate-500'}`}>
+              <MoreVertical size={20} />
+              <span className="text-[9px] font-bold uppercase">Mais</span>
             </button>
           </>
-        )}
-        <button onClick={() => setActiveTab('itens')} className={`flex flex-col items-center gap-1 transition-all flex-1 ${activeTab === 'itens' ? 'text-emerald-500 scale-110' : 'text-slate-500'}`}>
-          <Scissors size={20} />
-          <span className="text-[9px] font-bold uppercase">Itens</span>
-        </button>
-        {cargo === 'administrador' && (
-          <button onClick={() => setActiveTab('config')} className={`flex flex-col items-center gap-1 transition-all flex-1 ${activeTab === 'config' ? 'text-emerald-500 scale-110' : 'text-slate-500'}`}>
-            <Settings size={20} />
-            <span className="text-[9px] font-bold uppercase">Ajustes</span>
+        ) : (
+          <button onClick={() => { setActiveTab('itens'); setIsMoreMenuOpen(false); }} className={`flex flex-col items-center gap-1 transition-all flex-1 ${activeTab === 'itens' && !isMoreMenuOpen ? 'text-emerald-500 scale-110' : 'text-slate-500'}`}>
+            <Scissors size={20} />
+            <span className="text-[9px] font-bold uppercase">Itens</span>
           </button>
         )}
       </nav>
+
+      {/* Menu "Mais" Mobile */}
+      {isMoreMenuOpen && (
+        <div className="lg:hidden fixed inset-0 z-30 flex flex-col justify-end">
+          <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={() => setIsMoreMenuOpen(false)} />
+          <div className="bg-slate-900 border-t border-white/10 rounded-t-3xl p-6 pb-28 animate-in slide-in-from-bottom-8 duration-300 relative z-40 space-y-2 shadow-2xl">
+            <h3 className="text-xs font-bold text-slate-500 uppercase tracking-widest mb-4 px-2">Gerenciamento</h3>
+            
+            <button onClick={() => { setActiveTab('itens'); setIsMoreMenuOpen(false); }} className="w-full flex items-center gap-4 bg-white/5 hover:bg-white/10 p-4 rounded-2xl transition-all">
+              <div className="bg-slate-800 p-2 rounded-xl text-emerald-500"><Scissors size={20} /></div>
+              <span className="font-bold text-sm">Serviços e Produtos</span>
+            </button>
+            <button onClick={() => { setActiveTab('relatorios'); setIsMoreMenuOpen(false); }} className="w-full flex items-center gap-4 bg-white/5 hover:bg-white/10 p-4 rounded-2xl transition-all">
+              <div className="bg-slate-800 p-2 rounded-xl text-indigo-500"><PieChart size={20} /></div>
+              <span className="font-bold text-sm">Relatórios de Produção</span>
+            </button>
+            <button onClick={() => { setActiveTab('auditoria'); setIsMoreMenuOpen(false); }} className="w-full flex items-center gap-4 bg-white/5 hover:bg-white/10 p-4 rounded-2xl transition-all">
+              <div className="bg-slate-800 p-2 rounded-xl text-amber-500"><ShieldAlert size={20} /></div>
+              <span className="font-bold text-sm">Auditoria</span>
+            </button>
+            <button onClick={() => { setActiveTab('config'); setIsMoreMenuOpen(false); }} className="w-full flex items-center gap-4 bg-white/5 hover:bg-white/10 p-4 rounded-2xl transition-all">
+              <div className="bg-slate-800 p-2 rounded-xl text-slate-400"><Settings size={20} /></div>
+              <span className="font-bold text-sm">Configurações do App</span>
+            </button>
+          </div>
+        </div>
+      )}
 
       <TransactionModal 
         isOpen={isModalOpen} 
