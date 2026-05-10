@@ -28,6 +28,7 @@ CREATE TABLE IF NOT EXISTS membros_equipe (
     cargo TEXT DEFAULT 'usuario' CHECK (cargo IN ('administrador', 'usuario')),
     whatsapp TEXT,
     ativo BOOLEAN DEFAULT true,
+    percentual_comissao NUMERIC DEFAULT 0,
     CONSTRAINT unique_staff_per_establishment UNIQUE (estabelecimento_id, nome),
     CONSTRAINT unique_pin_per_establishment UNIQUE (estabelecimento_id, pin_hash),
     CONSTRAINT pin_format CHECK (pin_hash ~ '^[0-9]{4}$')
