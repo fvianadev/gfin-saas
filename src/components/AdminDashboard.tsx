@@ -335,7 +335,10 @@ export function AdminDashboard({ onBack, estabelecimentoId, membroId, cargo }: A
               ) : (
                 <div className="w-8 h-8 rounded-lg bg-emerald-500 flex items-center justify-center"><LayoutDashboard size={16} /></div>
               )}
-              <h2 className="font-bold text-sm uppercase tracking-widest text-emerald-500">Painel Admin</h2>
+              <div>
+                <h2 className="font-bold text-sm uppercase tracking-widest text-emerald-500 leading-tight">{estab?.nome || 'GFin'}</h2>
+                <p className="text-[10px] text-slate-400 font-bold uppercase">{membros.find(m => m.id === membroId)?.nome || 'Carregando...'}</p>
+              </div>
            </div>
            <button onClick={onBack} className="p-2 glass-card rounded-full text-rose-400"><ArrowLeft size={18} /></button>
         </header>
