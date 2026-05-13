@@ -106,38 +106,46 @@ function LandingPage({ onLogin }: { onLogin: (session: UserSession) => void }) {
     setLoading(true)
     try {
       const slug = empresa.toLowerCase().trim().replace(/\s+/g, '-').replace(/[^\w-]/g, '')
+
+      if (slug.length < 3) throw new Error('Nome do estabelecimento muito curto (mínimo 3 caracteres).')
+
+      // 1. Criar usuário no Auth
       const { data: authData, error: authError } = await supabase.auth.signUp({ email, password: senha })
       if (authError) throw authError
+      if (!authData.user) throw new Error('Falha ao criar usuário. Tente novamente.')
 
-      const { data: estabData, error: estabError } = await supabase.from('estabelecimentos').insert({
-        nome: empresa,
-        slug,
-        email_dono: email,
-        owner_id: authData.user?.id
-      }).select().single()
+      const userId = authData.user.id
 
-      if (estabError) throw estabError
+      // 2. Criar estabelecimento (política anon permite INSERT durante onboarding)
+      const { data: estabData, error: estabError } = await supabase
+        .from('estabelecimentos')
+        .insert({ nome: empresa, slug, email_dono: email, owner_id: userId })
+        .select()
+        .single()
 
-      const { data: membroData, error: membroError } = await supabase.from('membros_equipe').insert({
-        estabelecimento_id: estabData.id,
-        nome: nome || empresa.split(' ')[0],
-        pin_hash: '0000',
-        cargo: 'administrador'
-      }).select().single()
+      if (estabError) {
+        if (estabError.code === '23505') throw new Error(`O slug "${slug}" já está em uso. Escolha outro nome.`)
+        throw estabError
+      }
+
+      // 3. Criar membro administrador inicial com PIN padrão 0000
+      const { data: membroData, error: membroError } = await supabase
+        .from('membros_equipe')
+        .insert({
+          estabelecimento_id: estabData.id,
+          nome: nome || empresa.split(' ')[0],
+          pin_hash: '0000',
+          cargo: 'administrador'
+        })
+        .select()
+        .single()
 
       if (membroError) throw membroError
 
-      // Buscar o membro_id deste usuário (que é o dono)
-      const { data: membroAdmin } = await supabase
-        .from('membros_equipe')
-        .select('id')
-        .eq('estabelecimento_id', estabData.id)
-        .eq('cargo', 'administrador')
-        .single()
-
+      // 4. Montar sessão local e redirecionar
       const session: UserSession = {
-        id: authData.user?.id || '',
-        membro_id: membroAdmin?.id || null,
+        id: userId,
+        membro_id: membroData?.id || null,
         nome: nome || empresa,
         estabelecimento_id: estabData.id,
         estabelecimento_slug: estabData.slug,
@@ -145,7 +153,7 @@ function LandingPage({ onLogin }: { onLogin: (session: UserSession) => void }) {
       }
 
       onLogin(session)
-      alert('Tudo pronto! Bem-vindo ao GFin.')
+      alert(`✅ Bem-vindo ao GFin, ${nome}!\n\nSeu PIN inicial é: 0000\nAcesse: /${estabData.slug}/login`)
       navigate('/admin')
     } catch (err: any) {
       alert('Erro ao criar conta: ' + err.message)
@@ -354,7 +362,10 @@ function StaffLogin() {
 function StaffDashboard() {
   const { slug } = useParams()
   const navigate = useNavigate()
-  const [user, setUser] = useState<any>(null)
+  const [user, setUser] = useState<any>(() => {
+    const stored = localStorage.getItem('gfin_staff')
+    return stored ? JSON.parse(stored) : null
+  })
   const [estab, setEstab] = useState<any>(null)
   const [isModalOpen, setIsModalOpen] = useState(false)
   const [modalType, setModalType] = useState<'receita' | 'despesa'>('receita')
@@ -431,16 +442,13 @@ function StaffDashboard() {
   }
 
   useEffect(() => {
-    const stored = localStorage.getItem('gfin_staff')
-    if (!stored) navigate(`/${slug}/login`)
+    if (!user) navigate(`/${slug}/login`)
     else {
-      const u = JSON.parse(stored)
-      setUser(u)
-      fetchTransactions(u.id, u.estabelecimento_id, u.cargo, periodo)
-      fetchMembros(u.estabelecimento_id)
-      fetchEstab(u.estabelecimento_id)
+      fetchTransactions(user.id, user.estabelecimento_id, user.cargo, periodo)
+      fetchMembros(user.estabelecimento_id)
+      fetchEstab(user.estabelecimento_id)
     }
-  }, [slug, navigate, periodo])
+  }, [slug, navigate, periodo, user])
 
   const logout = () => { localStorage.removeItem('gfin_staff'); navigate(`/${slug}/login`) }
 
@@ -462,12 +470,10 @@ function StaffDashboard() {
 
 // --- APP PRINCIPAL COM ESTADO COMPARTILHADO ---
 export default function App() {
-  const [admin, setAdmin] = useState<UserSession | null>(null)
-
-  useEffect(() => {
+  const [admin, setAdmin] = useState<UserSession | null>(() => {
     const stored = localStorage.getItem('gfin_admin')
-    if (stored) setAdmin(JSON.parse(stored))
-  }, [])
+    return stored ? JSON.parse(stored) : null
+  })
 
   const handleLoginState = (session: UserSession) => {
     localStorage.setItem('gfin_admin', JSON.stringify(session))

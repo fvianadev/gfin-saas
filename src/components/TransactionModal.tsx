@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { X, DollarSign, FileText, Check, Users, AlertCircle, MessageSquare } from 'lucide-react'
+import { X, DollarSign, FileText, Check, Users, AlertCircle, MessageSquare, Calendar } from 'lucide-react'
 import { supabase } from '../lib/supabase'
 
 interface TransactionModalProps {
@@ -27,6 +27,7 @@ export function TransactionModal({
 }: TransactionModalProps) {
   const [valor, setValor] = useState('')
   const [descricao, setDescricao] = useState('')
+  const [dataCompetencia, setDataCompetencia] = useState(new Date().toLocaleDateString('en-CA'))
   const [motivo, setMotivo] = useState('')
   const [selectedMembroId, setSelectedMembroId] = useState(membroId)
   const [loading, setLoading] = useState(false)
@@ -43,11 +44,13 @@ export function TransactionModal({
       if (editingTransaction) {
         setValor(editingTransaction.valor.toString().replace('.', ','))
         setDescricao(editingTransaction.descricao)
+        setDataCompetencia(editingTransaction.data_competencia || new Date().toLocaleDateString('en-CA'))
         setSelectedMembroId(editingTransaction.membro_id)
         setMotivo('')
       } else {
         setValor('')
         setDescricao('')
+        setDataCompetencia(new Date().toLocaleDateString('en-CA'))
         setSelectedMembroId(membroId)
         setMotivo('')
       }
@@ -83,8 +86,18 @@ export function TransactionModal({
       alert('Por favor, selecione o membro da equipe.')
       return
     }
-    if (isEditing && !motivo.trim()) {
-      alert('Por favor, informe o motivo da alteração.')
+    const today = new Date().toLocaleDateString('en-CA')
+    const isPastDate = dataCompetencia < today
+    const isFutureDate = dataCompetencia > today
+    const needsMotivo = isEditing || isPastDate
+
+    if (isFutureDate) {
+      alert('Não é permitido realizar lançamentos em datas futuras.')
+      return
+    }
+
+    if (needsMotivo && !motivo.trim()) {
+      alert(`Por favor, informe o motivo para este ${isEditing ? 'ajuste' : 'lançamento retroativo'}.`)
       return
     }
 
@@ -93,12 +106,13 @@ export function TransactionModal({
 
     try {
       if (isEditing) {
-        // Lógica de Edição com Auditoria
+        // 1. Atualizar a transação de verdade
         const { error: updateError } = await supabase
           .from('transacoes')
           .update({
             valor: valorFloat,
             descricao,
+            data_competencia: dataCompetencia,
             membro_id: selectedMembroId,
             updated_at: new Date().toISOString(),
             alterado_por: membroId,
@@ -108,27 +122,30 @@ export function TransactionModal({
 
         if (updateError) throw updateError
 
-        // Registrar Auditoria
+        // 2. Registrar Auditoria DETALHADA
         await supabase.from('auditoria_transacoes').insert({
           transacao_id: editingTransaction.id,
           membro_id: membroId,
+          estabelecimento_id: estabelecimentoId,
           acao: 'edicao',
           motivo: motivo,
           dados_anteriores: {
             valor: editingTransaction.valor,
             descricao: editingTransaction.descricao,
+            data_competencia: editingTransaction.data_competencia,
             membro_id: editingTransaction.membro_id
           },
           dados_novos: {
             valor: valorFloat,
             descricao,
+            data_competencia: dataCompetencia,
             membro_id: selectedMembroId
           }
         })
 
       } else {
         // Novo Lançamento
-        const { error } = await supabase
+        const { data: newTx, error: insertError } = await supabase
           .from('transacoes')
           .insert({
             valor: valorFloat,
@@ -136,10 +153,31 @@ export function TransactionModal({
             tipo,
             membro_id: selectedMembroId,
             estabelecimento_id: estabelecimentoId,
-            categoria: tipo === 'receita' ? 'Serviço' : 'Geral'
+            data_competencia: dataCompetencia,
+            categoria: tipo === 'receita' ? 'Serviço' : 'Geral',
+            motivo_alteracao: isPastDate ? motivo : null
           })
+          .select()
+          .single()
 
-        if (error) throw error
+        if (insertError) throw insertError
+
+        // Se for retroativo, registrar na auditoria
+        if (isPastDate && newTx) {
+          await supabase.from('auditoria_transacoes').insert({
+            transacao_id: newTx.id,
+            membro_id: membroId,
+            estabelecimento_id: estabelecimentoId,
+            acao: 'criacao_retroativa',
+            motivo: motivo,
+            dados_novos: {
+              valor: valorFloat,
+              descricao,
+              data_competencia: dataCompetencia,
+              membro_id: selectedMembroId
+            }
+          })
+        }
       }
 
       setSuccess(true)
@@ -241,33 +279,48 @@ export function TransactionModal({
                  )}
                </div>
 
-               {/* Valor Input */}
-               <div className="space-y-2">
-                 <label className="text-sm font-medium text-slate-400 flex items-center gap-2">
-                   <DollarSign size={16} /> Valor (R$)
-                 </label>
-                 <input
-                   type="text"
-                   inputMode="decimal"
-                   value={valor}
-                   onChange={(e) => setValor(e.target.value.replace('.', ','))}
-                   placeholder="0,00"
-                   className="w-full h-14 bg-white/5 border border-white/10 rounded-xl px-4 text-xl font-bold focus:border-emerald-500 outline-none transition-all"
-                   required
-                 />
-               </div>
-            </div>
+                {/* Valor Input */}
+                <div className="space-y-2">
+                  <label className="text-sm font-medium text-slate-400 flex items-center gap-2">
+                    <DollarSign size={16} /> Valor (R$)
+                  </label>
+                  <input
+                    type="text"
+                    inputMode="decimal"
+                    value={valor}
+                    onChange={(e) => setValor(e.target.value.replace('.', ','))}
+                    placeholder="0,00"
+                    className="w-full h-14 bg-white/5 border border-white/10 rounded-xl px-4 text-xl font-bold focus:border-emerald-500 outline-none transition-all"
+                    required
+                  />
+                </div>
 
-            {/* Campo de Motivo (Apenas se estiver editando) */}
-            {isEditing && (
+                {/* Data Input */}
+                <div className="space-y-2">
+                  <label className="text-sm font-medium text-slate-400 flex items-center gap-2">
+                    <Calendar size={16} /> Data do Lançamento
+                  </label>
+                  <input
+                    type="date"
+                    value={dataCompetencia}
+                    max={new Date().toLocaleDateString('en-CA')}
+                    onChange={(e) => setDataCompetencia(e.target.value)}
+                    className="w-full h-14 bg-white/5 border border-white/10 rounded-xl px-4 font-bold focus:border-emerald-500 outline-none transition-all color-scheme-dark"
+                    required
+                  />
+                </div>
+             </div>
+
+            {/* Campo de Motivo (Se estiver editando ou for data retroativa) */}
+            {(isEditing || dataCompetencia !== new Date().toLocaleDateString('en-CA')) && (
                <div className="space-y-2 animate-in slide-in-from-top duration-300">
                   <label className="text-sm font-medium text-amber-400 flex items-center gap-2">
-                    <MessageSquare size={16} /> Motivo da Alteração *
+                    <MessageSquare size={16} /> Motivo do Lançamento/Alteração *
                   </label>
                   <textarea
                     value={motivo}
                     onChange={(e) => setMotivo(e.target.value)}
-                    placeholder="Explique por que está alterando este registro..."
+                    placeholder={isEditing ? "Explique por que está alterando este registro..." : "Explique por que este lançamento está sendo feito com data retroativa..."}
                     className="w-full h-24 bg-amber-500/5 border border-amber-500/20 rounded-xl p-4 text-sm focus:border-amber-500 outline-none transition-all resize-none"
                     required
                   />

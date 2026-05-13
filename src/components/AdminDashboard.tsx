@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo } from 'react'
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts'
-import { ArrowLeft, TrendingUp, TrendingDown, Calendar, Filter, ArrowUpRight, ArrowDownLeft, Trash2, Edit2, Plus, Users, DollarSign, LayoutDashboard, MoreVertical, PieChart, List, Settings, Copy, Link2, CheckCircle, MessageCircle, ShieldAlert, History, User, Scissors, Search, X, Download, Printer, CheckSquare, Square, RefreshCw, Clock } from 'lucide-react'
+import { ArrowLeft, ArrowRight, TrendingUp, TrendingDown, Calendar, Filter, ArrowUpRight, ArrowDownLeft, Trash2, Edit2, Plus, Users, DollarSign, LayoutDashboard, MoreVertical, PieChart, List, Settings, Copy, Link2, CheckCircle, MessageCircle, ShieldAlert, History, User, Scissors, Search, X, Download, Printer, CheckSquare, Square, RefreshCw, Clock } from 'lucide-react'
 import { supabase } from '../lib/supabase'
 import { TransactionModal } from './TransactionModal'
 import { formatCurrency, formatDateTime } from '../lib/format'
@@ -60,7 +60,7 @@ export function AdminDashboard({ onBack, estabelecimentoId, membroId, cargo }: A
     const calcStats = { receita: rec, despesa: des, lucro: rec - des, ticketMedio: totalVendas > 0 ? rec / totalVendas : 0 }
 
     const grouped = filtered.reduce((acc: any, t) => {
-      const date = new Date(t.created_at).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' })
+      const date = t.data_competencia ? t.data_competencia.split('-').reverse().slice(0, 2).join('/') : new Date(t.created_at).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' })
       if (!acc[date]) acc[date] = { name: date, receita: 0, despesa: 0 }
       if (t.tipo === 'receita') acc[date].receita += Number(t.valor)
       else acc[date].despesa += Number(t.valor)
@@ -75,6 +75,25 @@ export function AdminDashboard({ onBack, estabelecimentoId, membroId, cargo }: A
   }, [transactions, tipoFiltro, searchTx, cargo])
   const [loading, setLoading] = useState(true)
   const [auditData, setAuditData] = useState<any[]>([])
+  const [auditFilterAcao, setAuditFilterAcao] = useState<string>('todos')
+  const [auditFilterMembro, setAuditFilterMembro] = useState<string>('todos')
+  const [auditSearch, setAuditSearch] = useState<string>('')
+
+  const filteredAuditData = useMemo(() => {
+    return auditData.filter(log => {
+      const matchAcao = auditFilterAcao === 'todos' || log.acao === auditFilterAcao;
+      const matchMembro = auditFilterMembro === 'todos' || log.membro_id === auditFilterMembro;
+      const term = auditSearch.toLowerCase();
+      const matchSearch = !term || 
+        (log.motivo && log.motivo.toLowerCase().includes(term)) ||
+        (log.transacoes?.descricao && log.transacoes.descricao.toLowerCase().includes(term)) ||
+        (log.dados_anteriores?.descricao && log.dados_anteriores.descricao.toLowerCase().includes(term)) ||
+        (log.membros_equipe?.nome && log.membros_equipe.nome.toLowerCase().includes(term));
+      
+      return matchAcao && matchMembro && matchSearch;
+    });
+  }, [auditData, auditFilterAcao, auditFilterMembro, auditSearch]);
+
   const [transactionToEdit, setTransactionToEdit] = useState<any>(null)
 
   const [isMembroModalOpen, setIsMembroModalOpen] = useState(false)
@@ -134,8 +153,8 @@ export function AdminDashboard({ onBack, estabelecimentoId, membroId, cargo }: A
       .eq('estabelecimento_id', estabelecimentoId)
       .eq('tipo', 'receita')
       .eq('excluido', false)
-      .gte('created_at', new Date(relatorioFiltro.dataInicio + 'T00:00:00').toISOString())
-      .lte('created_at', new Date(relatorioFiltro.dataFim + 'T23:59:59').toISOString())
+      .gte('data_competencia', relatorioFiltro.dataInicio)
+      .lte('data_competencia', relatorioFiltro.dataFim)
 
     if (relatorioFiltro.membrosIds.length > 0) {
       query = query.in('membro_id', relatorioFiltro.membrosIds)
@@ -440,26 +459,51 @@ export function AdminDashboard({ onBack, estabelecimentoId, membroId, cargo }: A
     }
   }
 
-  const updateHorario = async (index: number, campo: string, valor: any) => {
-    const novosHorarios = [...horarios]
-    novosHorarios[index] = { ...novosHorarios[index], [campo]: valor }
-    setHorarios(novosHorarios)
-    const h = novosHorarios[index]
-    if (h.id) {
-      await supabase.from('horarios_funcionamento').update({
-        hora_inicio: h.hora_inicio,
-        hora_fim: h.hora_fim,
-        ativo: h.ativo
-      }).eq('id', h.id)
+  const updateHorario = async (diaSemana: number, campo: string, valor: any) => {
+    const index = horarios.findIndex(item => item.dia_semana === diaSemana)
+    
+    let novoHorario;
+    const novosHorarios = [...horarios];
+
+    if (index !== -1) {
+      novoHorario = { ...novosHorarios[index], [campo]: valor };
+      novosHorarios[index] = novoHorario;
     } else {
-      const { data } = await supabase.from('horarios_funcionamento').insert({
+      // Se não existe no estado (ainda não salvo no banco), cria o objeto base
+      novoHorario = { 
+        dia_semana: diaSemana, 
+        hora_inicio: '08:00', 
+        hora_fim: '18:00', 
+        ativo: false,
+        [campo]: valor 
+      };
+      novosHorarios.push(novoHorario);
+    }
+
+    setHorarios(novosHorarios);
+
+    if (novoHorario.id) {
+      await supabase.from('horarios_funcionamento').update({
+        hora_inicio: novoHorario.hora_inicio,
+        hora_fim: novoHorario.hora_fim,
+        ativo: novoHorario.ativo
+      }).eq('id', novoHorario.id)
+    } else {
+      const { data, error } = await supabase.from('horarios_funcionamento').insert({
         estabelecimento_id: estabelecimentoId,
-        dia_semana: h.dia_semana,
-        hora_inicio: h.hora_inicio,
-        hora_fim: h.hora_fim,
-        ativo: h.ativo
+        dia_semana: novoHorario.dia_semana,
+        hora_inicio: novoHorario.hora_inicio,
+        hora_fim: novoHorario.hora_fim,
+        ativo: novoHorario.ativo
       }).select()
-      if (data) fetchHorarios()
+      
+      if (error) {
+        console.error("Erro ao inserir horário:", error)
+        alert("Erro ao salvar horário: " + error.message)
+      } else if (data) {
+        // Recarrega para garantir que temos os IDs do banco
+        fetchHorarios()
+      }
     }
   }
 
@@ -509,8 +553,14 @@ export function AdminDashboard({ onBack, estabelecimentoId, membroId, cargo }: A
   const fetchAuditData = async () => {
     const { data } = await supabase
       .from('auditoria_transacoes')
-      .select('*, membros_equipe(nome), transacoes(descricao, valor, tipo)')
+      .select(`
+        *,
+        membros_equipe(nome),
+        transacoes(descricao, valor, tipo)
+      `)
+      .eq('estabelecimento_id', estabelecimentoId)
       .order('created_at', { ascending: false })
+    
     setAuditData(data || [])
   }
 
@@ -531,9 +581,11 @@ export function AdminDashboard({ onBack, estabelecimentoId, membroId, cargo }: A
     }).eq('id', id)
 
     if (!error) {
+      // Registrar auditoria de exclusão
       await supabase.from('auditoria_transacoes').insert({
         transacao_id: id,
         membro_id: membroId,
+        estabelecimento_id: estabelecimentoId,
         acao: 'exclusao',
         motivo: motivo
       })
@@ -556,9 +608,17 @@ export function AdminDashboard({ onBack, estabelecimentoId, membroId, cargo }: A
       }
 
       const now = new Date()
-      if (periodo === 'hoje') query = query.gte('created_at', new Date(now.setHours(0,0,0,0)).toISOString())
-      else if (periodo === '7dias') { const d = new Date(); d.setDate(d.getDate() - 7); query = query.gte('created_at', d.toISOString()) }
-      else if (periodo === '30dias') { const d = new Date(); d.setDate(d.getDate() - 30); query = query.gte('created_at', d.toISOString()) }
+      const formatDate = (d: Date) => d.toLocaleDateString('en-CA')
+      
+      if (periodo === 'hoje') query = query.eq('data_competencia', formatDate(now))
+      else if (periodo === '7dias') { 
+        const d = new Date(); d.setDate(d.getDate() - 7); 
+        query = query.gte('data_competencia', formatDate(d)) 
+      }
+      else if (periodo === '30dias') { 
+        const d = new Date(); d.setDate(d.getDate() - 30); 
+        query = query.gte('data_competencia', formatDate(d)) 
+      }
 
       const { data, error } = await query.order('created_at', { ascending: false })
       if (error) {
@@ -713,7 +773,9 @@ export function AdminDashboard({ onBack, estabelecimentoId, membroId, cargo }: A
                          <div className={`p-2 rounded-lg flex-shrink-0 ${t.tipo === 'receita' ? 'bg-emerald-500/10 text-emerald-400' : 'bg-rose-500/10 text-rose-400'}`}>{t.tipo === 'receita' ? <ArrowUpRight size={18} /> : <ArrowDownLeft size={18} />}</div>
                          <div className="flex-1 min-w-0">
                             <p className="font-bold text-sm truncate">{t.descricao || 'Lançamento'}</p>
-                            <p className="text-[9px] text-slate-500 font-bold uppercase truncate">{new Date(t.created_at).toLocaleDateString()} • {t.membros_equipe?.nome}</p>
+                            <p className="text-[9px] text-slate-500 font-bold uppercase truncate">
+                              {t.data_competencia ? t.data_competencia.split('-').reverse().join('/') : new Date(t.created_at).toLocaleDateString()} • {t.membros_equipe?.nome}
+                            </p>
                          </div>
                        </div>
                        <div className="flex items-center gap-3 flex-shrink-0 ml-4">
@@ -929,64 +991,7 @@ export function AdminDashboard({ onBack, estabelecimentoId, membroId, cargo }: A
            </div>
         )}
 
-        {activeTab === 'auditoria' && (
-          <div className="space-y-6 animate-in slide-in-from-right duration-300">
-            <h2 className="font-black text-lg uppercase tracking-widest text-slate-400 flex items-center gap-2">
-              <History size={20} className="text-emerald-500" /> Histórico de Auditoria
-            </h2>
-            <div className="space-y-3">
-              {auditData.map(log => (
-                <div key={log.id} className="glass-card p-6 border-white/5 hover:border-emerald-500/20 transition-all">
-                  <div className="flex justify-between items-start mb-4">
-                    <div className="flex items-center gap-3">
-                      <div className={`p-2 rounded-lg ${log.acao === 'exclusao' ? 'bg-rose-500/10 text-rose-400' : 'bg-emerald-500/10 text-emerald-400'}`}>
-                        {log.acao === 'exclusao' ? <Trash2 size={18} /> : <Edit2 size={18} />}
-                      </div>
-                      <div>
-                        <p className="font-bold text-sm">
-                          {log.acao === 'exclusao' ? 'Exclusão de Lançamento' : 'Edição de Lançamento'}
-                        </p>
-                        <p className="text-[10px] text-slate-500 font-bold uppercase">
-                          {formatDateTime(log.created_at)}
-                        </p>
-                      </div>
-                    </div>
-                    <div className="text-right">
-                      <p className="text-[10px] text-slate-500 font-bold uppercase mb-1 flex items-center justify-end gap-1">
-                        <User size={10} /> Realizado por
-                      </p>
-                      <p className="text-xs font-bold text-emerald-500">{log.membros_equipe?.nome}</p>
-                    </div>
-                  </div>
 
-                  <div className="bg-slate-900/50 rounded-xl p-4 border border-white/5 mb-4">
-                    <p className="text-[9px] text-slate-500 font-bold uppercase mb-2">Detalhes da Transação</p>
-                    <div className="flex justify-between items-center">
-                      <span className="text-sm font-medium text-slate-300">{log.transacoes?.descricao}</span>
-                      <span className={`text-sm font-black ${log.transacoes?.tipo === 'receita' ? 'text-emerald-400' : 'text-rose-400'}`}>
-                        {formatCurrency(log.transacoes?.valor || 0)}
-                      </span>
-                    </div>
-                  </div>
-
-                  <div className="space-y-2">
-                    <p className="text-[10px] text-slate-500 font-bold uppercase flex items-center gap-1">
-                      <MessageCircle size={10} /> Motivo Justificado
-                    </p>
-                    <p className="text-sm text-slate-300 bg-white/5 p-3 rounded-lg border border-white/5 italic">
-                      "{log.motivo}"
-                    </p>
-                  </div>
-                </div>
-              ))}
-              {auditData.length === 0 && (
-                <div className="text-center p-12 glass-card border-dashed border-white/5 text-slate-600 font-bold">
-                  Nenhuma atividade de auditoria registrada ainda.
-                </div>
-              )}
-            </div>
-          </div>
-        )}
 
         {activeTab === 'itens' && (
           <div className="space-y-6 animate-in slide-in-from-right duration-300">
@@ -1260,7 +1265,7 @@ export function AdminDashboard({ onBack, estabelecimentoId, membroId, cargo }: A
                       <div className="flex-1 flex items-center justify-between">
                         <p className="text-sm font-bold text-slate-200">{dia}</p>
                         <button 
-                          onClick={() => updateHorario(horarios.findIndex(item => item.dia_semana === idx), 'ativo', !h.ativo)}
+                          onClick={() => updateHorario(idx, 'ativo', !h.ativo)}
                           className={`w-10 h-6 rounded-full relative transition-all sm:hidden ${h.ativo ? 'bg-emerald-500' : 'bg-slate-700'}`}
                         >
                           <div className={`absolute top-1 w-4 h-4 bg-white rounded-full transition-all ${h.ativo ? 'left-5' : 'left-1'}`} />
@@ -1272,7 +1277,7 @@ export function AdminDashboard({ onBack, estabelecimentoId, membroId, cargo }: A
                           disabled={!h.ativo}
                           className="flex-1 sm:flex-none bg-slate-900 border border-white/5 rounded-lg p-2 text-xs text-slate-300 disabled:opacity-30" 
                           value={h.hora_inicio}
-                          onChange={(e) => updateHorario(horarios.findIndex(item => item.dia_semana === idx), 'hora_inicio', e.target.value)}
+                          onChange={(e) => updateHorario(idx, 'hora_inicio', e.target.value)}
                         />
                         <span className="text-slate-600 text-[10px]">até</span>
                         <input 
@@ -1280,11 +1285,11 @@ export function AdminDashboard({ onBack, estabelecimentoId, membroId, cargo }: A
                           disabled={!h.ativo}
                           className="flex-1 sm:flex-none bg-slate-900 border border-white/5 rounded-lg p-2 text-xs text-slate-300 disabled:opacity-30" 
                           value={h.hora_fim}
-                          onChange={(e) => updateHorario(horarios.findIndex(item => item.dia_semana === idx), 'hora_fim', e.target.value)}
+                          onChange={(e) => updateHorario(idx, 'hora_fim', e.target.value)}
                         />
                       </div>
                       <button 
-                        onClick={() => updateHorario(horarios.findIndex(item => item.dia_semana === idx), 'ativo', !h.ativo)}
+                        onClick={() => updateHorario(idx, 'ativo', !h.ativo)}
                         className={`w-10 h-6 rounded-full relative transition-all hidden sm:block ${h.ativo ? 'bg-emerald-500' : 'bg-slate-700'}`}
                       >
                         <div className={`absolute top-1 w-4 h-4 bg-white rounded-full transition-all ${h.ativo ? 'left-5' : 'left-1'}`} />
@@ -1333,10 +1338,10 @@ export function AdminDashboard({ onBack, estabelecimentoId, membroId, cargo }: A
                      className="flex-1 bg-slate-900 border border-white/5 rounded-xl px-4 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/50" 
                      value={devPassword} 
                      onChange={e => setDevPassword(e.target.value)} 
-                     onKeyDown={e => { if (e.key === 'Enter') { if (devPassword === 'gfin@dev') setIsDevMode(true); else alert('Senha incorreta') } }}
+                     onKeyDown={e => { if (e.key === 'Enter') { if (devPassword === import.meta.env.VITE_DEV_PASSWORD) setIsDevMode(true); else alert('Senha incorreta') } }}
                    />
                    <button 
-                     onClick={() => { if(devPassword === 'gfin@dev') setIsDevMode(true); else alert('Senha incorreta') }} 
+                     onClick={() => { if(devPassword === import.meta.env.VITE_DEV_PASSWORD) setIsDevMode(true); else alert('Senha incorreta') }} 
                      className="bg-slate-800 text-slate-300 px-4 py-2 rounded-xl text-sm font-bold hover:bg-slate-700 transition-all"
                    >
                      Desbloquear
@@ -1466,6 +1471,175 @@ export function AdminDashboard({ onBack, estabelecimentoId, membroId, cargo }: A
                )}
             </div>
           </div>
+        )}
+
+        {activeTab === 'auditoria' && (
+           <section className="space-y-6 animate-in slide-in-from-right duration-300 flex flex-col h-full max-h-screen">
+              <div className="flex items-center gap-3 mb-2 flex-shrink-0">
+                <div className="w-12 h-12 rounded-2xl bg-amber-500/10 flex items-center justify-center text-amber-500 shadow-lg shadow-amber-500/5"><ShieldAlert size={24} /></div>
+                <div>
+                  <h2 className="font-black text-xl uppercase tracking-tighter">Auditoria de Segurança</h2>
+                  <p className="text-xs text-slate-500 font-bold uppercase tracking-widest">Rastreamento de alterações e exclusões</p>
+                </div>
+              </div>
+
+              {/* Barra de Filtros */}
+              <div className="glass-card p-4 border-white/5 flex flex-col sm:flex-row gap-4 flex-shrink-0">
+                <div className="flex-1 relative">
+                   <input type="text" placeholder="Buscar por motivo, item ou usuário..." value={auditSearch} onChange={e => setAuditSearch(e.target.value)} className="w-full bg-slate-900 border border-white/5 rounded-xl py-2.5 pl-10 pr-4 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500/50 transition-all placeholder:text-slate-600" />
+                   <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500" size={18} />
+                </div>
+                <div className="flex flex-col sm:flex-row gap-4">
+                  <select value={auditFilterAcao} onChange={e => setAuditFilterAcao(e.target.value)} className="bg-slate-900 border border-white/5 rounded-xl py-2.5 px-4 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500/50 text-slate-300 font-bold cursor-pointer">
+                     <option value="todos">Todas as Ações</option>
+                     <option value="edicao">Apenas Edições</option>
+                     <option value="exclusao">Apenas Exclusões</option>
+                     <option value="criacao_retroativa">Apenas Lanç. Retroativos</option>
+                  </select>
+                  <select value={auditFilterMembro} onChange={e => setAuditFilterMembro(e.target.value)} className="bg-slate-900 border border-white/5 rounded-xl py-2.5 px-4 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500/50 text-slate-300 font-bold cursor-pointer">
+                     <option value="todos">Todos os Usuários</option>
+                     {membros.map(m => <option key={m.id} value={m.id}>{m.nome}</option>)}
+                  </select>
+                </div>
+              </div>
+
+              {/* Visualização Híbrida: Tabela (Desktop) / Cards (Mobile) */}
+              <div className="glass-card border-white/5 flex-1 min-h-0 overflow-hidden flex flex-col">
+                <div className="overflow-x-auto overflow-y-auto custom-scrollbar flex-1">
+                  
+                  {/* MOBILE VIEW (Cards Compactos) */}
+                  <div className="md:hidden divide-y divide-white/5">
+                    {filteredAuditData.length === 0 ? (
+                         <div className="text-center py-16">
+                            <History size={32} className="mx-auto text-slate-700 mb-3" />
+                            <p className="text-slate-500 font-bold uppercase tracking-widest text-xs">Nenhum registro</p>
+                         </div>
+                    ) : (
+                      filteredAuditData.map(log => {
+                          const diffs = [];
+                          if (log.dados_anteriores && log.dados_novos) {
+                            if (log.dados_anteriores.valor !== log.dados_novos.valor) diffs.push({ label: 'VAL', old: formatCurrency(log.dados_anteriores.valor), new: formatCurrency(log.dados_novos.valor) });
+                            if (log.dados_anteriores.descricao !== log.dados_novos.descricao) diffs.push({ label: 'DESC', old: log.dados_anteriores.descricao, new: log.dados_novos.descricao });
+                            if (log.dados_anteriores.data_competencia !== log.dados_novos.data_competencia) diffs.push({ label: 'DATA', old: log.dados_anteriores.data_competencia?.split('-').reverse().join('/') || '', new: log.dados_novos.data_competencia?.split('-').reverse().join('/') || '' });
+                          }
+                          
+                          const isExc = log.acao === 'exclusao';
+                          const isEdi = log.acao === 'edicao';
+
+                          return (
+                            <div key={log.id} className="p-4 space-y-3 hover:bg-white/[0.02] transition-colors">
+                              <div className="flex justify-between items-center">
+                                <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-md border font-black uppercase text-[8px] tracking-wider ${
+                                   isExc ? 'bg-rose-500/10 text-rose-400 border-rose-500/20' : 
+                                   isEdi ? 'bg-blue-500/10 text-blue-400 border-blue-500/20' : 
+                                   'bg-emerald-500/10 text-emerald-400 border-emerald-500/20'
+                                 }`}>
+                                   {isExc ? <Trash2 size={10} /> : isEdi ? <Edit2 size={10} /> : <Plus size={10} />}
+                                   {isExc ? 'Exclusão' : isEdi ? 'Edição' : 'Retroativo'}
+                                </span>
+                                <span className="text-[10px] text-slate-500 font-mono tracking-tighter">{new Date(log.created_at).toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })}</span>
+                              </div>
+                              
+                              <p className="text-xs font-medium text-slate-300 leading-snug">
+                                <span className="font-black text-white">{log.membros_equipe?.nome}</span> alterou o item <span className="text-emerald-400 font-bold">"{log.transacoes?.descricao || log.dados_anteriores?.descricao || 'Item Removido'}"</span>
+                              </p>
+
+                              <div className="bg-white/5 border border-white/5 p-2 rounded-lg flex gap-2">
+                                <MessageCircle size={12} className="text-amber-500 shrink-0 mt-0.5" />
+                                <span className="text-[11px] text-amber-500/90 italic">{log.motivo || 'Sem justificativa'}</span>
+                              </div>
+
+                              {diffs.length > 0 && (
+                                <div className="space-y-1.5 pt-1">
+                                  {diffs.map((d, i) => (
+                                    <div key={i} className="flex items-center gap-2 text-[10px]">
+                                        <span className="text-slate-600 font-black uppercase tracking-widest w-8 shrink-0">{d.label}:</span>
+                                        <span className="text-rose-400/60 line-through truncate max-w-[80px]" title={d.old}>{d.old}</span>
+                                        <ArrowRight size={10} className="text-slate-600 shrink-0" />
+                                        <span className="text-emerald-400 font-bold truncate max-w-[80px]" title={d.new}>{d.new}</span>
+                                    </div>
+                                  ))}
+                                </div>
+                              )}
+                            </div>
+                          )
+                      })
+                    )}
+                  </div>
+
+                  {/* DESKTOP VIEW (Data Table) */}
+                  <table className="hidden md:table w-full text-left border-collapse whitespace-nowrap">
+                    <thead className="sticky top-0 bg-slate-900/95 backdrop-blur-sm z-10">
+                      <tr className="border-b border-white/5">
+                        <th className="px-6 py-4 text-[10px] font-black text-slate-500 uppercase tracking-widest">Data / Hora</th>
+                        <th className="px-6 py-4 text-[10px] font-black text-slate-500 uppercase tracking-widest">Usuário</th>
+                        <th className="px-6 py-4 text-[10px] font-black text-slate-500 uppercase tracking-widest">Ação</th>
+                        <th className="px-6 py-4 text-[10px] font-black text-slate-500 uppercase tracking-widest">Item Afetado</th>
+                        <th className="px-6 py-4 text-[10px] font-black text-slate-500 uppercase tracking-widest w-1/4">Motivo / Justificativa</th>
+                        <th className="px-6 py-4 text-[10px] font-black text-slate-500 uppercase tracking-widest">Alterações (Antes ➔ Depois)</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-white/5">
+                      {filteredAuditData.length === 0 ? (
+                         <tr>
+                           <td colSpan={6} className="text-center py-16">
+                              <History size={32} className="mx-auto text-slate-700 mb-3" />
+                              <p className="text-slate-500 font-bold uppercase tracking-widest text-xs">Nenhum registro encontrado</p>
+                           </td>
+                         </tr>
+                      ) : (
+                         filteredAuditData.map(log => {
+                            const diffs = [];
+                            if (log.dados_anteriores && log.dados_novos) {
+                              if (log.dados_anteriores.valor !== log.dados_novos.valor) diffs.push({ label: 'VAL', old: formatCurrency(log.dados_anteriores.valor), new: formatCurrency(log.dados_novos.valor) });
+                              if (log.dados_anteriores.descricao !== log.dados_novos.descricao) diffs.push({ label: 'DESC', old: log.dados_anteriores.descricao, new: log.dados_novos.descricao });
+                              if (log.dados_anteriores.data_competencia !== log.dados_novos.data_competencia) diffs.push({ label: 'DATA', old: log.dados_anteriores.data_competencia?.split('-').reverse().join('/') || '', new: log.dados_novos.data_competencia?.split('-').reverse().join('/') || '' });
+                            }
+                            
+                            const isExc = log.acao === 'exclusao';
+                            const isEdi = log.acao === 'edicao';
+                            
+                            return (
+                               <tr key={log.id} className="hover:bg-white/[0.02] transition-colors group">
+                                 <td className="px-6 py-4 text-xs text-slate-400 font-mono tracking-tight">{new Date(log.created_at).toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', year: '2-digit', hour: '2-digit', minute: '2-digit' })}</td>
+                                 <td className="px-6 py-4 text-xs font-black text-slate-200">{log.membros_equipe?.nome}</td>
+                                 <td className="px-6 py-4 text-xs">
+                                   <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md border font-bold uppercase text-[9px] tracking-wider ${
+                                     isExc ? 'bg-rose-500/10 text-rose-400 border-rose-500/20' : 
+                                     isEdi ? 'bg-blue-500/10 text-blue-400 border-blue-500/20' : 
+                                     'bg-emerald-500/10 text-emerald-400 border-emerald-500/20'
+                                   }`}>
+                                     {isExc ? <Trash2 size={10} /> : isEdi ? <Edit2 size={10} /> : <Plus size={10} />}
+                                     {isExc ? 'Exclusão' : isEdi ? 'Edição' : 'Retroativo'}
+                                   </span>
+                                 </td>
+                                 <td className="px-6 py-4 text-xs font-bold text-slate-300 max-w-[200px] truncate" title={log.transacoes?.descricao || log.dados_anteriores?.descricao}>
+                                   {log.transacoes?.descricao || log.dados_anteriores?.descricao || 'Item Removido'}
+                                 </td>
+                                 <td className="px-6 py-4 text-xs text-amber-500/90 italic max-w-[250px] truncate" title={log.motivo}>
+                                   {log.motivo || '-'}
+                                 </td>
+                                 <td className="px-6 py-4 text-[11px] space-y-1.5">
+                                    {diffs.length > 0 ? diffs.map((d, i) => (
+                                       <div key={i} className="flex items-center gap-2">
+                                          <span className="text-slate-600 font-black uppercase text-[9px] tracking-widest w-8 shrink-0">{d.label}:</span>
+                                          <span className="text-rose-400/60 line-through truncate max-w-[100px]" title={d.old}>{d.old}</span>
+                                          <ArrowRight size={10} className="text-slate-600 shrink-0" />
+                                          <span className="text-emerald-400 font-bold truncate max-w-[100px]" title={d.new}>{d.new}</span>
+                                       </div>
+                                    )) : (
+                                       <span className="text-slate-600 italic text-[10px]">Sem alterações numéricas</span>
+                                    )}
+                                 </td>
+                               </tr>
+                            )
+                         })
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+           </section>
         )}
 
         {activeTab === 'relatorios' && (
