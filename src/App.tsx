@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import { BrowserRouter, Routes, Route, useNavigate, useParams, Navigate } from 'react-router-dom'
 import { supabase } from './lib/supabase'
 import { AdminDashboard } from './components/AdminDashboard'
+import { PublicBooking } from './components/PublicBooking'
 import { TransactionModal } from './components/TransactionModal'
 import { LayoutDashboard, LogOut, Scissors, TrendingUp, TrendingDown, Edit2, Trash2, ArrowLeft, History, ArrowUpRight, ArrowDownLeft, User, Lock, Star, Shield, Smartphone, Zap, ArrowRight, ShieldCheck, PieChart, Users, Settings, List, X } from 'lucide-react'
 import { formatCurrency } from './lib/format'
@@ -486,6 +487,7 @@ export default function App() {
       <Route path="/:slug" element={<Navigate to="login" replace />} />
       <Route path="/:slug/login" element={<StaffLogin />} />
       <Route path="/:slug/dashboard" element={<StaffDashboard />} />
+      <Route path="/:slug/agendar" element={<PublicBooking />} />
     </Routes>
   )
 }

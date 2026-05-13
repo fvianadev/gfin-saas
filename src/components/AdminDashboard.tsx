@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo } from 'react'
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts'
-import { ArrowLeft, TrendingUp, TrendingDown, Calendar, Filter, ArrowUpRight, ArrowDownLeft, Trash2, Edit2, Plus, Users, DollarSign, LayoutDashboard, MoreVertical, PieChart, List, Settings, Copy, Link2, CheckCircle, MessageCircle, ShieldAlert, History, User, Scissors, Search, X, Download, Printer, CheckSquare, Square } from 'lucide-react'
+import { ArrowLeft, TrendingUp, TrendingDown, Calendar, Filter, ArrowUpRight, ArrowDownLeft, Trash2, Edit2, Plus, Users, DollarSign, LayoutDashboard, MoreVertical, PieChart, List, Settings, Copy, Link2, CheckCircle, MessageCircle, ShieldAlert, History, User, Scissors, Search, X, Download, Printer, CheckSquare, Square, RefreshCw, Clock } from 'lucide-react'
 import { supabase } from '../lib/supabase'
 import { TransactionModal } from './TransactionModal'
 import { formatCurrency, formatDateTime } from '../lib/format'
@@ -13,10 +13,22 @@ interface AdminDashboardProps {
 }
 
 type Periodo = 'hoje' | '7dias' | '30dias' | 'todos'
-type Tab = 'resumo' | 'transacoes' | 'equipe' | 'config' | 'auditoria' | 'itens' | 'relatorios'
+type Tab = 'resumo' | 'transacoes' | 'equipe' | 'config' | 'auditoria' | 'itens' | 'relatorios' | 'agenda'
 
 export function AdminDashboard({ onBack, estabelecimentoId, membroId, cargo }: AdminDashboardProps) {
   const [activeTab, setActiveTab] = useState<Tab>('resumo')
+  
+  const applyPhoneMask = (value: string) => {
+    const rawValue = value.replace(/\D/g, '')
+    if (rawValue.length <= 11) {
+      return rawValue
+        .replace(/^(\d{2})(\d)/g, '($1) $2')
+        .replace(/(\d)(\d{4})$/, '$1-$2')
+    }
+    return rawValue.slice(0, 11)
+      .replace(/^(\d{2})(\d)/g, '($1) $2')
+      .replace(/(\d)(\d{4})$/, '$1-$2')
+  }
   const [isMoreMenuOpen, setIsMoreMenuOpen] = useState(false)
   const [periodo, setPeriodo] = useState<Periodo>('30dias')
   
@@ -74,14 +86,33 @@ export function AdminDashboard({ onBack, estabelecimentoId, membroId, cargo }: A
   const [salvandoMembro, setSalvandoMembro] = useState(false)
 
   const [estab, setEstab] = useState<any>(null)
-  const [configForm, setConfigForm] = useState({ nome: '', logo_url: '' })
+  const [configForm, setConfigForm] = useState({ nome: '', logo_url: '', whatsapp: '' })
   const [configSaving, setConfigSaving] = useState(false)
   const [configSaved, setConfigSaved] = useState(false)
-  const [urlCopied, setUrlCopied] = useState(false)
+  const [urlCopied, setUrlCopied] = useState<string | null>(null)
   
   const [itens, setItens] = useState<any[]>([])
-  const [novoItem, setNovoItem] = useState({ nome: '', preco: '', tipo: 'receita' as 'receita' | 'despesa' })
+  const [novoItem, setNovoItem] = useState({ nome: '', preco: '', tipo: 'receita' as 'receita' | 'despesa', categoria: 'Geral', duracao: '30' })
+  const [itemParaEditar, setItemParaEditar] = useState<string | null>(null)
   const [itemSaving, setItemSaving] = useState(false)
+ 
+  const [agendamentos, setAgendamentos] = useState<any[]>([])
+  const [carregandoAgendamentos, setCarregandoAgendamentos] = useState(false)
+  const [isAgendamentoModalOpen, setIsAgendamentoModalOpen] = useState(false)
+  const [agendamentoParaEditar, setAgendamentoParaEditar] = useState<any>(null)
+  const [novoAgendamento, setNovoAgendamento] = useState({
+    id: '',
+    cliente_nome: '',
+    cliente_whatsapp: '',
+    servico_id: '',
+    membro_id: '',
+    data: '',
+    hora: '',
+    status: 'pendente'
+  })
+  const [agendamentoSaving, setAgendamentoSaving] = useState(false)
+  const [horarios, setHorarios] = useState<any[]>([])
+  const [salvandoHorario, setSalvandoHorario] = useState<string | null>(null)
 
   const [devPassword, setDevPassword] = useState('')
   const [isDevMode, setIsDevMode] = useState(false)
@@ -93,6 +124,7 @@ export function AdminDashboard({ onBack, estabelecimentoId, membroId, cargo }: A
   })
   const [relatorioDados, setRelatorioDados] = useState<any[]>([])
   const [gerandoRelatorio, setGerandoRelatorio] = useState(false)
+
 
   const gerarRelatorio = async () => {
     setGerandoRelatorio(true)
@@ -151,7 +183,11 @@ export function AdminDashboard({ onBack, estabelecimentoId, membroId, cargo }: A
     const { data } = await supabase.from('estabelecimentos').select('*').eq('id', estabelecimentoId).single()
     if (data) {
       setEstab(data)
-      setConfigForm({ nome: data.nome, logo_url: data.configuracoes?.logo_url ?? '' })
+      setConfigForm({ 
+        nome: data.nome, 
+        logo_url: data.configuracoes?.logo_url || '',
+        whatsapp: data.configuracoes?.whatsapp || ''
+      })
     }
   }
 
@@ -159,8 +195,12 @@ export function AdminDashboard({ onBack, estabelecimentoId, membroId, cargo }: A
     e.preventDefault()
     setConfigSaving(true)
     const { error } = await supabase.from('estabelecimentos').update({
-      nome: configForm.nome.trim(),
-      configuracoes: { ...(estab?.configuracoes ?? {}), logo_url: configForm.logo_url.trim() }
+      nome: configForm.nome,
+      configuracoes: { 
+        ...estab?.configuracoes, 
+        logo_url: configForm.logo_url,
+        whatsapp: configForm.whatsapp 
+      }
     }).eq('id', estabelecimentoId)
     setConfigSaving(false)
     if (!error) { setConfigSaved(true); fetchEstab(); setTimeout(() => setConfigSaved(false), 2500) }
@@ -212,16 +252,15 @@ export function AdminDashboard({ onBack, estabelecimentoId, membroId, cargo }: A
     }
   }
 
-  const copyUrl = () => {
-    const url = `${window.location.origin}/${estab?.slug}/login`
+  const copyText = (text: string, type: string) => {
     if (navigator.clipboard && window.isSecureContext) {
-      navigator.clipboard.writeText(url).then(() => {
-        setUrlCopied(true)
-        setTimeout(() => setUrlCopied(false), 2000)
+      navigator.clipboard.writeText(text).then(() => {
+        setUrlCopied(type)
+        setTimeout(() => setUrlCopied(null), 2000)
       })
     } else {
       const textArea = document.createElement("textarea")
-      textArea.value = url
+      textArea.value = text
       textArea.style.position = "fixed"
       textArea.style.left = "-999999px"
       textArea.style.top = "-999999px"
@@ -230,8 +269,8 @@ export function AdminDashboard({ onBack, estabelecimentoId, membroId, cargo }: A
       textArea.select()
       try {
         document.execCommand('copy')
-        setUrlCopied(true)
-        setTimeout(() => setUrlCopied(false), 2000)
+        setUrlCopied(type)
+        setTimeout(() => setUrlCopied(null), 2000)
       } catch (err) {
         console.error('Falha ao copiar:', err)
       }
@@ -247,27 +286,215 @@ export function AdminDashboard({ onBack, estabelecimentoId, membroId, cargo }: A
     fetchMembros()
     fetchEstab()
     if (activeTab === 'auditoria') fetchAuditData()
-    if (activeTab === 'itens') fetchItens()
+    if (activeTab === 'itens' || activeTab === 'agenda') fetchItens()
+    if (activeTab === 'config') fetchHorarios()
+    if (activeTab === 'agenda') fetchAgendamentos()
   }, [periodo, activeTab])
+
+  const fetchAgendamentos = async () => {
+    setCarregandoAgendamentos(true)
+    const { data } = await supabase
+      .from('agendamentos')
+      .select('*, membros_equipe(nome), servicos_produtos(nome, preco_sugerido)')
+      .eq('estabelecimento_id', estabelecimentoId)
+      .order('data_hora_inicio', { ascending: true })
+    
+    setAgendamentos(data || [])
+    setCarregandoAgendamentos(false)
+  }
+
+  const handleAgendamentoAction = async (ag: any, novoStatus: 'confirmado' | 'cancelado' | 'concluido') => {
+    try {
+      // 1. Atualizar o status do agendamento
+      const { error: errorStatus } = await supabase.from('agendamentos').update({ status: novoStatus }).eq('id', ag.id)
+      
+      if (errorStatus) {
+        alert("Erro ao atualizar status: " + errorStatus.message)
+        return
+      }
+
+      // 2. Se for CONCLUÍDO, gerar transação financeira automática
+      if (novoStatus === 'concluido') {
+        const servico = Array.isArray(ag.servicos_produtos) ? ag.servicos_produtos[0] : ag.servicos_produtos;
+        const preco = servico?.preco_sugerido || 0;
+        
+        const { error: errorTx } = await supabase.from('transacoes').insert({
+          estabelecimento_id: estabelecimentoId,
+          membro_id: ag.membro_id || membroId,
+          tipo: 'receita',
+          valor: preco,
+          descricao: `Agendamento: ${ag.cliente_nome} (${ag.servicos_produtos?.nome || 'Serviço'})`,
+          categoria: ag.servicos_produtos?.categoria || 'Geral',
+          data_competencia: new Date().toISOString().split('T')[0],
+          metadata: { agendamento_id: ag.id }
+        })
+
+        if (errorTx) {
+          alert("Agendamento concluído, mas houve um erro ao gerar a transação financeira: " + errorTx.message)
+        } else {
+          alert(`Agendamento de ${ag.cliente_nome} finalizado e receita de ${formatCurrency(preco)} lançada no caixa!`)
+          fetchAdminData() // Atualiza os gráficos e totais do dashboard
+        }
+      }
+
+      fetchAgendamentos()
+      
+      // 3. Notificar via WhatsApp apenas para Confirmação ou Cancelamento
+      if (novoStatus !== 'concluido') {
+        const querAvisar = confirm(
+          novoStatus === 'confirmado'
+            ? `Agendamento confirmado! Deseja enviar o WhatsApp de confirmação para ${ag.cliente_nome}?`
+            : `Agendamento cancelado. Deseja enviar o aviso de indisponibilidade para ${ag.cliente_nome}?`
+        )
+
+        if (querAvisar) {
+          const dataObj = new Date(ag.data_hora_inicio)
+          const dataFormatada = dataObj.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' })
+          const horaFormatada = dataObj.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })
+
+          const msg = encodeURIComponent(
+            novoStatus === 'confirmado'
+              ? `Olá ${ag.cliente_nome}! Seu agendamento na ${estab.nome} para o dia ${dataFormatada} às ${horaFormatada} foi CONFIRMADO. \u2705\n\nTe aguardamos! \uD83D\uDE0A`
+              : `Olá ${ag.cliente_nome}, infelizmente não poderemos te atender na data e hora solicitada (${dataFormatada} às ${horaFormatada}) na ${estab.nome}. \u274C\n\nPoderia escolher outro horário? \uD83D\uDE4F`
+          )
+          
+          const fone = ag.cliente_whatsapp?.replace(/\D/g, '')
+          if (fone) {
+            window.open(`https://wa.me/55${fone}?text=${msg}`, '_blank')
+          }
+        }
+      }
+    } catch (err: any) {
+      console.error("Erro fatal na função:", err)
+      alert("Erro Crítico: " + err.message)
+    }
+  }
+
+  const handleSaveAgendamento = async (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!novoAgendamento.cliente_nome || !novoAgendamento.data || !novoAgendamento.hora) return
+    setAgendamentoSaving(true)
+
+    // Forçar o fuso horário de Brasília (-03:00)
+    const pad = (n: number) => n.toString().padStart(2, '0')
+    const [ano, mes, dia] = novoAgendamento.data.split('-').map(Number)
+    const [h, min] = novoAgendamento.hora.split(':').map(Number)
+    const dataHoraBrasil = `${ano}-${pad(mes)}-${pad(dia)}T${pad(h)}:${pad(min)}:00-03:00`
+    
+    const payload = {
+      cliente_nome: novoAgendamento.cliente_nome,
+      cliente_whatsapp: novoAgendamento.cliente_whatsapp.replace(/\D/g, ''),
+      servico_id: novoAgendamento.servico_id || null,
+      membro_id: novoAgendamento.membro_id || null,
+      data_hora_inicio: dataHoraBrasil,
+      data_hora_fim: dataHoraBrasil, 
+      status: novoAgendamento.status
+    }
+
+    const { error } = await supabase
+      .from('agendamentos')
+      .update(payload)
+      .eq('id', novoAgendamento.id)
+
+    setAgendamentoSaving(false)
+    if (!error) {
+      setIsAgendamentoModalOpen(false)
+      fetchAgendamentos()
+    } else {
+      alert("Erro ao salvar: " + error.message)
+    }
+  }
+
+  const deletarAgendamento = async (id: string) => {
+    if (!confirm('Tem certeza que deseja excluir permanentemente este agendamento?')) return
+    const { error } = await supabase.from('agendamentos').delete().eq('id', id)
+    if (error) {
+      console.error("Erro ao deletar:", error)
+      alert("Erro ao excluir: " + error.message)
+    } else {
+      fetchAgendamentos()
+    }
+  }
+
+  const fetchHorarios = async () => {
+    if (!estabelecimentoId) return
+    const { data } = await supabase
+      .from('horarios_funcionamento')
+      .select('*')
+      .eq('estabelecimento_id', estabelecimentoId)
+      .order('dia_semana', { ascending: true })
+    
+    if (data && data.length > 0) {
+      setHorarios(data)
+    } else {
+      const padrao = [
+        { dia_semana: 0, hora_inicio: '08:00', hora_fim: '18:00', ativo: false },
+        { dia_semana: 1, hora_inicio: '08:00', hora_fim: '18:00', ativo: true },
+        { dia_semana: 2, hora_inicio: '08:00', hora_fim: '18:00', ativo: true },
+        { dia_semana: 3, hora_inicio: '08:00', hora_fim: '18:00', ativo: true },
+        { dia_semana: 4, hora_inicio: '08:00', hora_fim: '18:00', ativo: true },
+        { dia_semana: 5, hora_inicio: '08:00', hora_fim: '18:00', ativo: true },
+        { dia_semana: 6, hora_inicio: '08:00', hora_fim: '18:00', ativo: true },
+      ]
+      setHorarios(padrao)
+    }
+  }
+
+  const updateHorario = async (index: number, campo: string, valor: any) => {
+    const novosHorarios = [...horarios]
+    novosHorarios[index] = { ...novosHorarios[index], [campo]: valor }
+    setHorarios(novosHorarios)
+    const h = novosHorarios[index]
+    if (h.id) {
+      await supabase.from('horarios_funcionamento').update({
+        hora_inicio: h.hora_inicio,
+        hora_fim: h.hora_fim,
+        ativo: h.ativo
+      }).eq('id', h.id)
+    } else {
+      const { data } = await supabase.from('horarios_funcionamento').insert({
+        estabelecimento_id: estabelecimentoId,
+        dia_semana: h.dia_semana,
+        hora_inicio: h.hora_inicio,
+        hora_fim: h.hora_fim,
+        ativo: h.ativo
+      }).select()
+      if (data) fetchHorarios()
+    }
+  }
 
   const fetchItens = async () => {
     const { data } = await supabase.from('servicos_produtos').select('*').eq('estabelecimento_id', estabelecimentoId).order('nome')
     setItens(data || [])
   }
 
-  const handleSaveItem = async (e: React.FormEvent) => {
+   const handleSaveItem = async (e: React.FormEvent) => {
     e.preventDefault()
     if (!novoItem.nome.trim()) return
     setItemSaving(true)
-    const { error } = await supabase.from('servicos_produtos').insert({
+
+    const payload = {
       estabelecimento_id: estabelecimentoId,
       nome: novoItem.nome.trim(),
-      preco_sugerido: novoItem.preco ? parseFloat(novoItem.preco.replace(',', '.')) : null,
-      tipo: novoItem.tipo
-    })
+      preco_sugerido: novoItem.preco ? parseFloat(novoItem.preco.toString().replace(',', '.')) : null,
+      tipo: novoItem.tipo,
+      categoria: novoItem.categoria,
+      duracao_minutos: parseInt(novoItem.duracao) || 30
+    }
+
+    let error = null
+    if (itemParaEditar) {
+      const result = await supabase.from('servicos_produtos').update(payload).eq('id', itemParaEditar)
+      error = result.error
+    } else {
+      const result = await supabase.from('servicos_produtos').insert(payload)
+      error = result.error
+    }
+
     setItemSaving(false)
     if (!error) {
-      setNovoItem({ nome: '', preco: '', tipo: 'receita' })
+      setNovoItem({ nome: '', preco: '', tipo: 'receita', categoria: 'Geral', duracao: '30' })
+      setItemParaEditar(null)
       setIsItemModalOpen(false)
       fetchItens()
     } else alert('Erro ao salvar item: ' + error.message)
@@ -382,6 +609,7 @@ export function AdminDashboard({ onBack, estabelecimentoId, membroId, cargo }: A
           {cargo === 'administrador' && (
             <>
               <button onClick={() => setActiveTab('equipe')} className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all ${activeTab === 'equipe' ? 'bg-emerald-500 text-white shadow-lg' : 'text-slate-500 hover:bg-white/5'}`}><Users size={18} /> Equipe</button>
+              <button onClick={() => setActiveTab('agenda')} className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all ${activeTab === 'agenda' ? 'bg-emerald-500 text-white shadow-lg' : 'text-slate-500 hover:bg-white/5'}`}><Calendar size={18} /> Agenda</button>
               <button onClick={() => setActiveTab('auditoria')} className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all ${activeTab === 'auditoria' ? 'bg-emerald-500 text-white shadow-lg' : 'text-slate-500 hover:bg-white/5'}`}><ShieldAlert size={18} /> Auditoria</button>
               <button onClick={() => setActiveTab('relatorios')} className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all ${activeTab === 'relatorios' ? 'bg-emerald-500 text-white shadow-lg' : 'text-slate-500 hover:bg-white/5'}`}><PieChart size={18} /> Relatórios</button>
               <button onClick={() => setActiveTab('config')} className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all ${activeTab === 'config' ? 'bg-emerald-500 text-white shadow-lg' : 'text-slate-500 hover:bg-white/5'}`}><Settings size={18} /> Configurações</button>
@@ -609,7 +837,7 @@ export function AdminDashboard({ onBack, estabelecimentoId, membroId, cargo }: A
                      <input
                       className="w-full bg-slate-900 border border-white/5 rounded-xl p-4 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/50"
                       placeholder="WhatsApp (ex: 5511999999999)"
-                      value={novoMembro.whatsapp}
+                      value={applyPhoneMask(novoMembro.whatsapp)}
                       onChange={e => setNovoMembro(prev => ({ ...prev, whatsapp: e.target.value.replace(/\D/g, '') }))}
                     />
                  </div>
@@ -764,7 +992,11 @@ export function AdminDashboard({ onBack, estabelecimentoId, membroId, cargo }: A
           <div className="space-y-6 animate-in slide-in-from-right duration-300">
              <div className="flex justify-between items-center">
                <h2 className="font-black text-lg uppercase tracking-widest text-slate-400">Serviços e Produtos</h2>
-               <button onClick={() => setIsItemModalOpen(true)} className="bg-emerald-500 text-white px-4 py-2 rounded-xl font-bold text-xs shadow-lg shadow-emerald-500/20 active:scale-95 transition-all flex items-center gap-2">
+               <button onClick={() => {
+                  setItemParaEditar(null)
+                  setNovoItem({ nome: '', preco: '', tipo: 'receita', categoria: 'Geral', duracao: '30' })
+                  setIsItemModalOpen(true)
+                }} className="bg-emerald-500 text-white px-4 py-2 rounded-xl font-bold text-xs shadow-lg shadow-emerald-500/20 active:scale-95 transition-all flex items-center gap-2">
                  <Plus size={14} /> Novo Item
                </button>
              </div>
@@ -773,19 +1005,31 @@ export function AdminDashboard({ onBack, estabelecimentoId, membroId, cargo }: A
                 <div className="fixed inset-0 z-[60] flex items-end sm:items-center justify-center bg-black/60 backdrop-blur-sm p-4 sm:p-0">
                   <div className="bg-slate-950 w-full max-w-md rounded-3xl border border-white/10 shadow-2xl overflow-hidden animate-in slide-in-from-bottom-4 duration-300">
                     <div className="p-6 border-b border-white/5 flex justify-between items-center bg-slate-900/50">
-                      <h3 className="font-bold text-lg">Novo Serviço/Produto</h3>
-                      <button onClick={() => setIsItemModalOpen(false)} className="text-slate-500 hover:text-rose-500 p-2 rounded-full hover:bg-white/5 transition-all"><X size={20} /></button>
+                      <h3 className="font-bold text-lg">{itemParaEditar ? 'Editar Item' : 'Novo Item'}</h3>
+                      <button onClick={() => { setIsItemModalOpen(false); setItemParaEditar(null); }} className="text-slate-500 hover:text-rose-500 p-2 rounded-full hover:bg-white/5 transition-all"><X size={20} /></button>
                     </div>
-                    <form onSubmit={handleSaveItem} className="p-6 space-y-4">
+                     <form onSubmit={handleSaveItem} className="p-6 space-y-4">
                       <div className="grid grid-cols-1 gap-4">
                         <div className="space-y-1">
                           <label className="text-[10px] font-bold text-slate-500 uppercase px-1">Nome do Serviço/Produto</label>
                           <input required className="w-full bg-slate-900 border border-white/5 rounded-xl p-4 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/50" value={novoItem.nome} onChange={e => setNovoItem(prev => ({ ...prev, nome: e.target.value }))} placeholder="Ex: Corte Degrade" />
                         </div>
-                        <div className="space-y-1">
-                          <label className="text-[10px] font-bold text-slate-500 uppercase px-1">Preço Sugerido (Opcional)</label>
-                          <input className="w-full bg-slate-900 border border-white/5 rounded-xl p-4 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/50" value={novoItem.preco} onChange={e => setNovoItem(prev => ({ ...prev, preco: e.target.value }))} placeholder="0,00" />
+                        <div className="grid grid-cols-2 gap-4">
+                          <div className="space-y-1">
+                            <label className="text-[10px] font-bold text-slate-500 uppercase px-1">Categoria</label>
+                            <input className="w-full bg-slate-900 border border-white/5 rounded-xl p-4 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/50" value={novoItem.categoria} onChange={e => setNovoItem(prev => ({ ...prev, categoria: e.target.value }))} placeholder="Ex: Cabelo" />
+                          </div>
+                          <div className="space-y-1">
+                            <label className="text-[10px] font-bold text-slate-500 uppercase px-1">Preço Sugerido</label>
+                            <input className="w-full bg-slate-900 border border-white/5 rounded-xl p-4 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/50" value={novoItem.preco} onChange={e => setNovoItem(prev => ({ ...prev, preco: e.target.value }))} placeholder="0,00" />
+                          </div>
                         </div>
+                        {novoItem.tipo === 'receita' && (
+                          <div className="space-y-1">
+                            <label className="text-[10px] font-bold text-slate-500 uppercase px-1">Duração (Minutos)</label>
+                            <input type="number" className="w-full bg-slate-900 border border-white/5 rounded-xl p-4 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/50" value={novoItem.duracao} onChange={e => setNovoItem(prev => ({ ...prev, duracao: e.target.value }))} placeholder="30" />
+                          </div>
+                        )}
                       </div>
                       <div className="flex gap-4">
                          <button type="button" onClick={() => setNovoItem(prev => ({ ...prev, tipo: 'receita' }))} className={`flex-1 py-3 rounded-xl font-bold text-xs transition-all ${novoItem.tipo === 'receita' ? 'bg-emerald-500 text-white' : 'bg-slate-900 text-slate-500 border border-white/5'}`}>RECEITA</button>
@@ -816,6 +1060,107 @@ export function AdminDashboard({ onBack, estabelecimentoId, membroId, cargo }: A
           </div>
         )}
 
+        {/* MODAL EDITAR AGENDAMENTO */}
+        {isAgendamentoModalOpen && (
+          <div className="fixed inset-0 z-[70] flex items-center justify-center bg-black/80 backdrop-blur-md p-4 sm:p-0">
+            <div className="bg-slate-950 w-full max-w-lg rounded-3xl border border-white/10 shadow-2xl overflow-hidden animate-in zoom-in duration-300">
+              <div className="p-6 border-b border-white/5 flex justify-between items-center bg-slate-900/50">
+                <h3 className="font-black text-lg uppercase tracking-widest text-emerald-500">Editar Agendamento</h3>
+                <button onClick={() => setIsAgendamentoModalOpen(false)} className="text-slate-500 hover:text-rose-500 transition-all"><X size={20} /></button>
+              </div>
+              
+              <form onSubmit={handleSaveAgendamento} className="p-8 space-y-5">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
+                  <div className="space-y-1">
+                    <label className="text-[10px] font-bold text-slate-500 uppercase px-1">Nome do Cliente</label>
+                    <input 
+                      required 
+                      type="text" 
+                      className="w-full bg-slate-900 border border-white/5 rounded-2xl p-4 text-sm font-bold outline-none focus:border-emerald-500 transition-all"
+                      value={novoAgendamento.cliente_nome}
+                      onChange={e => setNovoAgendamento(prev => ({ ...prev, cliente_nome: e.target.value }))}
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <label className="text-[10px] font-bold text-slate-500 uppercase px-1">WhatsApp</label>
+                    <input 
+                      required 
+                      type="text" 
+                      className="w-full bg-slate-900 border border-white/5 rounded-2xl p-4 text-sm font-bold outline-none focus:border-emerald-500 transition-all"
+                      value={applyPhoneMask(novoAgendamento.cliente_whatsapp)}
+                      onChange={e => setNovoAgendamento(prev => ({ ...prev, cliente_whatsapp: e.target.value.replace(/\D/g, '') }))}
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <label className="text-[10px] font-bold text-slate-500 uppercase px-1">Serviço</label>
+                    <select 
+                      className="w-full bg-slate-900 border border-white/5 rounded-2xl p-4 text-sm font-bold outline-none focus:border-emerald-500 transition-all appearance-none"
+                      value={novoAgendamento.servico_id}
+                      onChange={e => setNovoAgendamento(prev => ({ ...prev, servico_id: e.target.value }))}
+                    >
+                      <option value="">Selecione um serviço</option>
+                      {itens.map(i => (
+                        <option key={i.id} value={i.id}>{i.nome} - {formatCurrency(i.preco_sugerido || 0)}</option>
+                      ))}
+                    </select>
+                  </div>
+                  <div className="space-y-1">
+                    <label className="text-[10px] font-bold text-slate-500 uppercase px-1">Profissional</label>
+                    <select 
+                      className="w-full bg-slate-900 border border-white/5 rounded-2xl p-4 text-sm font-bold outline-none focus:border-emerald-500 transition-all appearance-none"
+                      value={novoAgendamento.membro_id}
+                      onChange={e => setNovoAgendamento(prev => ({ ...prev, membro_id: e.target.value }))}
+                    >
+                      <option value="">Qualquer Profissional</option>
+                      {membros.map(m => (
+                        <option key={m.id} value={m.id}>{m.nome}</option>
+                      ))}
+                    </select>
+                  </div>
+                  <div className="space-y-1">
+                    <label className="text-[10px] font-bold text-slate-500 uppercase px-1">Data</label>
+                    <input 
+                      required 
+                      type="date" 
+                      className="w-full bg-slate-900 border border-white/5 rounded-2xl p-4 text-sm font-bold outline-none focus:border-emerald-500 transition-all color-scheme-dark"
+                      value={novoAgendamento.data}
+                      onChange={e => setNovoAgendamento(prev => ({ ...prev, data: e.target.value }))}
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <label className="text-[10px] font-bold text-slate-500 uppercase px-1">Horário</label>
+                    <input 
+                      required 
+                      type="time" 
+                      className="w-full bg-slate-900 border border-white/5 rounded-2xl p-4 text-sm font-bold outline-none focus:border-emerald-500 transition-all color-scheme-dark"
+                      value={novoAgendamento.hora}
+                      onChange={e => setNovoAgendamento(prev => ({ ...prev, hora: e.target.value }))}
+                    />
+                  </div>
+                </div>
+
+                <div className="flex gap-3 pt-4">
+                  <button 
+                    type="button"
+                    onClick={() => setIsAgendamentoModalOpen(false)}
+                    className="flex-1 bg-slate-900 py-4 rounded-2xl font-bold text-sm border border-white/5 active:scale-95 transition-all uppercase tracking-widest"
+                  >
+                    Cancelar
+                  </button>
+                  <button 
+                    type="submit"
+                    disabled={agendamentoSaving}
+                    className="flex-1 bg-emerald-500 py-4 rounded-2xl font-bold text-sm shadow-xl shadow-emerald-500/20 active:scale-95 transition-all uppercase tracking-widest disabled:opacity-50"
+                  >
+                    {agendamentoSaving ? 'Salvando...' : 'Salvar Alterações'}
+                  </button>
+                </div>
+              </form>
+            </div>
+          </div>
+        )}
+
+
         {activeTab === 'config' && (
           <div className="space-y-6 animate-in slide-in-from-right duration-300 max-w-xl">
             <h2 className="font-black text-lg uppercase tracking-widest text-slate-400">Configurações do Estabelecimento</h2>
@@ -828,16 +1173,34 @@ export function AdminDashboard({ onBack, estabelecimentoId, membroId, cargo }: A
                   {window.location.origin}/{estab?.slug}/login
                 </p>
                 <button
-                  onClick={copyUrl}
-                  className={`p-2 rounded-lg transition-all ${urlCopied ? 'text-emerald-400 bg-emerald-500/10' : 'text-slate-500 hover:text-white hover:bg-white/5'}`}
+                  onClick={() => copyText(`${window.location.origin}/${estab?.slug}/login`, 'login')}
+                  className={`p-2 rounded-lg transition-all ${urlCopied === 'login' ? 'text-emerald-400 bg-emerald-500/10' : 'text-slate-500 hover:text-white hover:bg-white/5'}`}
                 >
-                  {urlCopied ? <CheckCircle size={16} /> : <Copy size={16} />}
+                  {urlCopied === 'login' ? <CheckCircle size={16} /> : <Copy size={16} />}
                 </button>
               </div>
               <p className="text-[10px] text-slate-600 px-1">Compartilhe essa URL com seus funcionários para que eles façam login via PIN.</p>
             </div>
 
-            <form onSubmit={handleSaveConfig} className="glass-card p-6 border-white/5 space-y-4">
+            <div className="glass-card p-6 border-emerald-500/20 space-y-3 mb-6">
+              <div className="flex items-center gap-2 text-emerald-400 text-xs font-bold uppercase tracking-widest mb-1">
+                <Calendar size={14} /> Link de Agendamento (Clientes)
+              </div>
+              <div className="flex items-center gap-3 bg-slate-900 border border-white/5 rounded-xl px-4 py-3">
+                <p className="text-sm text-slate-300 font-mono flex-1 break-all">
+                  {window.location.origin}/{estab?.slug}/agendar
+                </p>
+                <button
+                  onClick={() => copyText(`${window.location.origin}/${estab?.slug}/agendar`, 'agendar')}
+                  className={`p-2 rounded-lg transition-all ${urlCopied === 'agendar' ? 'text-emerald-400 bg-emerald-500/10' : 'text-slate-500 hover:text-white hover:bg-white/5'}`}
+                >
+                  {urlCopied === 'agendar' ? <CheckCircle size={16} /> : <Copy size={16} />}
+                </button>
+              </div>
+              <p className="text-[10px] text-slate-600 px-1">Envie este link para seus clientes realizarem agendamentos online.</p>
+            </div>
+
+            <form onSubmit={handleSaveConfig} className="glass-card p-6 border-white/5 space-y-4 mb-6">
               <h3 className="font-bold text-base mb-1">Dados da Empresa</h3>
               <div className="space-y-1">
                 <label className="text-[10px] font-bold text-slate-500 uppercase px-1">Nome da Empresa</label>
@@ -858,6 +1221,16 @@ export function AdminDashboard({ onBack, estabelecimentoId, membroId, cargo }: A
                   placeholder="https://... (link da imagem)"
                 />
               </div>
+              <div className="space-y-1">
+                <label className="text-[10px] font-bold text-slate-500 uppercase px-1">WhatsApp de Atendimento (Com DDD)</label>
+                <input
+                  className="w-full bg-slate-900 border border-white/5 rounded-xl p-4 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/50"
+                  value={applyPhoneMask(configForm.whatsapp)}
+                  onChange={e => setConfigForm(prev => ({ ...prev, whatsapp: e.target.value.replace(/\D/g, '') }))}
+                  placeholder="(99) 9 9999-9999"
+                />
+                <p className="text-[9px] text-slate-600 px-1 italic">* Use apenas números, começando com 55 e o DDD.</p>
+              </div>
               {configForm.logo_url && (
                 <div className="flex items-center gap-4 bg-slate-900 rounded-xl p-4 border border-white/5">
                   <img src={configForm.logo_url} alt="Logo preview" className="w-14 h-14 rounded-xl object-cover border border-white/10" onError={e => (e.currentTarget.style.display = 'none')} />
@@ -872,6 +1245,55 @@ export function AdminDashboard({ onBack, estabelecimentoId, membroId, cargo }: A
                 {configSaved ? '✓ Salvo!' : configSaving ? 'Salvando...' : 'Salvar Configurações'}
               </button>
             </form>
+
+            <div className="glass-card p-6 border-white/5 space-y-6">
+              <div>
+                <h3 className="font-bold text-base mb-1 text-white">Horário de Funcionamento</h3>
+                <p className="text-[10px] text-slate-500 uppercase font-bold">Defina quando sua agenda estará aberta para clientes</p>
+              </div>
+
+              <div className="space-y-3">
+                {['Domingo', 'Segunda', 'Terça', 'Quarta', 'Quinta', 'Sexta', 'Sábado'].map((dia, idx) => {
+                  const h = horarios.find(item => item.dia_semana === idx) || { ativo: false, hora_inicio: '08:00', hora_fim: '18:00' };
+                  return (
+                    <div key={idx} className="flex flex-col sm:flex-row sm:items-center gap-4 bg-slate-900/50 p-4 rounded-2xl border border-white/5">
+                      <div className="flex-1 flex items-center justify-between">
+                        <p className="text-sm font-bold text-slate-200">{dia}</p>
+                        <button 
+                          onClick={() => updateHorario(horarios.findIndex(item => item.dia_semana === idx), 'ativo', !h.ativo)}
+                          className={`w-10 h-6 rounded-full relative transition-all sm:hidden ${h.ativo ? 'bg-emerald-500' : 'bg-slate-700'}`}
+                        >
+                          <div className={`absolute top-1 w-4 h-4 bg-white rounded-full transition-all ${h.ativo ? 'left-5' : 'left-1'}`} />
+                        </button>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <input 
+                          type="time" 
+                          disabled={!h.ativo}
+                          className="flex-1 sm:flex-none bg-slate-900 border border-white/5 rounded-lg p-2 text-xs text-slate-300 disabled:opacity-30" 
+                          value={h.hora_inicio}
+                          onChange={(e) => updateHorario(horarios.findIndex(item => item.dia_semana === idx), 'hora_inicio', e.target.value)}
+                        />
+                        <span className="text-slate-600 text-[10px]">até</span>
+                        <input 
+                          type="time" 
+                          disabled={!h.ativo}
+                          className="flex-1 sm:flex-none bg-slate-900 border border-white/5 rounded-lg p-2 text-xs text-slate-300 disabled:opacity-30" 
+                          value={h.hora_fim}
+                          onChange={(e) => updateHorario(horarios.findIndex(item => item.dia_semana === idx), 'hora_fim', e.target.value)}
+                        />
+                      </div>
+                      <button 
+                        onClick={() => updateHorario(horarios.findIndex(item => item.dia_semana === idx), 'ativo', !h.ativo)}
+                        className={`w-10 h-6 rounded-full relative transition-all hidden sm:block ${h.ativo ? 'bg-emerald-500' : 'bg-slate-700'}`}
+                      >
+                        <div className={`absolute top-1 w-4 h-4 bg-white rounded-full transition-all ${h.ativo ? 'left-5' : 'left-1'}`} />
+                      </button>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
 
             {isDevMode ? (
               <div className="glass-card p-6 border-amber-500/20 space-y-4">
@@ -922,6 +1344,127 @@ export function AdminDashboard({ onBack, estabelecimentoId, membroId, cargo }: A
                  </div>
               </div>
             )}
+          </div>
+        )}
+
+        {activeTab === 'agenda' && (
+          <div className="space-y-6 animate-in slide-in-from-right duration-300">
+            <div className="flex justify-between items-center">
+               <h2 className="font-black text-lg uppercase tracking-widest text-slate-400">Agenda de Clientes</h2>
+               <button onClick={fetchAgendamentos} className="p-2 text-slate-500 hover:text-emerald-500 transition-all"><RefreshCw size={18} className={carregandoAgendamentos ? 'animate-spin' : ''} /></button>
+            </div>
+
+            <div className="grid grid-cols-1 gap-4">
+               {agendamentos.length === 0 ? (
+                 <div className="text-center p-12 glass-card border-dashed border-white/5 text-slate-600 font-bold">
+                   Nenhum agendamento encontrado.
+                 </div>
+               ) : (
+                 agendamentos.map(ag => {
+                   const data = new Date(ag.data_hora_inicio);
+                   return (
+                     <div key={ag.id} className="glass-card p-5 border-white/5 flex flex-col sm:flex-row sm:items-center justify-between gap-4 group">
+                       <div className="flex items-center gap-4">
+                         <div className="w-12 h-12 rounded-2xl bg-slate-900 border border-white/5 flex flex-col items-center justify-center text-slate-400">
+                           <span className="text-[10px] font-black uppercase leading-none">{data.toLocaleDateString('pt-BR', { month: 'short' }).replace('.', '')}</span>
+                           <span className="text-lg font-black text-white leading-none mt-1">{data.getDate()}</span>
+                         </div>
+                         <div>
+                           <div className="flex items-center gap-2">
+                             <p className="font-bold text-sm text-white">{ag.cliente_nome}</p>
+                             <span className={`text-[8px] font-black uppercase px-2 py-0.5 rounded-full ${
+                               ag.status === 'pendente' ? 'bg-amber-500/10 text-amber-500' : 
+                               ag.status === 'confirmado' ? 'bg-emerald-500/10 text-emerald-500' : 
+                               ag.status === 'concluido' ? 'bg-indigo-500/10 text-indigo-400' : 'bg-slate-800 text-slate-500'
+                             }`}>
+                               {ag.status}
+                             </span>
+                           </div>
+                           <p className="text-[11px] text-slate-500 flex items-center gap-1 mt-1">
+                             <Clock size={10} /> {data.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })} • {ag.servicos_produtos?.nome}
+                           </p>
+                           <p className="text-[10px] text-emerald-500/60 font-bold uppercase tracking-widest mt-0.5">Profissional: {ag.membros_equipe?.nome || 'Qualquer'}</p>
+                         </div>
+                       </div>
+                       
+                        <div className="flex items-center gap-2 border-t border-white/5 sm:border-0 pt-3 sm:pt-0">
+                          {ag.status !== 'concluido' && (
+                            <button 
+                              onClick={() => {
+                                const servico = Array.isArray(ag.servicos_produtos) ? ag.servicos_produtos[0] : ag.servicos_produtos;
+                                const preco = servico?.preco_sugerido || 0;
+                                if(confirm(`Deseja finalizar o serviço de ${ag.cliente_nome} e lançar o valor de ${formatCurrency(preco)} no caixa?`)) {
+                                  handleAgendamentoAction(ag, 'concluido')
+                                }
+                              }} 
+                              className="px-4 py-2 bg-indigo-500 text-white rounded-xl text-[10px] font-black uppercase shadow-lg shadow-indigo-500/20 active:scale-95 transition-all flex items-center gap-2"
+                              title="Finalizar e Cobrar"
+                            >
+                              <DollarSign size={14} /> Finalizar
+                            </button>
+                          )}
+                          <button 
+                            onClick={() => {
+                              const d = new Date(ag.data_hora_inicio)
+                              const hh = d.getHours().toString().padStart(2, '0')
+                              const mm = d.getMinutes().toString().padStart(2, '0')
+                              
+                              setNovoAgendamento({
+                                id: ag.id,
+                                cliente_nome: ag.cliente_nome,
+                                cliente_whatsapp: ag.cliente_whatsapp,
+                                servico_id: ag.servico_id || '',
+                                membro_id: ag.membro_id || '',
+                                data: d.toISOString().split('T')[0],
+                                hora: `${hh}:${mm}`,
+                                status: ag.status
+                              })
+                              setIsAgendamentoModalOpen(true)
+                            }}
+                            className="p-2 bg-slate-900 text-slate-400 hover:text-emerald-500 rounded-xl border border-white/5 transition-all"
+                            title="Editar Agendamento"
+                          >
+                            <Edit2 size={16} />
+                          </button>
+                          {ag.status !== 'concluido' && (
+                            <button 
+                              onClick={() => handleAgendamentoAction(ag, 'confirmado')} 
+                              className={`px-4 py-2 rounded-xl text-[10px] font-black uppercase transition-all ${
+                                ag.status === 'confirmado' 
+                                  ? 'bg-emerald-500/20 text-emerald-500 cursor-default' 
+                                  : 'bg-emerald-500 text-white shadow-lg shadow-emerald-500/20 active:scale-95'
+                              }`}
+                              title="Confirmar"
+                            >
+                              {ag.status === 'confirmado' ? 'Confirmado' : 'Confirmar'}
+                            </button>
+                          )}
+                          
+                          <button 
+                            onClick={() => handleAgendamentoAction(ag, 'cancelado')} 
+                            className={`p-2 rounded-xl border border-white/5 transition-all ${
+                              ag.status === 'cancelado'
+                                ? 'bg-rose-500/20 text-rose-500 cursor-default'
+                                : 'bg-slate-900 text-slate-400 hover:text-rose-500'
+                            }`}
+                            title="Cancelar"
+                          >
+                            <X size={16} />
+                          </button>
+
+                          <button 
+                            onClick={() => deletarAgendamento(ag.id)} 
+                            className="p-2 bg-slate-900 text-slate-700 hover:text-rose-500 rounded-xl border border-white/5 transition-all"
+                            title="Excluir"
+                          >
+                            <Trash2 size={16} />
+                          </button>
+                        </div>
+                     </div>
+                   )
+                 })
+               )}
+            </div>
           </div>
         )}
 
@@ -1074,6 +1617,10 @@ export function AdminDashboard({ onBack, estabelecimentoId, membroId, cargo }: A
           <div className="bg-slate-900 border-t border-white/10 rounded-t-3xl p-6 pb-28 animate-in slide-in-from-bottom-8 duration-300 relative z-40 space-y-2 shadow-2xl">
             <h3 className="text-xs font-bold text-slate-500 uppercase tracking-widest mb-4 px-2">Gerenciamento</h3>
             
+            <button onClick={() => { setActiveTab('agenda'); setIsMoreMenuOpen(false); }} className="w-full flex items-center gap-4 bg-white/5 hover:bg-white/10 p-4 rounded-2xl transition-all">
+              <div className="bg-slate-800 p-2 rounded-xl text-emerald-400"><Calendar size={20} /></div>
+              <span className="font-bold text-sm">Agenda de Clientes</span>
+            </button>
             <button onClick={() => { setActiveTab('itens'); setIsMoreMenuOpen(false); }} className="w-full flex items-center gap-4 bg-white/5 hover:bg-white/10 p-4 rounded-2xl transition-all">
               <div className="bg-slate-800 p-2 rounded-xl text-emerald-500"><Scissors size={20} /></div>
               <span className="font-bold text-sm">Serviços e Produtos</span>
