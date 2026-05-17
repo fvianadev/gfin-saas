@@ -2,7 +2,7 @@ version: '3.8'
 
 services:
   gfin-app:
-    build: 
+    build:
       context: .
       dockerfile: Dockerfile.prod
       args:
