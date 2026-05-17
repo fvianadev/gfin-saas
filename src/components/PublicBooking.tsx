@@ -99,6 +99,36 @@ export function PublicBooking() {
 
       setEstab(data)
       await fetchDados(data.id)
+
+      // --- PWA Dinâmico para Clientes ---
+      const manifest = {
+        short_name: data.nome.split(' ')[0],
+        name: data.nome,
+        description: `Agendamento online da ${data.nome}`,
+        icons: [
+          { src: data.configuracoes?.logo_url || "/pwa-192x192.png", sizes: "192x192", type: "image/png", purpose: "any maskable" },
+          { src: data.configuracoes?.logo_url || "/pwa-512x512.png", sizes: "512x512", type: "image/png", purpose: "any maskable" }
+        ],
+        start_url: window.location.pathname,
+        display: "standalone",
+        background_color: "#020617",
+        theme_color: "#020617"
+      };
+      const blob = new Blob([JSON.stringify(manifest)], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      let link = document.querySelector('link[rel="manifest"]') as HTMLLinkElement | null;
+      if (!link) {
+        link = document.createElement('link');
+        link.rel = 'manifest';
+        document.head.appendChild(link);
+      }
+      link.setAttribute('href', url);
+
+      let appleIcon = document.querySelector('link[rel="apple-touch-icon"]');
+      if (appleIcon && data.configuracoes?.logo_url) {
+        appleIcon.setAttribute('href', data.configuracoes.logo_url);
+      }
+      // ----------------------------------
     } catch (err: any) {
       console.error('Erro ao carregar estabelecimento:', err)
       setError(err.message || 'Erro ao carregar dados do salão.')
