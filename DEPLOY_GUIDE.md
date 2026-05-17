@@ -9,9 +9,10 @@ Crie um novo projeto no Supabase e siga a ordem de execução dos scripts no **S
 1.  **Schema Inicial**: Execute o arquivo `supabase/migrations/20240506_initial_schema.sql`.
 2.  **Módulo de Agendamento**: Execute o arquivo `supabase/migrations/20240513_add_scheduling_module.sql`.
 3.  **Segurança RLS (Hardening)**: Execute o arquivo `supabase/migrations/20240513_security_hardening.sql`.
+4.  **Correção de Permissões Staff**: Execute o arquivo `supabase/migrations/20240513_fix_staff_rls.sql`.
 
 > [!IMPORTANT]
-> Certifique-se de que as tabelas `estabelecimentos`, `membros_equipe`, `transacoes` e `agendamentos` foram criadas com o RLS habilitado.
+> Certifique-se de que as tabelas `estabelecimentos`, `membros_equipe`, `transacoes`, `servicos_produtos` e `agendamentos` foram criadas com o RLS habilitado e as permissões de Staff corrigidas.
 
 ## 2. Hospedagem (Vercel / Netlify)
 

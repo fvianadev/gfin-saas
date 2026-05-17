@@ -8,9 +8,9 @@
     "build": "tsc -b && vite build",
     "lint": "eslint .",
     "preview": "vite preview",
-    "db:clear": "node clear_db.mjs",
-    "db:setup": "node apply_migration.mjs",
-    "db:reset": "node clear_db.mjs && node apply_migration.mjs"
+    "db:clear": "node scripts/clear_db.mjs",
+    "db:setup": "node scripts/apply_migration.mjs",
+    "db:reset": "node scripts/clear_db.mjs && node scripts/apply_migration.mjs"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.105.3",

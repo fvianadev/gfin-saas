@@ -1,0 +1,19 @@
+version: '3.8'
+
+services:
+  gfin-app:
+    build: 
+      context: .
+      dockerfile: Dockerfile.prod
+      args:
+        # Passa as variáveis do seu arquivo .env para dentro do processo de build do Vite
+        - VITE_SUPABASE_URL=${VITE_SUPABASE_URL}
+        - VITE_SUPABASE_ANON_KEY=${VITE_SUPABASE_ANON_KEY}
+        - VITE_DEV_PASSWORD=${VITE_DEV_PASSWORD}
+    container_name: gfin-app-prod
+    ports:
+      # O Nginx dentro do container roda na 80. Vamos mapear para a 8080 na sua máquina
+      # (Você pode mudar a porta da esquerda para a que preferir)
+      - "8080:80"
+    restart: unless-stopped
+    # Como as variáveis são injetadas no "build", não precisamos repassar no "environment"

@@ -37,6 +37,8 @@ export function PublicBooking() {
     clienteNome: '',
     clienteWhatsapp: ''
   })
+  const [error, setError] = useState<string | null>(null)
+  const [isFinishing, setIsFinishing] = useState(false)
 
   useEffect(() => {
     fetchEstab()
@@ -49,97 +51,138 @@ export function PublicBooking() {
   }, [selecionado.data, estab?.id])
 
   const fetchAgendamentosDoDia = async () => {
-    setCarregandoHorarios(true)
-    const { data } = await supabase
-      .from('agendamentos')
-      .select('hora:data_hora_inicio, membro_id')
-      .eq('estabelecimento_id', estab.id)
-      .gte('data_hora_inicio', `${selecionado.data}T00:00:00Z`)
-      .lte('data_hora_inicio', `${selecionado.data}T23:59:59Z`)
-      .neq('status', 'cancelado')
+    try {
+      setCarregandoHorarios(true)
+      setError(null)
+      
+      // Criar range de data local para evitar problemas de timezone
+      const startOfDay = `${selecionado.data}T00:00:00`
+      const endOfDay = `${selecionado.data}T23:59:59`
 
-    // Extrair apenas o HH:mm das strings ISO para facilitar a comparação
-    const formatados = (data || []).map(a => ({
-      hora: new Date(a.hora).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }),
-      membro_id: a.membro_id
-    }))
-    
-    setAgendamentosExistentes(formatados)
-    setCarregandoHorarios(false)
+      const { data, error: fetchError } = await supabase
+        .from('agendamentos')
+        .select('hora:data_hora_inicio, membro_id')
+        .eq('estabelecimento_id', estab.id)
+        .gte('data_hora_inicio', startOfDay)
+        .lte('data_hora_inicio', endOfDay)
+        .neq('status', 'cancelado')
+
+      if (fetchError) throw fetchError
+
+      // Extrair apenas o HH:mm das strings ISO para facilitar a comparação
+      const formatados = (data || []).map(a => ({
+        hora: new Date(a.hora).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }),
+        membro_id: a.membro_id
+      }))
+      
+      setAgendamentosExistentes(formatados)
+    } catch (err: any) {
+      console.error('Erro ao buscar agendamentos:', err)
+      // Não bloqueia o usuário, mas avisa no console
+    } finally {
+      setCarregandoHorarios(false)
+    }
   }
 
   const fetchEstab = async () => {
-    const { data, error } = await supabase.from('estabelecimentos').select('*').eq('slug', slug).single()
-    if (data) {
+    try {
+      setLoading(true)
+      setError(null)
+      const { data, error: fetchError } = await supabase
+        .from('estabelecimentos')
+        .select('*')
+        .eq('slug', slug)
+        .single()
+      
+      if (fetchError) throw fetchError
+      if (!data) throw new Error('Estabelecimento não encontrado.')
+
       setEstab(data)
-      fetchDados(data.id)
-    } else {
+      await fetchDados(data.id)
+    } catch (err: any) {
+      console.error('Erro ao carregar estabelecimento:', err)
+      setError(err.message || 'Erro ao carregar dados do salão.')
+    } finally {
       setLoading(false)
     }
   }
 
   const fetchDados = async (id: string) => {
-    const [servRes, profRes, horRes] = await Promise.all([
-      supabase.from('servicos_produtos').select('*').eq('estabelecimento_id', id).eq('tipo', 'receita').order('categoria'),
-      supabase.from('membros_equipe').select('*').eq('estabelecimento_id', id).eq('ativo', true),
-      supabase.from('horarios_funcionamento').select('*').eq('estabelecimento_id', id).eq('ativo', true)
-    ])
+    try {
+      const [servRes, profRes, horRes] = await Promise.all([
+        supabase.from('servicos_produtos').select('*').eq('estabelecimento_id', id).eq('tipo', 'receita').order('categoria'),
+        supabase.from('membros_equipe').select('*').eq('estabelecimento_id', id).eq('ativo', true),
+        supabase.from('horarios_funcionamento').select('*').eq('estabelecimento_id', id).eq('ativo', true)
+      ])
 
-    if (servRes.data) {
-      const grouped = servRes.data.reduce((acc: any, item: any) => {
-        const cat = item.categoria || 'Geral'
-        if (!acc[cat]) acc[cat] = []
-        acc[cat].push(item)
-        return acc
-      }, {})
-      setCategorias(Object.entries(grouped))
+      if (servRes.error) throw servRes.error
+      if (profRes.error) throw profRes.error
+
+      if (servRes.data) {
+        const grouped = servRes.data.reduce((acc: any, item: any) => {
+          const cat = item.categoria || 'Geral'
+          if (!acc[cat]) acc[cat] = []
+          acc[cat].push(item)
+          return acc
+        }, {})
+        setCategorias(Object.entries(grouped))
+      }
+      setProfissionais(profRes.data || [])
+      setHorariosFunc(horRes.data || [])
+    } catch (err: any) {
+      console.error('Erro ao buscar dados complementares:', err)
+      setError('Erro ao carregar serviços ou profissionais.')
     }
-    setProfissionais(profRes.data || [])
-    setHorariosFunc(horRes.data || [])
-    setLoading(false)
   }
 
   const handleFinish = async () => {
     if (!selecionado.clienteNome || !selecionado.clienteWhatsapp) return
     
-    const pad = (n: number) => n.toString().padStart(2, '0')
-    const [ano, mes, dia] = selecionado.data.split('-').map(Number)
-    const [h, m] = selecionado.hora.split(':').map(Number)
-    const dataHoraBrasil = `${ano}-${pad(mes)}-${pad(dia)}T${pad(h)}:${pad(m)}:00-03:00`
-    const dataInicio = new Date(dataHoraBrasil)
-    
-    const dataFim = new Date(dataInicio)
-    dataFim.setMinutes(dataFim.getMinutes() + (selecionado.servico.duracao_minutos || 30))
-
-    let profissionalId = selecionado.profissional?.id || null;
-
-    // Se escolheu "Qualquer", vamos atribuir automaticamente a um que esteja livre
-    if (!profissionalId) {
-      const ocupadosNesseHorario = agendamentosExistentes.filter(a => a.hora === selecionado.hora);
-      const idsOcupados = ocupadosNesseHorario.map(a => a.membro_id);
-      const disponiveis = profissionais.filter(p => !idsOcupados.includes(p.id));
+    try {
+      setIsFinishing(true)
+      const pad = (n: number) => n.toString().padStart(2, '0')
+      const [ano, mes, dia] = selecionado.data.split('-').map(Number)
+      const [h, m] = selecionado.hora.split(':').map(Number)
       
-      if (disponiveis.length > 0) {
-        // Pega o primeiro disponível (ou poderia ser sorteio)
-        profissionalId = disponiveis[0].id;
+      // Criar data local e converter para ISO
+      const dataInicio = new Date(ano, mes - 1, dia, h, m)
+      
+      const dataFim = new Date(dataInicio)
+      dataFim.setMinutes(dataFim.getMinutes() + (selecionado.servico.duracao_minutos || 30))
+
+      let profissionalId = selecionado.profissional?.id || null;
+
+      // Se escolheu "Qualquer", vamos atribuir automaticamente a um que esteja livre
+      if (!profissionalId && profissionais.length > 0) {
+        const ocupadosNesseHorario = agendamentosExistentes.filter(a => a.hora === selecionado.hora);
+        const idsOcupados = ocupadosNesseHorario.map(a => a.membro_id);
+        const disponiveis = profissionais.filter(p => !idsOcupados.includes(p.id));
+        
+        if (disponiveis.length > 0) {
+          profissionalId = disponiveis[0].id;
+        } else {
+          profissionalId = profissionais[0].id; // Fallback se algo deu errado na filtragem
+        }
       }
-    }
 
-    const { error } = await supabase.from('agendamentos').insert({
-      estabelecimento_id: estab.id,
-      membro_id: profissionalId,
-      servico_id: selecionado.servico.id,
-      cliente_nome: selecionado.clienteNome,
-      cliente_whatsapp: selecionado.clienteWhatsapp,
-      data_hora_inicio: dataInicio.toISOString(),
-      data_hora_fim: dataFim.toISOString(),
-      status: 'pendente'
-    })
+      const { error: insertError } = await supabase.from('agendamentos').insert({
+        estabelecimento_id: estab.id,
+        membro_id: profissionalId,
+        servico_id: selecionado.servico.id,
+        cliente_nome: selecionado.clienteNome,
+        cliente_whatsapp: selecionado.clienteWhatsapp,
+        data_hora_inicio: dataInicio.toISOString(),
+        data_hora_fim: dataFim.toISOString(),
+        status: 'pendente'
+      })
 
-    if (!error) {
+      if (insertError) throw insertError
       setStep(5)
-    } else {
-      alert('Erro ao agendar: ' + error.message)
+    } catch (err: any) {
+      console.error('Erro ao finalizar agendamento:', err)
+      alert('Erro ao agendar: ' + (err.message || 'Tente novamente.'))
+    } finally {
+      setIsFinishing(false)
     }
   }
 
@@ -149,10 +192,14 @@ export function PublicBooking() {
     </div>
   )
 
-  if (!estab) return (
+  if (error || !estab) return (
     <div className="min-h-screen bg-slate-950 flex flex-col items-center justify-center p-6 text-center">
-      <h2 className="text-white font-bold text-xl">Ops! Salão não encontrado.</h2>
-      <p className="text-slate-400 mt-2">Verifique o link e tente novamente.</p>
+      <div className="w-16 h-16 bg-red-500/10 rounded-full flex items-center justify-center text-red-500 mb-4">
+        <Scissors size={32} />
+      </div>
+      <h2 className="text-white font-bold text-xl">{error || 'Ops! Salão não encontrado.'}</h2>
+      <p className="text-slate-400 mt-2 max-w-xs">Não conseguimos carregar as informações necessárias para o agendamento.</p>
+      <button onClick={() => window.location.reload()} className="mt-6 bg-white/5 px-6 py-3 rounded-xl font-bold text-sm">Tentar Novamente</button>
     </div>
   )
 

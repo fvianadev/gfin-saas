@@ -1,0 +1,33 @@
+# ESTÁGIO 1: Build (Cria a versão estática)
+FROM node:20-alpine AS builder
+
+WORKDIR /app
+
+# Argumentos de ambiente necessários durante o build do Vite
+ARG VITE_SUPABASE_URL
+ARG VITE_SUPABASE_ANON_KEY
+ARG VITE_DEV_PASSWORD
+
+# Transforma os args em variáveis de ambiente para o comando de build ler
+ENV VITE_SUPABASE_URL=$VITE_SUPABASE_URL
+ENV VITE_SUPABASE_ANON_KEY=$VITE_SUPABASE_ANON_KEY
+ENV VITE_DEV_PASSWORD=$VITE_DEV_PASSWORD
+
+COPY package.json package-lock.json* ./
+RUN npm install
+
+COPY . .
+RUN npm run build 
+
+# ESTÁGIO 2: Servidor Web de Alta Performance
+FROM nginx:alpine
+
+# Copia os arquivos compilados (HTML/JS) da pasta dist
+COPY --from=builder /app/dist /usr/share/nginx/html
+
+# Copia a configuração do Nginx (para as rotas do React funcionarem)
+COPY nginx.conf /etc/nginx/conf.d/default.conf
+
+EXPOSE 80
+
+CMD ["nginx", "-g", "daemon off;"]
