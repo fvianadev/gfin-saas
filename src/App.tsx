@@ -241,7 +241,7 @@ function StaffLogin() {
         };
         const blob = new Blob([JSON.stringify(manifest)], { type: 'application/json' });
         const url = URL.createObjectURL(blob);
-        let link = document.querySelector('link[rel="manifest"]');
+        let link = document.querySelector('link[rel="manifest"]') as HTMLLinkElement | null;
         if (!link) {
           link = document.createElement('link');
           link.rel = 'manifest';
