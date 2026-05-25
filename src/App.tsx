@@ -4,6 +4,7 @@ import { supabase } from './lib/supabase'
 import { AdminDashboard } from './components/AdminDashboard'
 import { PublicBooking } from './components/PublicBooking'
 import { TransactionModal } from './components/TransactionModal'
+import { SuperAdminDashboard } from './components/SuperAdminDashboard'
 import { LayoutDashboard, LogOut, Scissors, TrendingUp, TrendingDown, Edit2, Trash2, ArrowLeft, History, ArrowUpRight, ArrowDownLeft, User, Lock, Star, Shield, Smartphone, Zap, ArrowRight, ShieldCheck, PieChart, Users, Settings, List, X } from 'lucide-react'
 import { formatCurrency } from './lib/format'
 
@@ -14,8 +15,9 @@ interface UserSession {
   nome: string
   estabelecimento_id: string
   estabelecimento_slug?: string
-  role: 'administrador' | 'usuario'
+  role: 'administrador' | 'usuario' | 'super_admin'
 }
+
 
 // --- COMPONENTE: ADMIN LOGIN (E-MAIL/SENHA) ---
 function AdminLogin({ onLogin }: { onLogin: (session: UserSession) => void }) {
@@ -28,9 +30,32 @@ function AdminLogin({ onLogin }: { onLogin: (session: UserSession) => void }) {
     e.preventDefault()
     setLoading(true)
     try {
+      // 1. Autenticar no Supabase Auth
       const { data: authData, error: authError } = await supabase.auth.signInWithPassword({ email, password: senha })
       if (authError) throw authError
-      
+
+      // 2. Verificar se é Super Admin do SaaS (ANTES de buscar estabelecimentos)
+      const { data: saasAdmin } = await supabase
+        .from('saas_admins')
+        .select('*')
+        .eq('id', authData.user.id)
+        .maybeSingle()
+
+      if (saasAdmin) {
+        // É Super Admin! Cria sessão com role especial e redireciona
+        const session: UserSession = {
+          id: authData.user.id,
+          membro_id: null,
+          nome: saasAdmin.email,
+          estabelecimento_id: '',
+          role: 'super_admin'
+        }
+        onLogin(session)
+        navigate('/super-admin')
+        return
+      }
+
+      // 3. É um dono de estabelecimento comum — fluxo original
       const { data: estabs, error: estabError } = await supabase
         .from('estabelecimentos')
         .select('*')
@@ -119,7 +144,15 @@ function LandingPage({ onLogin }: { onLogin: (session: UserSession) => void }) {
       // 2. Criar estabelecimento (política anon permite INSERT durante onboarding)
       const { data: estabData, error: estabError } = await supabase
         .from('estabelecimentos')
-        .insert({ nome: empresa, slug, email_dono: email, owner_id: userId })
+        .insert({
+          nome: empresa,
+          slug,
+          email_dono: email,
+          owner_id: userId,
+          trial_start: new Date().toISOString().split('T')[0],
+          trial_end: new Date(Date.now() + 14 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
+          trial_active: true,
+        })
         .select()
         .single()
 
@@ -467,8 +500,6 @@ function StaffDashboard() {
 
   return null
 }
-
-// --- APP PRINCIPAL COM ESTADO COMPARTILHADO ---
 export default function App() {
   const [admin, setAdmin] = useState<UserSession | null>(() => {
     const stored = localStorage.getItem('gfin_admin')
@@ -480,7 +511,8 @@ export default function App() {
     setAdmin(session)
   }
 
-  const logoutAdmin = () => {
+  const logoutAdmin = async () => {
+    await supabase.auth.signOut()
     localStorage.removeItem('gfin_admin')
     setAdmin(null)
   }
@@ -489,7 +521,8 @@ export default function App() {
     <Routes>
       <Route path="/" element={<LandingPage onLogin={handleLoginState} />} />
       <Route path="/login" element={<AdminLogin onLogin={handleLoginState} />} />
-      <Route path="/admin" element={admin ? <AdminDashboard onBack={logoutAdmin} estabelecimentoId={admin.estabelecimento_id} membroId={admin.membro_id || ''} cargo={admin.role} /> : <Navigate to="/login" />} />
+      <Route path="/admin" element={admin && admin.role !== 'super_admin' ? <AdminDashboard onBack={logoutAdmin} estabelecimentoId={admin.estabelecimento_id} membroId={admin.membro_id || ''} cargo={admin.role} /> : <Navigate to="/login" />} />
+      <Route path="/super-admin" element={admin?.role === 'super_admin' ? <SuperAdminDashboard onLogout={logoutAdmin} /> : <Navigate to="/login" />} />
       <Route path="/:slug" element={<Navigate to="login" replace />} />
       <Route path="/:slug/login" element={<StaffLogin />} />
       <Route path="/:slug/dashboard" element={<StaffDashboard />} />
@@ -497,4 +530,3 @@ export default function App() {
     </Routes>
   )
 }
- 

@@ -10,6 +10,7 @@ Crie um novo projeto no Supabase e siga a ordem de execução dos scripts no **S
 2.  **Módulo de Agendamento**: Execute o arquivo `supabase/migrations/20240513_add_scheduling_module.sql`.
 3.  **Segurança RLS (Hardening)**: Execute o arquivo `supabase/migrations/20240513_security_hardening.sql`.
 4.  **Correção de Permissões Staff**: Execute o arquivo `supabase/migrations/20240513_fix_staff_rls.sql`.
+5.  **Inicialização de Horários**: Execute o arquivo `supabase/migrations/20240513_initialize_opening_hours.sql`.
 
 > [!IMPORTANT]
 > Certifique-se de que as tabelas `estabelecimentos`, `membros_equipe`, `transacoes`, `servicos_produtos` e `agendamentos` foram criadas com o RLS habilitado e as permissões de Staff corrigidas.

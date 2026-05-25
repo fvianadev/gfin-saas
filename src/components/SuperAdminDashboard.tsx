@@ -101,7 +101,7 @@ function StatCard({ icon: Icon, label, value, sub, color = 'emerald' }: {
 }
 
 function Planobadge({ plano }: { plano: keyof typeof PLANO_CONFIG }) {
-  const cfg = PLANO_CONFIG[plano]
+  const cfg = PLANO_CONFIG[plano] || PLANO_CONFIG.gratis
   const Icon = cfg.icon
   return (
     <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-lg text-xs font-bold border ${cfg.bg} ${cfg.border} ${cfg.color}`}>
@@ -111,7 +111,7 @@ function Planobadge({ plano }: { plano: keyof typeof PLANO_CONFIG }) {
 }
 
 function StatusBadge({ status }: { status: keyof typeof STATUS_CONFIG }) {
-  const cfg = STATUS_CONFIG[status]
+  const cfg = STATUS_CONFIG[status] || STATUS_CONFIG.pendente
   const Icon = cfg.icon
   return (
     <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-lg text-xs font-bold border ${cfg.bg} ${cfg.border} ${cfg.color}`}>
@@ -232,7 +232,7 @@ function DashboardTab({ estabelecimentos, stats, loading }: {
                 <p className="text-xs text-slate-500 truncate">{e.email_dono}</p>
               </div>
               <div className="flex items-center gap-2 flex-shrink-0">
-                <Planobage plano={e.plano} />
+                <Planobadge plano={e.plano} />
                 <StatusBadge status={e.status_assinatura} />
               </div>
             </div>
@@ -342,7 +342,7 @@ function EstabelecimentosTab({ estabelecimentos, onUpdate, loading }: {
                   {new Date(e.created_at).toLocaleDateString('pt-BR')}
                 </div>
                 <div className="text-xs text-slate-400 mt-1">
-                  {e.trial_active ? `Trial: ${new Date(e.trial_start).toLocaleDateString('pt-BR')} – ${new Date(e.trial_end).toLocaleDateString('pt-BR')}` : 'No trial'}
+                  {e.trial_active && e.trial_start && e.trial_end ? `Trial: ${new Date(e.trial_start).toLocaleDateString('pt-BR')} – ${new Date(e.trial_end).toLocaleDateString('pt-BR')}` : 'No trial'}
                 </div>
               </div>
 
