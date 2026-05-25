@@ -35,11 +35,15 @@ function AdminLogin({ onLogin }: { onLogin: (session: UserSession) => void }) {
       if (authError) throw authError
 
       // 2. Verificar se é Super Admin do SaaS (ANTES de buscar estabelecimentos)
-      const { data: saasAdmin } = await supabase
+      const { data: saasAdmin, error: saasError } = await supabase
         .from('saas_admins')
         .select('*')
         .eq('id', authData.user.id)
         .maybeSingle()
+
+      if (saasError) {
+        console.error('Erro ao verificar saas_admins:', saasError)
+      }
 
       if (saasAdmin) {
         // É Super Admin! Cria sessão com role especial e redireciona

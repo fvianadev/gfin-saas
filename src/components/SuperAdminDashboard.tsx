@@ -409,6 +409,25 @@ function EstabelecimentosTab({ estabelecimentos, onUpdate, loading }: {
   )
 }
 
+function Field({ label, value, onChange, icon: Icon, placeholder, type = 'text' }: {
+  label: string, value: string, onChange: (val: string) => void, icon: any, placeholder?: string, type?: string
+}) {
+  return (
+    <div className="space-y-1.5">
+      <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest flex items-center gap-1.5">
+        <Icon size={10} className="text-emerald-500" /> {label}
+      </label>
+      <input
+        type={type}
+        value={value}
+        onChange={e => onChange(e.target.value)}
+        placeholder={placeholder}
+        className="w-full bg-slate-900/80 border border-white/5 rounded-xl px-4 py-3 text-sm text-white placeholder-slate-700 outline-none focus:border-emerald-500/50 transition-all"
+      />
+    </div>
+  )
+}
+
 function ConfiguracoesTab() {
   const [config, setConfig] = useState<SaasConfig | null>(null)
   const [form, setForm] = useState<Partial<SaasConfig>>({})
@@ -440,22 +459,7 @@ function ConfiguracoesTab() {
     fetchConfig()
   }
 
-  const Field = ({ label, field, icon: Icon, placeholder, type = 'text' }: {
-    label: string, field: keyof SaasConfig, icon: any, placeholder?: string, type?: string
-  }) => (
-    <div className="space-y-1.5">
-      <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest flex items-center gap-1.5">
-        <Icon size={10} className="text-emerald-500" /> {label}
-      </label>
-      <input
-        type={type}
-        value={(form[field] as string) || ''}
-        onChange={e => setForm(prev => ({ ...prev, [field]: e.target.value }))}
-        placeholder={placeholder}
-        className="w-full bg-slate-900/80 border border-white/5 rounded-xl px-4 py-3 text-sm text-white placeholder-slate-700 outline-none focus:border-emerald-500/50 transition-all"
-      />
-    </div>
-  )
+  // Field component extraído para fora para evitar re-render/perda de foco
 
   if (loading) return (
     <div className="flex items-center justify-center h-40">
@@ -472,8 +476,8 @@ function ConfiguracoesTab() {
           <span className="text-xs text-slate-600">— configurações públicas do site</span>
         </div>
 
-        <Field label="Título Principal (Hero)" field="titulo_hero" icon={Star} placeholder="Ex: GFin SaaS" />
-        <Field label="Subtítulo (Hero)" field="subtitulo_hero" icon={Activity} placeholder="Ex: Gestão financeira para sua barbearia." />
+        <Field label="Título Principal (Hero)" value={(form.titulo_hero as string) || ''} onChange={val => setForm(prev => ({ ...prev, titulo_hero: val }))} icon={Star} placeholder="Ex: GFin SaaS" />
+        <Field label="Subtítulo (Hero)" value={(form.subtitulo_hero as string) || ''} onChange={val => setForm(prev => ({ ...prev, subtitulo_hero: val }))} icon={Activity} placeholder="Ex: Gestão financeira para sua barbearia." />
       </div>
 
       <div className="rounded-2xl border border-white/5 bg-slate-900/50 p-5 space-y-5">
@@ -482,9 +486,9 @@ function ConfiguracoesTab() {
           <p className="font-bold text-white">Contatos</p>
         </div>
 
-        <Field label="E-mail de Contato" field="email_contato" icon={Mail} placeholder="contato@seudominio.com" type="email" />
-        <Field label="WhatsApp de Contato" field="whatsapp_contato" icon={Phone} placeholder="5511999999999" />
-        <Field label="URL do Instagram" field="instagram_url" icon={Instagram} placeholder="https://instagram.com/seu_perfil" />
+        <Field label="E-mail de Contato" value={(form.email_contato as string) || ''} onChange={val => setForm(prev => ({ ...prev, email_contato: val }))} icon={Mail} placeholder="contato@seudominio.com" type="email" />
+        <Field label="WhatsApp de Contato" value={(form.whatsapp_contato as string) || ''} onChange={val => setForm(prev => ({ ...prev, whatsapp_contato: val }))} icon={Phone} placeholder="5511999999999" />
+        <Field label="URL do Instagram" value={(form.instagram_url as string) || ''} onChange={val => setForm(prev => ({ ...prev, instagram_url: val }))} icon={Instagram} placeholder="https://instagram.com/seu_perfil" />
       </div>
 
       <button
