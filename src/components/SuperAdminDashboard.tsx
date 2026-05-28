@@ -5,7 +5,8 @@ import {
   LayoutDashboard, Users, Store, Settings, LogOut, TrendingUp, TrendingDown,
   Shield, Search, ChevronDown, X, CheckCircle, Clock, AlertCircle,
   Edit3, Save, RefreshCw, ExternalLink, Crown, Zap, Star,
-  Phone, Mail, Instagram, Globe, BarChart2, Activity, Package
+  Phone, Mail, Instagram, Globe, BarChart2, Activity, Package,
+  DollarSign, MessageCircle, CalendarDays, CreditCard, Banknote, ArrowRight, History
 } from 'lucide-react'
 import {
   AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, BarChart, Bar
@@ -40,6 +41,18 @@ interface SaasConfig {
   updated_at: string
 }
 
+interface SaasPagamento {
+  id: string
+  estabelecimento_id: string
+  valor: number
+  referencia: string
+  metodo_pagamento: 'manual' | 'pix' | 'dinheiro' | 'cartao'
+  status: 'pago' | 'pendente' | 'cancelado'
+  observacoes: string | null
+  pago_em: string
+  criado_em: string
+}
+
 interface Stats {
   totalEstabs: number
   estabsAtivos: number
@@ -50,7 +63,7 @@ interface Stats {
   totalReceita: number
 }
 
-type Tab = 'dashboard' | 'estabelecimentos' | 'configuracoes'
+type Tab = 'dashboard' | 'estabelecimentos' | 'faturamento' | 'configuracoes'
 
 // ========================
 // PLANO CONFIG
@@ -504,6 +517,352 @@ function ConfiguracoesTab() {
 }
 
 // ========================
+// FATURAMENTO TAB
+// ========================
+function FaturamentoTab({ estabelecimentos, whatsappAdmin }: {
+  estabelecimentos: Estabelecimento[]
+  whatsappAdmin: string
+}) {
+  const [pagamentos, setPagamentos] = useState<SaasPagamento[]>([])
+  const [loadingPag, setLoadingPag] = useState(true)
+  const [confirmModal, setConfirmModal] = useState<Estabelecimento | null>(null)
+  const [goFaturamento, setGoFaturamento] = useState<boolean | null>(null)
+  const [form, setForm] = useState({ valor: '49,90', referencia: '', metodo: 'pix' as const, observacoes: '' })
+  const [saving, setSaving] = useState(false)
+  const [saved, setSaved] = useState<string | null>(null)
+  const [selectedEstab, setSelectedEstab] = useState<string | null>(null)
+
+  const currentMonth = new Date().toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' })
+
+  useEffect(() => {
+    setForm(prev => ({ ...prev, referencia: currentMonth.charAt(0).toUpperCase() + currentMonth.slice(1) }))
+    fetchPagamentos()
+  }, [])
+
+  const fetchPagamentos = async () => {
+    setLoadingPag(true)
+    const { data } = await supabase
+      .from('saas_pagamentos')
+      .select('*')
+      .order('criado_em', { ascending: false })
+    setPagamentos(data || [])
+    setLoadingPag(false)
+  }
+
+  const getUltimoPagamento = (estabId: string) =>
+    pagamentos.filter(p => p.estabelecimento_id === estabId && p.status === 'pago')
+      .sort((a, b) => new Date(b.pago_em).getTime() - new Date(a.pago_em).getTime())[0]
+
+  const getStatus = (estab: Estabelecimento) => {
+    const ultimo = getUltimoPagamento(estab.id)
+    if (!ultimo) return 'sem_pagamento'
+    const diasPassados = Math.floor((Date.now() - new Date(ultimo.pago_em).getTime()) / 86400000)
+    if (diasPassados > 35) return 'inadimplente'
+    if (diasPassados > 25) return 'vencendo'
+    return 'em_dia'
+  }
+
+  const STATUS_PAG = {
+    em_dia: { label: 'Em dia', color: 'text-emerald-400', bg: 'bg-emerald-900/20', border: 'border-emerald-700/30' },
+    vencendo: { label: 'Vencendo', color: 'text-amber-400', bg: 'bg-amber-900/20', border: 'border-amber-700/30' },
+    inadimplente: { label: 'Inadimplente', color: 'text-rose-400', bg: 'bg-rose-900/20', border: 'border-rose-700/30' },
+    sem_pagamento: { label: 'Nunca pagou', color: 'text-slate-400', bg: 'bg-slate-800/40', border: 'border-slate-700/30' },
+  }
+
+  const buildWhatsApp = (estab: Estabelecimento) => {
+    const msg = encodeURIComponent(
+      `Olá! 👋 Aqui é o suporte do GFin SaaS.\n\n` +
+      `Notamos que a assinatura da *${estab.nome}* está pendente.\n\n` +
+      `Para continuar usando todos os recursos do sistema sem interrupção, por favor realize o pagamento.\n\n` +
+      `📲 PIX ou entre em contato para mais detalhes.\n\n` +
+      `Qualquer dúvida, estamos à disposição! 😊`
+    )
+    return `https://wa.me/${estab.email_dono.replace(/\D/g, '')}?text=${msg}`
+  }
+
+  const handleConfirmar = async () => {
+    if (!confirmModal) return
+    setSaving(true)
+    const valor = parseFloat(form.valor.replace(',', '.'))
+    const { error } = await supabase.from('saas_pagamentos').insert({
+      estabelecimento_id: confirmModal.id,
+      valor,
+      referencia: form.referencia,
+      metodo_pagamento: form.metodo,
+      observacoes: form.observacoes || null,
+      status: 'pago',
+    })
+    if (!error) {
+      // Atualizar status do estabelecimento
+      await supabase.from('estabelecimentos').update({
+        status_assinatura: 'ativo',
+        data_ultimo_pagamento: new Date().toISOString().split('T')[0],
+      }).eq('id', confirmModal.id)
+      setSaved(confirmModal.id)
+      fetchPagamentos()
+    }
+    setSaving(false)
+    // Pergunta sobre redirecionar ao faturamento
+    setGoFaturamento(true)
+  }
+
+  const METODOS = [
+    { value: 'pix', label: 'PIX', icon: <CreditCard size={14}/> },
+    { value: 'dinheiro', label: 'Dinheiro', icon: <Banknote size={14}/> },
+    { value: 'cartao', label: 'Cartão', icon: <CreditCard size={14}/> },
+    { value: 'manual', label: 'Outro', icon: <DollarSign size={14}/> },
+  ]
+
+  const estabsView = selectedEstab
+    ? pagamentos.filter(p => p.estabelecimento_id === selectedEstab)
+    : []
+
+  const estabSelected = selectedEstab
+    ? estabelecimentos.find(e => e.id === selectedEstab)
+    : null
+
+  return (
+    <div className="space-y-6">
+      {/* HEADER STATS */}
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+        {[
+          { label: 'Em dia', value: estabelecimentos.filter(e => getStatus(e) === 'em_dia').length, color: 'text-emerald-400' },
+          { label: 'Vencendo', value: estabelecimentos.filter(e => getStatus(e) === 'vencendo').length, color: 'text-amber-400' },
+          { label: 'Inadimplentes', value: estabelecimentos.filter(e => getStatus(e) === 'inadimplente').length, color: 'text-rose-400' },
+          { label: 'Sem pagamento', value: estabelecimentos.filter(e => getStatus(e) === 'sem_pagamento').length, color: 'text-slate-400' },
+        ].map((s, i) => (
+          <div key={i} className="rounded-2xl border border-white/5 bg-slate-900/50 p-4 text-center">
+            <p className="text-xs font-bold uppercase tracking-widest text-slate-500 mb-1">{s.label}</p>
+            <p className={`text-3xl font-black ${s.color}`}>{s.value}</p>
+          </div>
+        ))}
+      </div>
+
+      {/* LISTA DE ESTABELECIMENTOS */}
+      <div className="rounded-2xl border border-white/5 bg-slate-900/50 overflow-hidden">
+        <div className="p-4 border-b border-white/5">
+          <p className="text-xs font-bold uppercase tracking-widest text-slate-500">Status de Assinatura por Estabelecimento</p>
+        </div>
+        <div className="divide-y divide-white/5">
+          {estabelecimentos.map(estab => {
+            const statusKey = getStatus(estab)
+            const statusCfg = STATUS_PAG[statusKey]
+            const ultimo = getUltimoPagamento(estab.id)
+            return (
+              <div key={estab.id} className="flex items-center gap-3 p-4 hover:bg-white/2 transition-all">
+                <div className="w-9 h-9 rounded-xl bg-emerald-900/40 border border-emerald-700/30 flex items-center justify-center text-sm font-black text-emerald-400 flex-shrink-0">
+                  {estab.nome.charAt(0)}
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-bold text-white truncate">{estab.nome}</p>
+                  <p className="text-xs text-slate-500 truncate">
+                    {ultimo ? `Último pag: ${new Date(ultimo.pago_em).toLocaleDateString('pt-BR')} — ${ultimo.referencia}` : 'Sem pagamentos registrados'}
+                  </p>
+                </div>
+                <div className="flex items-center gap-2 flex-shrink-0">
+                  <span className={`hidden sm:inline-flex items-center gap-1 px-2 py-0.5 rounded-lg text-xs font-bold border ${statusCfg.bg} ${statusCfg.border} ${statusCfg.color}`}>
+                    {statusCfg.label}
+                  </span>
+                  {/* Botão histórico */}
+                  <button
+                    onClick={() => setSelectedEstab(selectedEstab === estab.id ? null : estab.id)}
+                    className="p-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-400 hover:text-white transition-all"
+                    title="Ver histórico"
+                  >
+                    <History size={13}/>
+                  </button>
+                  {/* Botão cobrar por WhatsApp */}
+                  <a
+                    href={`https://wa.me/?text=${encodeURIComponent(
+                      `Olá! 👋 A assinatura do ${estab.nome} está pendente. Por favor regularize para continuar usando o GFin SaaS.`
+                    )}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="p-1.5 rounded-lg bg-emerald-900/30 hover:bg-emerald-800/50 text-emerald-400 border border-emerald-700/30 transition-all"
+                    title="Disparar cobrança no WhatsApp"
+                  >
+                    <MessageCircle size={13}/>
+                  </a>
+                  {/* Botão confirmar pagamento */}
+                  <button
+                    onClick={() => { setConfirmModal(estab); setGoFaturamento(null); setSaved(null) }}
+                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 border border-emerald-500/20 transition-all"
+                  >
+                    <DollarSign size={12}/> Pago
+                  </button>
+                </div>
+              </div>
+            )
+          })}
+        </div>
+      </div>
+
+      {/* HISTÓRICO DO ESTABELECIMENTO SELECIONADO */}
+      {selectedEstab && estabSelected && (
+        <div className="rounded-2xl border border-white/5 bg-slate-900/50 overflow-hidden">
+          <div className="p-4 border-b border-white/5 flex items-center justify-between">
+            <div>
+              <p className="text-sm font-bold text-white">{estabSelected.nome}</p>
+              <p className="text-xs font-bold uppercase tracking-widest text-slate-500">Histórico de Pagamentos</p>
+            </div>
+            <button onClick={() => setSelectedEstab(null)} className="text-slate-500 hover:text-white">
+              <X size={16}/>
+            </button>
+          </div>
+          {loadingPag ? (
+            <div className="p-8 text-center"><div className="w-6 h-6 border-2 border-emerald-500 border-t-transparent rounded-full animate-spin mx-auto" /></div>
+          ) : estabsView.length === 0 ? (
+            <div className="p-8 text-center text-slate-600 text-sm">Nenhum pagamento registrado.</div>
+          ) : (
+            <div className="divide-y divide-white/5">
+              {estabsView.map(p => (
+                <div key={p.id} className="flex items-center gap-3 px-4 py-3">
+                  <div className="w-8 h-8 rounded-lg bg-emerald-900/20 flex items-center justify-center text-emerald-400">
+                    <DollarSign size={14}/>
+                  </div>
+                  <div className="flex-1">
+                    <p className="text-sm font-bold text-white">{p.referencia}</p>
+                    <p className="text-xs text-slate-500">{p.metodo_pagamento.toUpperCase()} • {new Date(p.pago_em).toLocaleDateString('pt-BR')}</p>
+                  </div>
+                  <p className="text-emerald-400 font-bold text-sm">{formatCurrency(p.valor)}</p>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* MODAL: CONFIRMAR PAGAMENTO */}
+      {confirmModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm">
+          <div className="bg-slate-900 border border-white/10 rounded-2xl w-full max-w-md shadow-2xl">
+
+            {/* Etapa 1: Preencher dados */}
+            {goFaturamento === null && (
+              <>
+                <div className="p-5 border-b border-white/5 flex items-center justify-between">
+                  <div>
+                    <p className="font-bold text-white">Confirmar Recebimento</p>
+                    <p className="text-xs text-slate-500 truncate max-w-xs">{confirmModal.nome}</p>
+                  </div>
+                  <button onClick={() => setConfirmModal(null)} className="text-slate-500 hover:text-white"><X size={18}/></button>
+                </div>
+                <div className="p-5 space-y-4">
+                  {/* Valor */}
+                  <div className="space-y-1.5">
+                    <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Valor Recebido (R$)</label>
+                    <input
+                      type="text"
+                      value={form.valor}
+                      onChange={e => setForm(p => ({ ...p, valor: e.target.value }))}
+                      className="w-full bg-slate-800 border border-white/5 rounded-xl px-4 py-3 text-white outline-none focus:border-emerald-500/50 text-sm"
+                      placeholder="49,90"
+                    />
+                  </div>
+                  {/* Referência */}
+                  <div className="space-y-1.5">
+                    <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Referência (mês/período)</label>
+                    <input
+                      type="text"
+                      value={form.referencia}
+                      onChange={e => setForm(p => ({ ...p, referencia: e.target.value }))}
+                      className="w-full bg-slate-800 border border-white/5 rounded-xl px-4 py-3 text-white outline-none focus:border-emerald-500/50 text-sm"
+                      placeholder="Junho/2026"
+                    />
+                  </div>
+                  {/* Método */}
+                  <div className="space-y-1.5">
+                    <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Forma de Pagamento</label>
+                    <div className="grid grid-cols-4 gap-2">
+                      {METODOS.map(m => (
+                        <button
+                          key={m.value}
+                          onClick={() => setForm(p => ({ ...p, metodo: m.value as any }))}
+                          className={`flex flex-col items-center gap-1 py-2 px-1 rounded-xl text-xs font-bold border transition-all ${
+                            form.metodo === m.value
+                              ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-400'
+                              : 'bg-slate-800 border-white/5 text-slate-500 hover:text-slate-300'
+                          }`}
+                        >
+                          {m.icon} {m.label}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                  {/* Observações */}
+                  <div className="space-y-1.5">
+                    <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Observações (opcional)</label>
+                    <input
+                      type="text"
+                      value={form.observacoes}
+                      onChange={e => setForm(p => ({ ...p, observacoes: e.target.value }))}
+                      className="w-full bg-slate-800 border border-white/5 rounded-xl px-4 py-3 text-white outline-none focus:border-emerald-500/50 text-sm"
+                      placeholder="Ex: Pago via PIX Viana"
+                    />
+                  </div>
+                </div>
+                <div className="p-5 border-t border-white/5 flex gap-3">
+                  <button
+                    onClick={() => setConfirmModal(null)}
+                    className="flex-1 py-3 rounded-xl text-sm font-bold text-slate-400 bg-slate-800 hover:bg-slate-700 transition-all"
+                  >
+                    Cancelar
+                  </button>
+                  <button
+                    onClick={handleConfirmar}
+                    disabled={saving || !form.valor || !form.referencia}
+                    className="flex-1 py-3 rounded-xl text-sm font-bold text-white bg-emerald-500 hover:bg-emerald-400 disabled:opacity-50 transition-all flex items-center justify-center gap-2"
+                  >
+                    {saving ? <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" /> : <CheckCircle size={14}/>}
+                    Confirmar Pago
+                  </button>
+                </div>
+              </>
+            )}
+
+            {/* Etapa 2: Pergunta pós-confirmação */}
+            {goFaturamento === true && (
+              <>
+                <div className="p-6 text-center space-y-4">
+                  <div className="w-14 h-14 rounded-full bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center mx-auto">
+                    <CheckCircle size={28} className="text-emerald-400"/>
+                  </div>
+                  <div>
+                    <p className="font-bold text-white text-lg">Pagamento registrado!</p>
+                    <p className="text-slate-400 text-sm mt-1">
+                      <span className="font-bold text-emerald-400">{confirmModal?.nome}</span> teve a assinatura renovada.
+                    </p>
+                  </div>
+                  <p className="text-slate-500 text-sm">Deseja ver o histórico de faturamento deste estabelecimento?</p>
+                </div>
+                <div className="p-5 border-t border-white/5 flex gap-3">
+                  <button
+                    onClick={() => { setConfirmModal(null); setGoFaturamento(null) }}
+                    className="flex-1 py-3 rounded-xl text-sm font-bold text-slate-400 bg-slate-800 hover:bg-slate-700 transition-all"
+                  >
+                    Não, fechar
+                  </button>
+                  <button
+                    onClick={() => {
+                      setSelectedEstab(confirmModal?.id || null)
+                      setConfirmModal(null)
+                      setGoFaturamento(null)
+                    }}
+                    className="flex-1 py-3 rounded-xl text-sm font-bold text-white bg-emerald-500 hover:bg-emerald-400 transition-all flex items-center justify-center gap-2"
+                  >
+                    Ver Faturamento <ArrowRight size={14}/>
+                  </button>
+                </div>
+              </>
+            )}
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}
+
+// ========================
 // MAIN COMPONENT
 // ========================
 export function SuperAdminDashboard({ onLogout }: { onLogout: () => void }) {
@@ -550,6 +909,7 @@ export function SuperAdminDashboard({ onLogout }: { onLogout: () => void }) {
   const TABS: { id: Tab, label: string, icon: any }[] = [
     { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
     { id: 'estabelecimentos', label: 'Estabelecimentos', icon: Store },
+    { id: 'faturamento', label: 'Faturamento', icon: DollarSign },
     { id: 'configuracoes', label: 'Configurações', icon: Settings },
   ]
 
@@ -675,6 +1035,9 @@ export function SuperAdminDashboard({ onLogout }: { onLogout: () => void }) {
         )}
         {activeTab === 'estabelecimentos' && (
           <EstabelecimentosTab estabelecimentos={estabelecimentos} onUpdate={fetchData} loading={loading} />
+        )}
+        {activeTab === 'faturamento' && (
+          <FaturamentoTab estabelecimentos={estabelecimentos} whatsappAdmin="" />
         )}
         {activeTab === 'configuracoes' && <ConfiguracoesTab />}
       </main>
