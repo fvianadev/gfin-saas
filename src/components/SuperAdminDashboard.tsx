@@ -61,6 +61,7 @@ interface Stats {
   totalStaff: number
   totalTransacoes: number
   totalReceita: number
+  realSaasReceita: number
 }
 
 type Tab = 'dashboard' | 'estabelecimentos' | 'faturamento' | 'configuracoes'
@@ -69,9 +70,9 @@ type Tab = 'dashboard' | 'estabelecimentos' | 'faturamento' | 'configuracoes'
 // PLANO CONFIG
 // ========================
 const PLANO_CONFIG = {
-  gratis: { label: 'Grátis', icon: Package, color: 'text-slate-400', bg: 'bg-slate-800/60', border: 'border-slate-700/50' },
-  pro: { label: 'Pro', icon: Zap, color: 'text-emerald-400', bg: 'bg-emerald-900/30', border: 'border-emerald-700/50' },
-  premium: { label: 'Premium', icon: Crown, color: 'text-amber-400', bg: 'bg-amber-900/30', border: 'border-amber-700/50' },
+  gratis: { label: 'Grátis (Teste)', icon: Package, color: 'text-slate-400', bg: 'bg-slate-800/60', border: 'border-slate-700/50' },
+  pro: { label: 'Pro (Assinante)', icon: Zap, color: 'text-emerald-400', bg: 'bg-emerald-900/30', border: 'border-emerald-700/50' },
+  premium: { label: 'Pro (Assinante)', icon: Zap, color: 'text-emerald-400', bg: 'bg-emerald-900/30', border: 'border-emerald-700/50' },
 }
 
 const STATUS_CONFIG = {
@@ -80,7 +81,7 @@ const STATUS_CONFIG = {
   inativo: { label: 'Inativo', icon: AlertCircle, color: 'text-rose-400', bg: 'bg-rose-900/20', border: 'border-rose-700/30' },
 }
 
-const PIE_COLORS = ['#64748b', '#10b981', '#f59e0b']
+const PIE_COLORS = ['#64748b', '#10b981']
 
 // ========================
 // SUB-COMPONENTS
@@ -141,9 +142,8 @@ function DashboardTab({ estabelecimentos, stats, loading }: {
   estabelecimentos: Estabelecimento[], stats: Stats, loading: boolean
 }) {
   const planosData = [
-    { name: 'Grátis', value: estabelecimentos.filter(e => e.plano === 'gratis').length },
-    { name: 'Pro', value: estabelecimentos.filter(e => e.plano === 'pro').length },
-    { name: 'Premium', value: estabelecimentos.filter(e => e.plano === 'premium').length },
+    { name: 'Grátis (Teste)', value: estabelecimentos.filter(e => e.plano === 'gratis').length },
+    { name: 'Pro (Assinante)', value: estabelecimentos.filter(e => e.plano === 'pro' || e.plano === 'premium').length },
   ]
 
   const cadastrosRecentes = estabelecimentos
@@ -174,9 +174,9 @@ function DashboardTab({ estabelecimentos, stats, loading }: {
       {/* STAT CARDS */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
         <StatCard icon={Store} label="Total Tenants" value={stats.totalEstabs} sub={`${stats.estabsAtivos} ativos`} color="emerald" />
-        <StatCard icon={Crown} label="Premium + Pro" value={stats.estabsPremium + stats.estabsPro} sub="planos pagos" color="amber" />
+        <StatCard icon={Crown} label="Assinantes Pro" value={stats.estabsPremium + stats.estabsPro} sub="planos ativos" color="amber" />
         <StatCard icon={Users} label="Total Staff" value={stats.totalStaff} sub="colaboradores" color="violet" />
-        <StatCard icon={TrendingUp} label="Receita SaaS" value={`R$ ${((stats.estabsPro * 49) + (stats.estabsPremium * 99)).toFixed(2).replace('.', ',')}`} sub="estimativa mensal" color="blue" />
+        <StatCard icon={TrendingUp} label="Receita SaaS Real" value={`R$ ${stats.realSaasReceita.toFixed(2).replace('.', ',')}`} sub={`Estimativa mensal: R$ ${((stats.estabsPro + stats.estabsPremium) * 49.90).toFixed(2).replace('.', ',')}`} color="blue" />
       </div>
 
       {/* CHARTS */}
@@ -302,9 +302,8 @@ function EstabelecimentosTab({ estabelecimentos, onUpdate, loading }: {
           className="bg-slate-900/80 border border-white/5 rounded-xl px-4 py-3 text-sm text-white outline-none focus:border-emerald-500/50 transition-all"
         >
           <option value="todos">Todos os planos</option>
-          <option value="gratis">Grátis</option>
-          <option value="pro">Pro</option>
-          <option value="premium">Premium</option>
+          <option value="gratis">Grátis (Teste)</option>
+          <option value="pro">Pro (Assinante)</option>
         </select>
         <select
           value={filterStatus}
@@ -355,7 +354,23 @@ function EstabelecimentosTab({ estabelecimentos, onUpdate, loading }: {
                   {new Date(e.created_at).toLocaleDateString('pt-BR')}
                 </div>
                 <div className="text-xs text-slate-400 mt-1">
-                  {e.trial_active && e.trial_start && e.trial_end ? `Trial: ${new Date(e.trial_start).toLocaleDateString('pt-BR')} – ${new Date(e.trial_end).toLocaleDateString('pt-BR')}` : 'No trial'}
+                  {e.plano === 'gratis' && e.trial_start && e.trial_end ? (
+                    // Plano Grátis: mostra período de trial
+                    // Usa split para evitar bug de fuso horário do toLocaleDateString com strings ISO
+                    (() => {
+                      const [sy, sm, sd] = e.trial_start.split('-')
+                      const [ey, em, ed] = e.trial_end.split('-')
+                      const start = `${sd}/${sm}/${sy}`
+                      const end = `${ed}/${em}/${ey}`
+                      return `Trial: ${start} – ${end}`
+                    })()
+                  ) : e.plano === 'pro' || e.plano === 'premium' ? (
+                    // Plano Pro: mostra próxima cobrança
+                    e.data_proxima_cobranca ? (() => {
+                      const [y, m, d] = e.data_proxima_cobranca.split('-')
+                      return `Próx. cobrança: ${d}/${m}/${y}`
+                    })() : 'Cobrança: não definida'
+                  ) : null}
                 </div>
               </div>
 
@@ -365,7 +380,7 @@ function EstabelecimentosTab({ estabelecimentos, onUpdate, loading }: {
                 <div className="flex items-center gap-1.5">
                   <span className="text-xs text-slate-600 font-bold uppercase tracking-wider">Plano:</span>
                   <div className="flex gap-1">
-                    {(['gratis', 'pro', 'premium'] as const).map(p => {
+                    {(['gratis', 'pro'] as const).map(p => {
                       const cfg = PLANO_CONFIG[p]
                       const active = e.plano === p
                       return (
@@ -519,9 +534,10 @@ function ConfiguracoesTab() {
 // ========================
 // FATURAMENTO TAB
 // ========================
-function FaturamentoTab({ estabelecimentos, whatsappAdmin }: {
+function FaturamentoTab({ estabelecimentos, whatsappAdmin, onUpdate }: {
   estabelecimentos: Estabelecimento[]
   whatsappAdmin: string
+  onUpdate?: () => void
 }) {
   const [pagamentos, setPagamentos] = useState<SaasPagamento[]>([])
   const [loadingPag, setLoadingPag] = useState(true)
@@ -577,7 +593,18 @@ function FaturamentoTab({ estabelecimentos, whatsappAdmin }: {
       `📲 PIX ou entre em contato para mais detalhes.\n\n` +
       `Qualquer dúvida, estamos à disposição! 😊`
     )
-    return `https://wa.me/${estab.email_dono.replace(/\D/g, '')}?text=${msg}`
+    
+    // Obter número da coluna configuracoes.whatsapp
+    const rawWhatsapp = estab.configuracoes?.whatsapp || ''
+    const digits = rawWhatsapp.replace(/\D/g, '')
+    
+    // Se o número tiver 10 ou 11 dígitos (padrão Brasil) e não começar com o DDI 55, adiciona 55
+    let cleanNumber = digits
+    if ((digits.length === 10 || digits.length === 11) && !digits.startsWith('55')) {
+      cleanNumber = '55' + digits
+    }
+    
+    return `https://wa.me/${cleanNumber}?text=${msg}`
   }
 
   const handleConfirmar = async () => {
@@ -593,13 +620,22 @@ function FaturamentoTab({ estabelecimentos, whatsappAdmin }: {
       status: 'pago',
     })
     if (!error) {
+      const hoje = new Date()
+      const dataUltimo = hoje.toISOString().split('T')[0]
+      
+      // Próxima cobrança daqui a 30 dias
+      const proximaCobranca = new Date(hoje.getTime() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]
+
       // Atualizar status do estabelecimento
       await supabase.from('estabelecimentos').update({
+        plano: 'pro',
         status_assinatura: 'ativo',
-        data_ultimo_pagamento: new Date().toISOString().split('T')[0],
+        data_ultimo_pagamento: dataUltimo,
+        data_proxima_cobranca: proximaCobranca,
       }).eq('id', confirmModal.id)
       setSaved(confirmModal.id)
       fetchPagamentos()
+      onUpdate?.()
     }
     setSaving(false)
     // Pergunta sobre redirecionar ao faturamento
@@ -673,9 +709,7 @@ function FaturamentoTab({ estabelecimentos, whatsappAdmin }: {
                   </button>
                   {/* Botão cobrar por WhatsApp */}
                   <a
-                    href={`https://wa.me/?text=${encodeURIComponent(
-                      `Olá! 👋 A assinatura do ${estab.nome} está pendente. Por favor regularize para continuar usando o GFin SaaS.`
-                    )}`}
+                    href={buildWhatsApp(estab)}
                     target="_blank"
                     rel="noopener noreferrer"
                     className="p-1.5 rounded-lg bg-emerald-900/30 hover:bg-emerald-800/50 text-emerald-400 border border-emerald-700/30 transition-all"
@@ -868,17 +902,18 @@ function FaturamentoTab({ estabelecimentos, whatsappAdmin }: {
 export function SuperAdminDashboard({ onLogout }: { onLogout: () => void }) {
   const [activeTab, setActiveTab] = useState<Tab>('dashboard')
   const [estabelecimentos, setEstabelecimentos] = useState<Estabelecimento[]>([])
-  const [stats, setStats] = useState<Stats>({ totalEstabs: 0, estabsAtivos: 0, estabsPro: 0, estabsPremium: 0, totalStaff: 0, totalTransacoes: 0, totalReceita: 0 })
+  const [stats, setStats] = useState<Stats>({ totalEstabs: 0, estabsAtivos: 0, estabsPro: 0, estabsPremium: 0, totalStaff: 0, totalTransacoes: 0, totalReceita: 0, realSaasReceita: 0 })
   const [loading, setLoading] = useState(true)
   const [sidebarOpen, setSidebarOpen] = useState(false)
 
   const fetchData = async () => {
     setLoading(true)
     try {
-      const [estabRes, staffRes, transRes] = await Promise.all([
+      const [estabRes, staffRes, transRes, saasPagRes] = await Promise.all([
         supabase.from('estabelecimentos').select('*').order('created_at', { ascending: false }),
         supabase.from('membros_equipe').select('id', { count: 'exact', head: true }),
         supabase.from('transacoes').select('valor, tipo').eq('excluido', false),
+        supabase.from('saas_pagamentos').select('valor').eq('status', 'pago'),
       ])
 
       const estabs: Estabelecimento[] = estabRes.data || []
@@ -888,6 +923,9 @@ export function SuperAdminDashboard({ onLogout }: { onLogout: () => void }) {
         .filter(t => t.tipo === 'receita')
         .reduce((acc, t) => acc + Number(t.valor), 0)
 
+      const realSaasReceita = (saasPagRes.data || [])
+        .reduce((acc, p) => acc + Number(p.valor), 0)
+
       setStats({
         totalEstabs: estabs.length,
         estabsAtivos: estabs.filter(e => e.status_assinatura === 'ativo').length,
@@ -896,6 +934,7 @@ export function SuperAdminDashboard({ onLogout }: { onLogout: () => void }) {
         totalStaff: staffRes.count || 0,
         totalTransacoes: transRes.data?.length || 0,
         totalReceita,
+        realSaasReceita,
       })
     } catch (err) {
       console.error('Erro ao buscar dados do Super Admin:', err)
@@ -1037,7 +1076,7 @@ export function SuperAdminDashboard({ onLogout }: { onLogout: () => void }) {
           <EstabelecimentosTab estabelecimentos={estabelecimentos} onUpdate={fetchData} loading={loading} />
         )}
         {activeTab === 'faturamento' && (
-          <FaturamentoTab estabelecimentos={estabelecimentos} whatsappAdmin="" />
+          <FaturamentoTab estabelecimentos={estabelecimentos} whatsappAdmin="" onUpdate={fetchData} />
         )}
         {activeTab === 'configuracoes' && <ConfiguracoesTab />}
       </main>

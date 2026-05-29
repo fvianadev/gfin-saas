@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo } from 'react'
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts'
-import { ArrowLeft, ArrowRight, TrendingUp, TrendingDown, Calendar, Filter, ArrowUpRight, ArrowDownLeft, Trash2, Edit2, Plus, Users, DollarSign, LayoutDashboard, MoreVertical, PieChart, List, Settings, Copy, Link2, CheckCircle, MessageCircle, ShieldAlert, History, User, Scissors, Search, X, Download, Printer, CheckSquare, Square, RefreshCw, Clock } from 'lucide-react'
+import { ArrowLeft, ArrowRight, TrendingUp, TrendingDown, Lock, Shield, Calendar, Filter, ArrowUpRight, ArrowDownLeft, Trash2, Edit2, Plus, Users, DollarSign, LayoutDashboard, MoreVertical, PieChart, List, Settings, Copy, Link2, CheckCircle, MessageCircle, ShieldAlert, History, User, Scissors, Search, X, Download, Printer, CheckSquare, Square, RefreshCw, Clock } from 'lucide-react'
 import { supabase } from '../lib/supabase'
 import { TransactionModal } from './TransactionModal'
 import { formatCurrency, formatDateTime } from '../lib/format'
@@ -105,6 +105,7 @@ export function AdminDashboard({ onBack, estabelecimentoId, membroId, cargo }: A
   const [salvandoMembro, setSalvandoMembro] = useState(false)
 
   const [estab, setEstab] = useState<any>(null)
+  const [saasConfig, setSaasConfig] = useState<any>(null)
   const [configForm, setConfigForm] = useState({ nome: '', logo_url: '', whatsapp: '' })
   const [configSaving, setConfigSaving] = useState(false)
   const [configSaved, setConfigSaved] = useState(false)
@@ -135,6 +136,68 @@ export function AdminDashboard({ onBack, estabelecimentoId, membroId, cargo }: A
 
   const [devPassword, setDevPassword] = useState('')
   const [isDevMode, setIsDevMode] = useState(false)
+
+  const subscriptionStatus = useMemo(() => {
+    if (!estab) return { status: 'loading', daysLeft: 0, showWarning: false }
+
+    const todayStr = new Date().toISOString().split('T')[0]
+
+    // 0. PENDENTE — carência manual concedida pelo admin do SaaS
+    //    Acesso liberado, mas exibe aviso para o dono regularizar o plano.
+    //    Sobrepõe qualquer verificação de data — é uma extensão humana de prazo.
+    if (estab.status_assinatura === 'pendente') {
+      return { status: 'warning', daysLeft: 0, showWarning: true, reason: 'pending_admin' }
+    }
+
+    // 1. INATIVO — bloqueio manual imediato pelo admin do SaaS
+    if (estab.status_assinatura === 'inativo') {
+      return { status: 'blocked', daysLeft: 0, showWarning: false, reason: 'unpaid' }
+    }
+
+    // 2. Plano GRATUITO (Período de Teste)
+    if (estab.plano === 'gratis') {
+      const trialEnd = estab.trial_end
+      if (!trialEnd) return { status: 'active', daysLeft: 14, showWarning: false }
+
+      const diffTime = new Date(trialEnd).getTime() - new Date(todayStr).getTime()
+      const daysLeft = Math.ceil(diffTime / (1000 * 60 * 60 * 24))
+
+      if (daysLeft < 0) {
+        return { status: 'blocked', daysLeft: 0, showWarning: false, reason: 'trial_expired' }
+      }
+
+      // Aviso se faltar 3 dias ou menos
+      if (daysLeft <= 3) {
+        return { status: 'active', daysLeft, showWarning: true, reason: 'trial_warning' }
+      }
+
+      return { status: 'active', daysLeft, showWarning: false }
+    }
+
+    // 3. Plano PRO / ASSINANTE
+    if (estab.plano === 'pro' || estab.plano === 'premium') {
+      const dueDate = estab.data_proxima_cobranca
+      if (!dueDate) return { status: 'active', daysLeft: 30, showWarning: false }
+
+      const diffTime = new Date(dueDate).getTime() - new Date(todayStr).getTime()
+      const daysLeft = Math.ceil(diffTime / (1000 * 60 * 60 * 24))
+
+      // Carência automática de 5 dias após vencimento
+      if (daysLeft < -5) {
+        return { status: 'blocked', daysLeft: 0, showWarning: false, reason: 'expired' }
+      }
+
+      // Dentro da carência automática
+      if (daysLeft < 0) {
+        const graceDaysLeft = 5 + daysLeft
+        return { status: 'warning', daysLeft: graceDaysLeft, showWarning: true, reason: 'grace_period', dueDate }
+      }
+
+      return { status: 'active', daysLeft, showWarning: false }
+    }
+
+    return { status: 'active', daysLeft: 0, showWarning: false }
+  }, [estab])
 
   const [relatorioFiltro, setRelatorioFiltro] = useState({
     dataInicio: new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString().split('T')[0],
@@ -207,6 +270,13 @@ export function AdminDashboard({ onBack, estabelecimentoId, membroId, cargo }: A
         logo_url: data.configuracoes?.logo_url || '',
         whatsapp: data.configuracoes?.whatsapp || ''
       })
+    }
+  }
+
+  const fetchSaasConfig = async () => {
+    const { data } = await supabase.from('saas_configuracoes').select('*').limit(1).maybeSingle()
+    if (data) {
+      setSaasConfig(data)
     }
   }
 
@@ -304,6 +374,7 @@ export function AdminDashboard({ onBack, estabelecimentoId, membroId, cargo }: A
     fetchAdminData()
     fetchMembros()
     fetchEstab()
+    fetchSaasConfig()
     if (activeTab === 'auditoria') fetchAuditData()
     if (activeTab === 'itens' || activeTab === 'agenda') fetchItens()
     if (activeTab === 'config') fetchHorarios()
@@ -646,6 +717,81 @@ export function AdminDashboard({ onBack, estabelecimentoId, membroId, cargo }: A
     )
   }
 
+  // --- LÓGICA DE BLOQUEIO ---
+  if (subscriptionStatus.status === 'blocked') {
+    const rawSupportPhone = saasConfig?.whatsapp_contato || ''
+    const supportPhoneDigits = rawSupportPhone.replace(/\D/g, '')
+    let cleanSupportPhone = supportPhoneDigits
+    if ((supportPhoneDigits.length === 10 || supportPhoneDigits.length === 11) && !supportPhoneDigits.startsWith('55')) {
+      cleanSupportPhone = '55' + supportPhoneDigits
+    }
+
+    const whatsappMessage = encodeURIComponent(
+      `Olá! Minha barbearia (${estab?.nome || 'Minha Barbearia'}) está bloqueada no GFin SaaS. Gostaria de regularizar meu plano.`
+    )
+    const supportEmail = saasConfig?.email_contato || 'suporte@gfin.com.br'
+
+    return (
+      <div className="min-h-screen bg-slate-950 text-white flex items-center justify-center p-4 sm:p-8 relative overflow-hidden">
+        {/* Efeito de Gradiente de Fundo Premium */}
+        <div className="absolute top-1/4 left-1/2 -translate-x-1/2 w-[300px] sm:w-[500px] h-[300px] sm:h-[500px] bg-rose-500/10 rounded-full blur-[100px] pointer-events-none" />
+        <div className="absolute bottom-1/4 left-1/4 w-[250px] h-[250px] bg-amber-500/5 rounded-full blur-[80px] pointer-events-none" />
+        
+        <div className="glass-card w-full max-w-lg p-6 sm:p-8 border-rose-500/20 text-center space-y-6 md:space-y-8 animate-in fade-in zoom-in-95 duration-500 relative z-10">
+          <div className="w-16 h-16 rounded-2xl bg-rose-500/10 border border-rose-500/20 flex items-center justify-center mx-auto shadow-lg shadow-rose-500/10 animate-bounce">
+            <Lock size={32} className="text-rose-500" />
+          </div>
+          
+          <div className="space-y-2.5">
+            <h1 className="text-2xl sm:text-3xl font-black tracking-tight text-white">Acesso Suspenso</h1>
+            <p className="text-xs text-slate-500 font-bold uppercase tracking-widest text-emerald-500">{estab?.nome}</p>
+          </div>
+          
+          <p className="text-slate-400 text-sm sm:text-base leading-relaxed max-w-md mx-auto">
+            {subscriptionStatus.reason === 'trial_expired' ? (
+              <span>Seu período de teste grátis de 14 dias expirou. Para continuar gerindo as finanças e a agenda da sua barbearia com o GFin, assine o plano Pro.</span>
+            ) : (
+              <span>Sua mensalidade do plano Pro expirou e o prazo limite de carência passou. Para restabelecer seu acesso total aos dados, por favor realize o pagamento.</span>
+            )}
+          </p>
+
+          <div className="p-4 rounded-xl bg-slate-900/60 border border-white/5 space-y-3 text-left">
+            <p className="text-xs font-bold text-slate-500 uppercase tracking-widest border-b border-white/5 pb-1.5 flex items-center gap-1.5"><Shield size={12} className="text-emerald-500" /> Canais de Regularização</p>
+            <div className="space-y-2 text-xs sm:text-sm">
+              {saasConfig?.whatsapp_contato && (
+                <p className="text-slate-300 flex items-center gap-2">
+                  <span className="font-bold text-slate-500">WhatsApp:</span> {saasConfig.whatsapp_contato}
+                </p>
+              )}
+              <p className="text-slate-300 flex items-center gap-2">
+                <span className="font-bold text-slate-500">E-mail:</span> {supportEmail}
+              </p>
+            </div>
+          </div>
+          
+          <div className="flex flex-col sm:flex-row gap-3 pt-2">
+            <button 
+              onClick={onBack}
+              className="flex-1 py-3.5 rounded-xl font-bold text-sm bg-slate-900 border border-white/5 text-slate-400 hover:text-white hover:bg-slate-800 active:scale-95 transition-all"
+            >
+              Voltar ao Login
+            </button>
+            {cleanSupportPhone && (
+              <a 
+                href={`https://wa.me/${cleanSupportPhone}?text=${whatsappMessage}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex-1 py-3.5 rounded-xl font-bold text-sm bg-emerald-500 hover:bg-emerald-400 text-white shadow-lg shadow-emerald-500/20 active:scale-95 transition-all flex justify-center items-center gap-2"
+              >
+                <MessageCircle size={16} /> Regularizar Plano
+              </a>
+            )}
+          </div>
+        </div>
+      </div>
+    )
+  }
+
   return (
     <div className="min-h-screen bg-slate-950 text-white flex flex-col lg:flex-row pb-24 lg:pb-0">
       <aside className="hidden lg:flex w-64 bg-slate-900/50 border-r border-white/5 flex-col p-6 sticky top-0 h-screen print:hidden">
@@ -694,6 +840,47 @@ export function AdminDashboard({ onBack, estabelecimentoId, membroId, cargo }: A
            </div>
            <button onClick={onBack} className="p-2 glass-card rounded-full text-rose-400"><ArrowLeft size={18} /></button>
         </header>
+
+        {subscriptionStatus.showWarning && (
+          <div className={`mb-6 p-4 rounded-xl border flex flex-col sm:flex-row items-center justify-between gap-3 animate-in slide-in-from-top-4 duration-500 ${
+            subscriptionStatus.reason === 'trial_warning' 
+              ? 'bg-amber-500/10 border-amber-500/20 text-amber-400' 
+              : 'bg-rose-500/10 border-rose-500/20 text-rose-400'
+          }`}>
+            <div className="flex items-center gap-3">
+              <div className="w-8 h-8 rounded-lg flex items-center justify-center bg-white/5 flex-shrink-0">
+                <ShieldAlert size={16} />
+              </div>
+              <div className="min-w-0">
+                <p className="text-xs font-bold uppercase tracking-widest">
+                  {subscriptionStatus.reason === 'pending_admin' ? 'Pagamento Pendente' : 'Aviso de Expiração'}
+                </p>
+                <p className="text-xs sm:text-sm text-slate-300 mt-0.5 leading-relaxed">
+                  {subscriptionStatus.reason === 'trial_warning' ? (
+                    <span>Seu período de teste grátis termina em <strong className="text-white">{subscriptionStatus.daysLeft} {subscriptionStatus.daysLeft === 1 ? 'dia' : 'dias'}</strong> ({estab.trial_end ? new Date(estab.trial_end).toLocaleDateString('pt-BR') : ''}). Assine o Pro para evitar o bloqueio!</span>
+                  ) : subscriptionStatus.reason === 'pending_admin' ? (
+                    <span>Seu plano está com <strong className="text-white">pagamento pendente</strong>. O acesso está temporariamente liberado, mas regularize o quanto antes para evitar o bloqueio do sistema.</span>
+                  ) : (
+                    <span>Sua assinatura venceu em <strong className="text-white">{subscriptionStatus.dueDate ? new Date(subscriptionStatus.dueDate).toLocaleDateString('pt-BR') : ''}</strong>. Você está em período de carência com <strong className="text-white">{subscriptionStatus.daysLeft} {subscriptionStatus.daysLeft === 1 ? 'dia restante' : 'dias restantes'}</strong> antes do bloqueio do sistema.</span>
+                  )}
+                </p>
+              </div>
+            </div>
+            
+            {saasConfig?.whatsapp_contato && (
+              <a
+                href={`https://wa.me/${saasConfig.whatsapp_contato.replace(/\D/g, '').startsWith('55') ? saasConfig.whatsapp_contato.replace(/\D/g, '') : '55' + saasConfig.whatsapp_contato.replace(/\D/g, '')}?text=${encodeURIComponent(
+                  `Olá! Gostaria de regularizar o plano Pro da minha barbearia (${estab?.nome || 'Minha Barbearia'}).`
+                )}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="w-full sm:w-auto px-4 py-2 rounded-lg font-bold text-xs bg-white/5 hover:bg-white/10 text-white border border-white/5 transition-all text-center flex items-center justify-center gap-1.5 whitespace-nowrap"
+              >
+                <MessageCircle size={12} /> Regularizar Agora
+              </a>
+            )}
+          </div>
+        )}
 
         {(activeTab === 'resumo' || activeTab === 'transacoes') && (
           <div className="space-y-4 mb-8 animate-in fade-in duration-300">
