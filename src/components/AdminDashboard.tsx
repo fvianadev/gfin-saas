@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo } from 'react'
+import { useSearchParams } from 'react-router-dom'
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts'
 import { ArrowLeft, ArrowRight, TrendingUp, TrendingDown, Lock, Shield, Calendar, Filter, ArrowUpRight, ArrowDownLeft, Trash2, Edit2, Plus, Users, DollarSign, LayoutDashboard, MoreVertical, PieChart, List, Settings, Copy, Link2, CheckCircle, MessageCircle, ShieldAlert, History, User, Scissors, Search, X, Download, Printer, CheckSquare, Square, RefreshCw, Clock } from 'lucide-react'
 import { supabase } from '../lib/supabase'
@@ -16,7 +17,9 @@ type Periodo = 'hoje' | '7dias' | '30dias' | 'todos'
 type Tab = 'resumo' | 'transacoes' | 'equipe' | 'config' | 'auditoria' | 'itens' | 'relatorios' | 'agenda'
 
 export function AdminDashboard({ onBack, estabelecimentoId, membroId, cargo }: AdminDashboardProps) {
-  const [activeTab, setActiveTab] = useState<Tab>('resumo')
+  const [searchParams, setSearchParams] = useSearchParams()
+  const activeTab = (searchParams.get('aba') as Tab) || 'resumo'
+  const setActiveTab = (tab: Tab) => setSearchParams({ aba: tab }, { replace: true })
   
   const applyPhoneMask = (value: string) => {
     const rawValue = value.replace(/\D/g, '')

@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react'
+import { useSearchParams } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 import { formatCurrency } from '../lib/format'
 import {
@@ -900,7 +901,9 @@ function FaturamentoTab({ estabelecimentos, whatsappAdmin, onUpdate }: {
 // MAIN COMPONENT
 // ========================
 export function SuperAdminDashboard({ onLogout }: { onLogout: () => void }) {
-  const [activeTab, setActiveTab] = useState<Tab>('dashboard')
+  const [searchParams, setSearchParams] = useSearchParams()
+  const activeTab = (searchParams.get('aba') as Tab) || 'dashboard'
+  const setActiveTab = (tab: Tab) => setSearchParams({ aba: tab }, { replace: true })
   const [estabelecimentos, setEstabelecimentos] = useState<Estabelecimento[]>([])
   const [stats, setStats] = useState<Stats>({ totalEstabs: 0, estabsAtivos: 0, estabsPro: 0, estabsPremium: 0, totalStaff: 0, totalTransacoes: 0, totalReceita: 0, realSaasReceita: 0 })
   const [loading, setLoading] = useState(true)
