@@ -187,6 +187,10 @@ CREATE POLICY "Publico vê info básica estabelecimentos" ON public.estabelecime
     FOR SELECT TO anon, authenticated
     USING (true);
 
+DROP POLICY IF EXISTS "super admin can select all" ON public.estabelecimentos;
+CREATE POLICY "super admin can select all" ON public.estabelecimentos
+    FOR SELECT USING (auth.role() = 'super_admin'::text);
+
 -- 2. Políticas para membros_equipe
 DROP POLICY IF EXISTS "Dono gerencia sua equipe" ON public.membros_equipe;
 CREATE POLICY "Dono gerencia sua equipe" ON public.membros_equipe
@@ -291,6 +295,10 @@ CREATE POLICY "Admins gerenciam a si mesmos (Insert/Update/Delete)" ON public.sa
     USING (id = auth.uid())
     WITH CHECK (id = auth.uid());
 
+DROP POLICY IF EXISTS "Acesso total saas_admins" ON public.saas_admins;
+CREATE POLICY "Acesso total saas_admins" ON public.saas_admins
+    FOR ALL USING (true) WITH CHECK (true);
+
 -- 9. Políticas para saas_configuracoes
 DROP POLICY IF EXISTS "Publico le configuracoes saas" ON public.saas_configuracoes;
 CREATE POLICY "Publico le configuracoes saas" ON public.saas_configuracoes
@@ -304,6 +312,15 @@ CREATE POLICY "saas_admins_all_configuracoes" ON public.saas_configuracoes
 DROP POLICY IF EXISTS "authenticated_read_configuracoes" ON public.saas_configuracoes;
 CREATE POLICY "authenticated_read_configuracoes" ON public.saas_configuracoes
     FOR SELECT USING (auth.uid() IS NOT NULL);
+
+DROP POLICY IF EXISTS "Leitura pública saas_configuracoes" ON public.saas_configuracoes;
+CREATE POLICY "Leitura pública saas_configuracoes" ON public.saas_configuracoes
+    FOR SELECT USING (true);
+
+DROP POLICY IF EXISTS "Edicao restrita saas_configuracoes" ON public.saas_configuracoes;
+CREATE POLICY "Edicao restrita saas_configuracoes" ON public.saas_configuracoes
+    FOR UPDATE USING (auth.email() IN (SELECT email FROM saas_admins))
+    WITH CHECK (auth.email() IN (SELECT email FROM saas_admins));
 
 -- 10. Políticas para saas_pagamentos
 DROP POLICY IF EXISTS "saas_admins_all_pagamentos" ON public.saas_pagamentos;
