@@ -136,6 +136,7 @@ CREATE TABLE IF NOT EXISTS public.saas_configuracoes (
     instagram_url TEXT,
     trial_dias INTEGER DEFAULT 14,
     grace_period_dias INTEGER DEFAULT 5,
+    aviso_trial_dias INTEGER DEFAULT 3,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL,
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL
 );
@@ -309,6 +310,12 @@ DROP POLICY IF EXISTS "saas_admins_all_configuracoes" ON public.saas_configuraco
 CREATE POLICY "saas_admins_all_configuracoes" ON public.saas_configuracoes
     FOR ALL USING (EXISTS (SELECT 1 FROM public.saas_admins WHERE id = auth.uid()));
 
+DROP POLICY IF EXISTS "Super Admin gerencia configuracoes saas" ON public.saas_configuracoes;
+CREATE POLICY "Super Admin gerencia configuracoes saas" ON public.saas_configuracoes
+    FOR ALL TO authenticated
+    USING (EXISTS (SELECT 1 FROM public.saas_admins WHERE id = auth.uid()))
+    WITH CHECK (EXISTS (SELECT 1 FROM public.saas_admins WHERE id = auth.uid()));
+
 DROP POLICY IF EXISTS "authenticated_read_configuracoes" ON public.saas_configuracoes;
 CREATE POLICY "authenticated_read_configuracoes" ON public.saas_configuracoes
     FOR SELECT USING (auth.uid() IS NOT NULL);
@@ -385,6 +392,6 @@ CREATE UNIQUE INDEX IF NOT EXISTS idx_saas_configuracoes_singleton ON public.saa
 -- PHASE 6: DEFAULT SEED DATA
 -- ==========================================
 
-INSERT INTO public.saas_configuracoes (id, whatsapp_contato, email_contato, trial_dias, grace_period_dias, saas_nome)
-SELECT 1, '5511999999999', 'suporte@gfin.com.br', 14, 5, 'GFin SaaS'
+INSERT INTO public.saas_configuracoes (id, whatsapp_contato, email_contato, trial_dias, grace_period_dias, aviso_trial_dias, saas_nome)
+SELECT 1, '5511999999999', 'suporte@gfin.com.br', 14, 5, 3, 'GFin SaaS'
 WHERE NOT EXISTS (SELECT 1 FROM public.saas_configuracoes);
