@@ -40,6 +40,8 @@ interface SaasConfig {
   email_contato: string
   whatsapp_contato: string
   instagram_url: string
+  trial_dias: number
+  grace_period_dias: number
   created_at: string
   updated_at: string
 }
@@ -478,16 +480,23 @@ function ConfiguracoesTab() {
   const handleSave = async () => {
     if (!form) return
     setSaving(true)
-    const { id, created_at, updated_at, ...updateData } = form as any
-    if (config?.id) {
-      await supabase.from('saas_configuracoes').update({ ...updateData, updated_at: new Date().toISOString() }).eq('id', config.id)
-    } else {
-      await supabase.from('saas_configuracoes').insert(updateData)
+    try {
+      const { id, created_at, updated_at, ...updateData } = form as any
+      if (config?.id) {
+        const { error } = await supabase.from('saas_configuracoes').update({ ...updateData, updated_at: new Date().toISOString() }).eq('id', config.id)
+        if (error) throw error
+      } else {
+        const { error } = await supabase.from('saas_configuracoes').insert(updateData)
+        if (error) throw error
+      }
+      setSaved(true)
+      setConfig(form as SaasConfig)
+      setTimeout(() => setSaved(false), 3000)
+    } catch (err: any) {
+      alert('Erro ao salvar configurações: ' + (err.message || JSON.stringify(err)))
+    } finally {
+      setSaving(false)
     }
-    setSaving(false)
-    setSaved(true)
-    setTimeout(() => setSaved(false), 3000)
-    fetchConfig()
   }
 
   // Field component extraído para fora para evitar re-render/perda de foco
@@ -520,6 +529,15 @@ function ConfiguracoesTab() {
         <Field label="E-mail de Contato" value={(form.email_contato as string) || ''} onChange={val => setForm(prev => ({ ...prev, email_contato: val }))} icon={Mail} placeholder="contato@seudominio.com" type="email" />
         <Field label="WhatsApp de Contato" value={(form.whatsapp_contato as string) || ''} onChange={val => setForm(prev => ({ ...prev, whatsapp_contato: val }))} icon={Phone} placeholder="5511999999999" />
         <Field label="URL do Instagram" value={(form.instagram_url as string) || ''} onChange={val => setForm(prev => ({ ...prev, instagram_url: val }))} icon={Instagram} placeholder="https://instagram.com/seu_perfil" />
+      </div>
+
+      <div className="rounded-2xl border border-white/5 bg-slate-900/50 p-5 space-y-5">
+        <div className="flex items-center gap-2 mb-2">
+          <Settings size={16} className="text-emerald-500" />
+          <p className="font-bold text-white">Regras de Assinatura</p>
+        </div>
+
+        <Field label="Dias de Teste Grátis (Trial)" value={String(form.trial_dias || '')} onChange={val => setForm(prev => ({ ...prev, trial_dias: parseInt(val) || 0 }))} icon={Clock} placeholder="Ex: 14" type="number" />
       </div>
 
       <button

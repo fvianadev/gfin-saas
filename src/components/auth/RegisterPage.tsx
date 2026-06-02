@@ -27,7 +27,18 @@ export function RegisterPage({ onLogin }: { onLogin: (session: UserSession) => v
 
       const userId = authData.user.id
 
-      // 2. Criar estabelecimento (política anon permite INSERT durante onboarding)
+      // 2. Buscar configurações do SAAS para pegar o número de dias do trial
+      let trialDias = 7
+      try {
+        const { data: configData } = await supabase.from('saas_configuracoes').select('trial_dias').limit(1).maybeSingle()
+        if (configData && configData.trial_dias) {
+          trialDias = configData.trial_dias
+        }
+      } catch (e) {
+        console.warn('Erro ao buscar saas_configuracoes, usando fallback de 7 dias', e)
+      }
+
+      // 3. Criar estabelecimento (política anon permite INSERT durante onboarding)
       const { data: estabData, error: estabError } = await supabase
         .from('estabelecimentos')
         .insert({
@@ -36,7 +47,7 @@ export function RegisterPage({ onLogin }: { onLogin: (session: UserSession) => v
           email_dono: email,
           owner_id: userId,
           trial_start: new Date().toISOString().split('T')[0],
-          trial_end: new Date(Date.now() + 14 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
+          trial_end: new Date(Date.now() + trialDias * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
           trial_active: true,
         })
         .select()
