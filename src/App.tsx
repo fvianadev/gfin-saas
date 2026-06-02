@@ -5,6 +5,7 @@ import { AdminDashboard } from './components/AdminDashboard'
 import { PublicBooking } from './components/PublicBooking'
 import { TransactionModal } from './components/TransactionModal'
 import { SuperAdminDashboard } from './components/SuperAdminDashboard'
+import { ErrorBoundary } from './components/ErrorBoundary'
 import { LayoutDashboard, LogOut, Scissors, TrendingUp, TrendingDown, Edit2, Trash2, ArrowLeft, History, ArrowUpRight, ArrowDownLeft, User, Lock, Star, Shield, Smartphone, Zap, ArrowRight, ShieldCheck, PieChart, Users, Settings, List, X } from 'lucide-react'
 import { formatCurrency } from './lib/format'
 
@@ -307,7 +308,7 @@ export default function App() {
       <Route path="/signup" element={<Navigate to="/register" replace />} />
       <Route path="/create-account" element={<Navigate to="/register" replace />} />
       <Route path="/admin" element={admin && admin.role !== 'super_admin' ? <AdminDashboard onBack={logoutAdmin} estabelecimentoId={admin.estabelecimento_id} membroId={admin.membro_id || ''} cargo={admin.role} /> : <Navigate to="/login" />} />
-      <Route path="/super-admin" element={admin?.role === 'super_admin' ? <SuperAdminDashboard onLogout={logoutAdmin} /> : <Navigate to="/login" />} />
+      <Route path="/super-admin" element={admin?.role === 'super_admin' ? <ErrorBoundary><SuperAdminDashboard onLogout={logoutAdmin} /></ErrorBoundary> : <Navigate to="/login" />} />
       <Route path="/:slug" element={<Navigate to="login" replace />} />
       <Route path="/:slug/login" element={<StaffLogin />} />
       <Route path="/:slug/dashboard" element={<StaffDashboard />} />
