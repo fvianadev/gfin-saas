@@ -160,7 +160,8 @@ export function AdminDashboard({ onBack, estabelecimentoId, membroId, cargo }: A
     // 2. Plano GRATUITO (Período de Teste)
     if (estab.plano === 'gratis') {
       const trialEnd = estab.trial_end
-      if (!trialEnd) return { status: 'active', daysLeft: 14, showWarning: false }
+      const defaultTrialDias = saasConfig?.trial_dias || 7
+      if (!trialEnd) return { status: 'active', daysLeft: defaultTrialDias, showWarning: false }
 
       const diffTime = new Date(trialEnd).getTime() - new Date(todayStr).getTime()
       const daysLeft = Math.ceil(diffTime / (1000 * 60 * 60 * 24))
@@ -169,8 +170,9 @@ export function AdminDashboard({ onBack, estabelecimentoId, membroId, cargo }: A
         return { status: 'blocked', daysLeft: 0, showWarning: false, reason: 'trial_expired' }
       }
 
-      // Aviso se faltar 3 dias ou menos
-      if (daysLeft <= 3) {
+      // Aviso se faltar os dias de aviso configurados ou menos
+      const avisoDias = saasConfig?.aviso_trial_dias || 3
+      if (daysLeft <= avisoDias) {
         return { status: 'active', daysLeft, showWarning: true, reason: 'trial_warning' }
       }
 
@@ -185,14 +187,15 @@ export function AdminDashboard({ onBack, estabelecimentoId, membroId, cargo }: A
       const diffTime = new Date(dueDate).getTime() - new Date(todayStr).getTime()
       const daysLeft = Math.ceil(diffTime / (1000 * 60 * 60 * 24))
 
-      // Carência automática de 5 dias após vencimento
-      if (daysLeft < -5) {
+      // Carência automática configurada no banco (grace_period_dias) após vencimento
+      const gracePeriod = saasConfig?.grace_period_dias || 5
+      if (daysLeft < -gracePeriod) {
         return { status: 'blocked', daysLeft: 0, showWarning: false, reason: 'expired' }
       }
 
       // Dentro da carência automática
       if (daysLeft < 0) {
-        const graceDaysLeft = 5 + daysLeft
+        const graceDaysLeft = gracePeriod + daysLeft
         return { status: 'warning', daysLeft: graceDaysLeft, showWarning: true, reason: 'grace_period', dueDate }
       }
 
@@ -200,7 +203,7 @@ export function AdminDashboard({ onBack, estabelecimentoId, membroId, cargo }: A
     }
 
     return { status: 'active', daysLeft: 0, showWarning: false }
-  }, [estab])
+  }, [estab, saasConfig])
 
   const [relatorioFiltro, setRelatorioFiltro] = useState({
     dataInicio: new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString().split('T')[0],

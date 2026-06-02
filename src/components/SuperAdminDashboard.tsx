@@ -42,6 +42,7 @@ interface SaasConfig {
   instagram_url: string
   trial_dias: number
   grace_period_dias: number
+  aviso_trial_dias: number
   created_at: string
   updated_at: string
 }
@@ -538,6 +539,8 @@ function ConfiguracoesTab() {
         </div>
 
         <Field label="Dias de Teste Grátis (Trial)" value={String(form.trial_dias || '')} onChange={val => setForm(prev => ({ ...prev, trial_dias: parseInt(val) || 0 }))} icon={Clock} placeholder="Ex: 14" type="number" />
+        <Field label="Aviso de Expiração do Trial (dias antes)" value={String(form.aviso_trial_dias || '')} onChange={val => setForm(prev => ({ ...prev, aviso_trial_dias: parseInt(val) || 0 }))} icon={AlertCircle} placeholder="Ex: 3" type="number" />
+        <Field label="Carência Pós-Vencimento (dias)" value={String(form.grace_period_dias || '')} onChange={val => setForm(prev => ({ ...prev, grace_period_dias: parseInt(val) || 0 }))} icon={CalendarDays} placeholder="Ex: 5" type="number" />
       </div>
 
       <button
