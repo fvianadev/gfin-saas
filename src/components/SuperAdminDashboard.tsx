@@ -462,7 +462,7 @@ function Field({ label, value, onChange, icon: Icon, placeholder, type = 'text' 
   )
 }
 
-function ConfiguracoesTab() {
+function ConfiguracoesTab({ onSaved }: { onSaved?: () => void }) {
   const [config, setConfig] = useState<SaasConfig | null>(null)
   const [form, setForm] = useState<Partial<SaasConfig>>({})
   const [loading, setLoading] = useState(true)
@@ -492,6 +492,7 @@ function ConfiguracoesTab() {
       }
       setSaved(true)
       setConfig(form as SaasConfig)
+      onSaved?.()
       setTimeout(() => setSaved(false), 3000)
     } catch (err: any) {
       alert('Erro ao salvar configurações: ' + (err.message || JSON.stringify(err)))
@@ -935,19 +936,22 @@ export function SuperAdminDashboard({ onLogout }: { onLogout: () => void }) {
   const [stats, setStats] = useState<Stats>({ totalEstabs: 0, estabsAtivos: 0, estabsPro: 0, estabsPremium: 0, totalStaff: 0, totalTransacoes: 0, totalReceita: 0, realSaasReceita: 0 })
   const [loading, setLoading] = useState(true)
   const [sidebarOpen, setSidebarOpen] = useState(false)
+  const [saasConfig, setSaasConfig] = useState<any>(null)
 
   const fetchData = async () => {
     setLoading(true)
     try {
-      const [estabRes, staffRes, transRes, saasPagRes] = await Promise.all([
+      const [estabRes, staffRes, transRes, saasPagRes, configRes] = await Promise.all([
         supabase.from('estabelecimentos').select('*').order('created_at', { ascending: false }),
         supabase.from('membros_equipe').select('id', { count: 'exact', head: true }),
         supabase.from('transacoes').select('valor, tipo').eq('excluido', false),
         supabase.from('saas_pagamentos').select('valor').eq('status', 'pago'),
+        supabase.from('saas_configuracoes').select('saas_nome').limit(1).maybeSingle(),
       ])
 
       const estabs: Estabelecimento[] = estabRes.data || []
       setEstabelecimentos(estabs)
+      setSaasConfig(configRes.data)
 
       const totalReceita = (transRes.data || [])
         .filter(t => t.tipo === 'receita')
@@ -992,9 +996,9 @@ export function SuperAdminDashboard({ onLogout }: { onLogout: () => void }) {
           <div className="w-10 h-10 bg-gradient-to-br from-emerald-500 to-emerald-700 rounded-xl flex items-center justify-center shadow-lg shadow-emerald-500/20">
             <Shield size={20} />
           </div>
-          <div>
-            <p className="font-black text-sm text-white leading-none">GFin</p>
-            <p className="text-[10px] font-bold text-emerald-500 uppercase tracking-widest leading-none">Super Admin</p>
+          <div className="min-w-0">
+            <p className="font-black text-sm text-white leading-none truncate">{saasConfig?.saas_nome || 'GFin'}</p>
+            <p className="text-[10px] font-bold text-emerald-500 uppercase tracking-widest leading-none mt-1">Super Admin</p>
           </div>
         </div>
 
@@ -1033,13 +1037,13 @@ export function SuperAdminDashboard({ onLogout }: { onLogout: () => void }) {
 
       {/* MOBILE HEADER */}
       <div className="lg:hidden flex items-center justify-between px-4 py-3 bg-slate-900/80 border-b border-white/5 sticky top-0 z-40 backdrop-blur-md">
-        <div className="flex items-center gap-2">
-          <div className="w-8 h-8 bg-gradient-to-br from-emerald-500 to-emerald-700 rounded-xl flex items-center justify-center">
+        <div className="flex items-center gap-2 min-w-0">
+          <div className="w-8 h-8 bg-gradient-to-br from-emerald-500 to-emerald-700 rounded-xl flex items-center justify-center flex-shrink-0">
             <Shield size={16} />
           </div>
-          <div>
-            <p className="font-black text-xs text-white leading-none">GFin</p>
-            <p className="text-[9px] font-bold text-emerald-500 uppercase tracking-widest">Super Admin</p>
+          <div className="min-w-0">
+            <p className="font-black text-xs text-white leading-none truncate">{saasConfig?.saas_nome || 'GFin'}</p>
+            <p className="text-[9px] font-bold text-emerald-500 uppercase tracking-widest mt-0.5">Super Admin</p>
           </div>
         </div>
         <button
@@ -1108,7 +1112,7 @@ export function SuperAdminDashboard({ onLogout }: { onLogout: () => void }) {
         {activeTab === 'faturamento' && (
           <FaturamentoTab estabelecimentos={estabelecimentos} whatsappAdmin="" onUpdate={fetchData} />
         )}
-        {activeTab === 'configuracoes' && <ConfiguracoesTab />}
+        {activeTab === 'configuracoes' && <ConfiguracoesTab onSaved={fetchData} />}
       </main>
 
       {/* MOBILE BOTTOM NAV */}
