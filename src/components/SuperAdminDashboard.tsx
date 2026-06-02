@@ -29,6 +29,8 @@ interface Estabelecimento {
   trial_start: string | null
   trial_end: string | null
   trial_active: boolean
+  data_ultimo_pagamento: string | null
+  data_proxima_cobranca: string | null
 }
 
 interface SaasConfig {
