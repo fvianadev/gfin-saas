@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { useNavigate, Link } from 'react-router-dom'
 import { supabase } from '../../lib/supabase'
-import { ArrowLeft } from 'lucide-react'
+import { ArrowLeft, Mail } from 'lucide-react'
 import type { UserSession } from '../../types/auth'
 
 export function RegisterPage({ onLogin }: { onLogin: (session: UserSession) => void }) {
@@ -10,6 +10,7 @@ export function RegisterPage({ onLogin }: { onLogin: (session: UserSession) => v
   const [email, setEmail] = useState('')
   const [senha, setSenha] = useState('')
   const [loading, setLoading] = useState(false)
+  const [registrationSuccess, setRegistrationSuccess] = useState(false)
   const navigate = useNavigate()
 
   const handleRegister = async (e: React.FormEvent) => {
@@ -72,24 +73,61 @@ export function RegisterPage({ onLogin }: { onLogin: (session: UserSession) => v
 
       if (membroError) throw membroError
 
-      // 4. Montar sessão local e redirecionar
-      const session: UserSession = {
-        id: userId,
-        membro_id: membroData?.id || null,
-        nome: nome || empresa,
-        estabelecimento_id: estabData.id,
-        estabelecimento_slug: estabData.slug,
-        role: 'administrador'
+      // 4. Montar sessão local se estiver autenticado (autologin), senão exigir confirmação
+      if (authData.session) {
+        const session: UserSession = {
+          id: userId,
+          membro_id: membroData?.id || null,
+          nome: nome || empresa,
+          estabelecimento_id: estabData.id,
+          estabelecimento_slug: estabData.slug,
+          role: 'administrador'
+        }
+        onLogin(session)
+        alert(`✅ Bem-vindo ao GFin, ${nome}!\n\nSeu PIN inicial é: 0000\nAcesse: /${estabData.slug}/login`)
+        navigate('/admin')
+      } else {
+        setRegistrationSuccess(true)
       }
-
-      onLogin(session)
-      alert(`✅ Bem-vindo ao GFin, ${nome}!\n\nSeu PIN inicial é: 0000\nAcesse: /${estabData.slug}/login`)
-      navigate('/admin')
     } catch (err: any) {
       alert('Erro ao criar conta: ' + err.message)
     } finally {
       setLoading(false)
     }
+  }
+
+  if (registrationSuccess) {
+    return (
+      <div className="min-h-screen bg-slate-950 flex flex-col items-center justify-center p-4 md:p-6 text-white relative animate-in fade-in duration-500">
+        <div className="glass-card w-full max-w-md p-6 md:p-8 border-white/5 space-y-6 text-center shadow-2xl">
+          <div className="w-16 h-16 bg-emerald-500/10 text-emerald-500 rounded-2xl flex items-center justify-center mx-auto mb-2 shadow-lg shadow-emerald-500/5 border border-emerald-500/10">
+            <Mail size={32} />
+          </div>
+          <div className="space-y-2">
+            <h1 className="text-2xl md:text-3xl font-black tracking-tight">Confirme seu e-mail 📬</h1>
+            <p className="text-slate-400 text-xs md:text-sm leading-relaxed">
+              Enviamos um link de confirmação e ativação da conta para o endereço:
+            </p>
+            <p className="text-emerald-400 font-bold break-all bg-emerald-500/5 py-2 px-3 rounded-lg border border-emerald-500/10 text-sm md:text-base">
+              {email}
+            </p>
+          </div>
+          <div className="bg-slate-900/50 border border-white/5 p-4 rounded-xl text-left text-xs text-slate-400 space-y-2">
+            <p className="font-bold text-white uppercase tracking-wider text-[10px]">Passos importantes:</p>
+            <p>1. Acesse seu e-mail e clique no link de ativação.</p>
+            <p>2. Se não receber em até 5 minutos, verifique sua pasta de **Spam** ou **Lixo Eletrônico**.</p>
+          </div>
+          <div className="pt-2">
+            <Link 
+              to="/login" 
+              className="w-full inline-block bg-emerald-500 hover:bg-emerald-400 text-white font-bold py-3.5 px-4 rounded-xl shadow-lg shadow-emerald-500/20 active:scale-[0.98] transition-all text-sm md:text-base text-center"
+            >
+              Ir para Tela de Login
+            </Link>
+          </div>
+        </div>
+      </div>
+    )
   }
 
   return (

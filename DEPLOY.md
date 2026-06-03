@@ -44,6 +44,30 @@ Após o deploy do frontend, adicione a URL do site em:
 - **Authentication → URL Configuration → Site URL**: `https://seu-dominio.netlify.app`
 - **Authentication → URL Configuration → Redirect URLs**: `https://seu-dominio.netlify.app/**`
 
+### 2.4 Configuração de E-mail & SMTP em Produção
+
+Para que os fluxos de confirmação de cadastro e recuperação de senha funcionem corretamente, evitem a caixa de spam e contornem os limites severos do Supabase (4 e-mails/hora):
+
+1. **Ativar Confirmação de E-mail**:
+   - No painel do Supabase, vá em **Authentication → Providers → Email**.
+   - Habilite a opção **Confirm Email**.
+
+2. **Configurar SMTP Transacional Próprio (Obrigatório para Produção)**:
+   - Vá em **Project Settings → Auth → SMTP Settings**.
+   - Ative a opção **Enable Custom SMTP**.
+   - Configure as credenciais de um provedor transacional (Ex: *Resend*, *SendGrid*, *Amazon SES*, *Postmark*):
+     - **SMTP Host**: Endereço do host do provedor (ex: `smtp.resend.com`).
+     - **Port**: `587` (TLS) ou `465` (SSL).
+     - **From Email Address**: O e-mail sob o seu domínio próprio verificado (ex: `suporte@gfin.com.br`).
+     - **Sender Name**: Nome visível de quem envia (ex: `GFin SaaS`).
+     - **User Name** & **Password**: Chave de API / Credenciais de SMTP geradas no provedor.
+
+3. **Adicionar URL de Redirecionamento de Senha**:
+   - Vá em **Authentication → URL Configuration → Redirect URLs**.
+   - Adicione a URL específica do fluxo de redefinição de senha:
+     - `https://seu-dominio.netlify.app/reset-password`
+     - *(Substitua `seu-dominio.netlify.app` pelo domínio real de produção do seu SaaS).*
+
 ---
 
 ## 3. Obter as Chaves do Supabase

@@ -13,6 +13,7 @@ import type { UserSession } from './types/auth'
 import { LandingPage } from './components/LandingPage'
 import { LoginPage } from './components/auth/LoginPage'
 import { RegisterPage } from './components/auth/RegisterPage'
+import { ResetPasswordPage } from './components/auth/ResetPasswordPage'
 
 // --- COMPONENTE: STAFF LOGIN ---
 function StaffLogin() {
@@ -305,6 +306,7 @@ export default function App() {
       <Route path="/" element={<LandingPage />} />
       <Route path="/login" element={<LoginPage onLogin={handleLoginState} />} />
       <Route path="/register" element={<RegisterPage onLogin={handleLoginState} />} />
+      <Route path="/reset-password" element={<ResetPasswordPage />} />
       <Route path="/signup" element={<Navigate to="/register" replace />} />
       <Route path="/create-account" element={<Navigate to="/register" replace />} />
       <Route path="/admin" element={admin && admin.role !== 'super_admin' ? <AdminDashboard onBack={logoutAdmin} estabelecimentoId={admin.estabelecimento_id} membroId={admin.membro_id || ''} cargo={admin.role} /> : <Navigate to="/login" />} />
