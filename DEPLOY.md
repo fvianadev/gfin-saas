@@ -55,12 +55,23 @@ Para que os fluxos de confirmação de cadastro e recuperação de senha funcion
 2. **Configurar SMTP Transacional Próprio (Obrigatório para Produção)**:
    - Vá em **Project Settings → Auth → SMTP Settings**.
    - Ative a opção **Enable Custom SMTP**.
-   - Configure as credenciais de um provedor transacional (Ex: *Resend*, *SendGrid*, *Amazon SES*, *Postmark*):
+   - Configure as credenciais de um provedor de e-mail. 
+
+     **Exemplo usando GMAIL (para testes ou escala inicial):**
+     - **SMTP Host**: `smtp.gmail.com`
+     - **Port**: `587`
+     - **From Email Address**: O seu e-mail do Gmail (ex: `seu-email@gmail.com`)
+     - **Sender Name**: Nome do remetente (ex: `GFin SaaS`)
+     - **User Name**: O seu e-mail do Gmail completo (ex: `seu-email@gmail.com`)
+     - **Password**: Uma **Senha de App (App Password)** de 16 caracteres.
+       *💡 DICA: O Google bloqueia logins SMTP com a senha convencional. Você precisa ativar a "Verificação em duas etapas" na sua conta Google e acessar [myaccount.google.com/apppasswords](https://myaccount.google.com/apppasswords) para gerar uma Senha de App específica.*
+
+     **Exemplo usando Provedores Dedicados (Ex: Resend, SendGrid, etc. para produção em larga escala):**
      - **SMTP Host**: Endereço do host do provedor (ex: `smtp.resend.com`).
      - **Port**: `587` (TLS) ou `465` (SSL).
      - **From Email Address**: O e-mail sob o seu domínio próprio verificado (ex: `suporte@gfin.com.br`).
      - **Sender Name**: Nome visível de quem envia (ex: `GFin SaaS`).
-     - **User Name** & **Password**: Chave de API / Credenciais de SMTP geradas no provedor.
+     - **User Name** & **Password**: Chave de API / Credenciais de SMTP geradas no painel do provedor.
 
 3. **Adicionar URL de Redirecionamento de Senha**:
    - Vá em **Authentication → URL Configuration → Redirect URLs**.
