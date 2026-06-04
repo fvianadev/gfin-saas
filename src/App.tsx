@@ -14,6 +14,7 @@ import { LandingPage } from './components/LandingPage'
 import { LoginPage } from './components/auth/LoginPage'
 import { RegisterPage } from './components/auth/RegisterPage'
 import { ResetPasswordPage } from './components/auth/ResetPasswordPage'
+import AuthCallback from './pages/AuthCallback'
 
 // --- COMPONENTE: STAFF LOGIN ---
 function StaffLogin() {
@@ -295,6 +296,7 @@ function StaffDashboard() {
         estabelecimentoId={user.estabelecimento_id} 
         membroId={user.id}
         cargo={user.cargo}
+        isOwner={false}
         onBack={() => { localStorage.removeItem('gfin_staff'); navigate(`/${slug}/login`) }} 
       />
     )
@@ -302,6 +304,7 @@ function StaffDashboard() {
 
   return null
 }
+
 export default function App() {
   const [admin, setAdmin] = useState<UserSession | null>(() => {
     const stored = localStorage.getItem('gfin_admin')
@@ -327,12 +330,13 @@ export default function App() {
       <Route path="/reset-password" element={<ResetPasswordPage />} />
       <Route path="/signup" element={<Navigate to="/register" replace />} />
       <Route path="/create-account" element={<Navigate to="/register" replace />} />
-      <Route path="/admin" element={admin && admin.role !== 'super_admin' ? <AdminDashboard onBack={logoutAdmin} estabelecimentoId={admin.estabelecimento_id} membroId={admin.membro_id || ''} cargo={admin.role} /> : <Navigate to="/login" />} />
+      <Route path="/admin" element={admin && admin.role !== 'super_admin' ? <AdminDashboard onBack={logoutAdmin} estabelecimentoId={admin.estabelecimento_id} membroId={admin.membro_id || ''} cargo={admin.role} isOwner={true} /> : <Navigate to="/login" />} />
       <Route path="/super-admin" element={admin?.role === 'super_admin' ? <ErrorBoundary><SuperAdminDashboard onLogout={logoutAdmin} /></ErrorBoundary> : <Navigate to="/login" />} />
       <Route path="/:slug" element={<Navigate to="login" replace />} />
       <Route path="/:slug/login" element={<StaffLogin />} />
       <Route path="/:slug/dashboard" element={<StaffDashboard />} />
       <Route path="/:slug/agendar" element={<PublicBooking />} />
+      <Route path="/auth/callback" element={<AuthCallback />} />
     </Routes>
   )
 }

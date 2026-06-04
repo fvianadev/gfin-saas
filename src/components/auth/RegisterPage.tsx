@@ -84,8 +84,14 @@ export function RegisterPage({ onLogin }: { onLogin: (session: UserSession) => v
         return;
       }
 
-      // 3. Criar usuário no Auth
-      const { data: authData, error: authError } = await supabase.auth.signUp({ email, password: senha });
+      // 3. Criar usuário no Supabase Auth
+      // OBS: signUp SEMPRE retorna authData.user com um ID, mesmo quando e-mail
+      // de confirmação está habilitado e authData.session ainda é null.
+      const { data: authData, error: authError } = await supabase.auth.signUp({
+        email,
+        password: senha,
+        options: { emailRedirectTo: `${window.location.origin}/auth/callback` },
+      });
       if (authError) {
         const lowerAuthMsg = authError.message?.toLowerCase() || '';
         if (lowerAuthMsg.includes('already') || lowerAuthMsg.includes('cadastrado')) {
@@ -99,14 +105,7 @@ export function RegisterPage({ onLogin }: { onLogin: (session: UserSession) => v
       }
       if (!authData.user) throw new Error('Falha ao criar usuário. Tente novamente.');
 
-      // If the user needs to confirm email, stop here – the user record exists but no session yet.
-      if (!authData.session) {
-        setRegistrationSuccess(true);
-        setLoading(false);
-        return;
-      }
-
-      // Continue with establishment creation only when a session is present
+      // userId está disponível independentemente de o e-mail já estar confirmado
       const userId = authData.user.id;
 
       // 4. Buscar trial dias (fallback 7)
@@ -118,7 +117,7 @@ export function RegisterPage({ onLogin }: { onLogin: (session: UserSession) => v
         console.warn('Erro ao buscar config trial, usando 7 dias', e);
       }
 
-      // 5. Criar estabelecimento
+      // 5. Criar estabelecimento (já disponível mesmo antes da confirmação de e-mail)
       const { data: estabData, error: estabError } = await supabase
         .from('estabelecimentos')
         .insert({
@@ -140,7 +139,7 @@ export function RegisterPage({ onLogin }: { onLogin: (session: UserSession) => v
         throw estabError;
       }
 
-      // 4. Criar membro administrador
+      // 6. Criar membro administrador
       const { data: membroData, error: membroError } = await supabase
         .from('membros_equipe')
         .insert({
@@ -153,7 +152,8 @@ export function RegisterPage({ onLogin }: { onLogin: (session: UserSession) => v
         .single();
       if (membroError) throw membroError;
 
-      // 5. Autologin ou confirmação
+      // 7. Se o Supabase criou sessão imediata (confirmação desativada),
+      //    faz autologin direto. Caso contrário, exibe tela "confirme seu e-mail".
       if (authData.session) {
         const session: UserSession = {
           id: userId,
@@ -167,6 +167,7 @@ export function RegisterPage({ onLogin }: { onLogin: (session: UserSession) => v
         alert(`✅ Bem‑vindo ao GFin, ${nome}!\n\nSeu PIN inicial é: 0000`);
         navigate('/admin');
       } else {
+        // Estabelecimento já criado! Usuário só precisa confirmar o e-mail e fazer login.
         setRegistrationSuccess(true);
       }
       } catch (err) {

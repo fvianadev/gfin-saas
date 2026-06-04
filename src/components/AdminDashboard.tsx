@@ -11,12 +11,13 @@ interface AdminDashboardProps {
   estabelecimentoId: string
   membroId: string
   cargo: 'administrador' | 'usuario'
+  isOwner: boolean
 }
 
 type Periodo = 'hoje' | '7dias' | '30dias' | 'todos'
 type Tab = 'resumo' | 'transacoes' | 'equipe' | 'config' | 'auditoria' | 'itens' | 'relatorios' | 'agenda'
 
-export function AdminDashboard({ onBack, estabelecimentoId, membroId, cargo }: AdminDashboardProps) {
+export function AdminDashboard({ onBack, estabelecimentoId, membroId, cargo, isOwner }: AdminDashboardProps) {
   const [searchParams, setSearchParams] = useSearchParams()
   const activeTab = (searchParams.get('aba') as Tab) || 'resumo'
   const setActiveTab = (tab: Tab) => setSearchParams({ aba: tab }, { replace: true })
@@ -860,14 +861,27 @@ export function AdminDashboard({ onBack, estabelecimentoId, membroId, cargo }: A
           <button onClick={() => setActiveTab('itens')} className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all ${activeTab === 'itens' ? 'bg-emerald-500 text-white shadow-lg' : 'text-slate-500 hover:bg-white/5'}`}><Scissors size={18} /> Serviços/Produtos</button>
           <button onClick={() => setActiveTab('agenda')} className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all ${activeTab === 'agenda' ? 'bg-emerald-500 text-white shadow-lg' : 'text-slate-500 hover:bg-white/5'}`}><Calendar size={18} /> Agenda</button>
           
-          {cargo === 'administrador' && (
+                    {cargo === 'administrador' && (
             <>
-              <button onClick={() => setActiveTab('equipe')} className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all ${activeTab === 'equipe' ? 'bg-emerald-500 text-white shadow-lg' : 'text-slate-500 hover:bg-white/5'}`}><Users size={18} /> Equipe</button>
-              <button onClick={() => setActiveTab('auditoria')} className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all ${activeTab === 'auditoria' ? 'bg-emerald-500 text-white shadow-lg' : 'text-slate-500 hover:bg-white/5'}`}><ShieldAlert size={18} /> Auditoria</button>
-              <button onClick={() => setActiveTab('relatorios')} className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all ${activeTab === 'relatorios' ? 'bg-emerald-500 text-white shadow-lg' : 'text-slate-500 hover:bg-white/5'}`}><PieChart size={18} /> Relatórios</button>
-              <button onClick={() => setActiveTab('config')} className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all ${activeTab === 'config' ? 'bg-emerald-500 text-white shadow-lg' : 'text-slate-500 hover:bg-white/5'}`}><Settings size={18} /> Configurações</button>
+              <button onClick={() => setActiveTab('equipe')} className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all ${activeTab === 'equipe' ? 'bg-emerald-500 text-white shadow-lg' : 'text-slate-500 hover:bg-white/5'}`}>
+                <Users size={18} /> Equipe
+              </button>
+              {isOwner && (
+                <>
+                  <button onClick={() => setActiveTab('auditoria')} className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all ${activeTab === 'auditoria' ? 'bg-emerald-500 text-white shadow-lg' : 'text-slate-500 hover:bg-white/5'}`}>
+                    <ShieldAlert size={18} /> Auditoria
+                  </button>
+                  <button onClick={() => setActiveTab('relatorios')} className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all ${activeTab === 'relatorios' ? 'bg-emerald-500 text-white shadow-lg' : 'text-slate-500 hover:bg-white/5'}`}>
+                    <PieChart size={18} /> Relatórios
+                  </button>
+                  <button onClick={() => setActiveTab('config')} className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all ${activeTab === 'config' ? 'bg-emerald-500 text-white shadow-lg' : 'text-slate-500 hover:bg-white/5'}`}>
+                    <Settings size={18} /> Configurações
+                  </button>
+                </>
+              )}
             </>
           )}
+
         </nav>
         <button onClick={onBack} className="flex items-center gap-3 px-4 py-3 text-rose-400 hover:bg-rose-500/10 rounded-xl mt-auto font-bold"><ArrowLeft size={18} /> Sair</button>
       </aside>
