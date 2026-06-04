@@ -13,33 +13,112 @@ export function RegisterPage({ onLogin }: { onLogin: (session: UserSession) => v
   const [registrationSuccess, setRegistrationSuccess] = useState(false)
   const navigate = useNavigate()
 
+  const [errorMessage, setErrorMessage] = useState('');
+
+  const validateForm = () => {
+    if (empresa.trim().length < 3) {
+      setErrorMessage('Nome do estabelecimento deve ter ao menos 3 caracteres.');
+      return false;
+    }
+    // Permitir letras (incluindo acentos e cedilha), números, espaços, hifens e underlines
+    if (!/^[A-Za-z0-9À-ÖØ-öø-ÿ\s_-]+$/.test(empresa)) {
+      setErrorMessage('Nome do estabelecimento contém caracteres inválidos.');
+      return false;
+    }
+    if (!email.includes('@')) {
+      setErrorMessage('Informe um e‑mail válido.');
+      return false;
+    }
+    if (senha.length < 6) {
+      setErrorMessage('A senha deve ter no mínimo 6 caracteres.');
+      return false;
+    }
+    setErrorMessage('');
+    return true;
+  };
+
   const handleRegister = async (e: React.FormEvent) => {
-    e.preventDefault()
-    setLoading(true)
+    e.preventDefault();
+    if (!validateForm()) return;
+    setLoading(true);
     try {
-      const slug = empresa.toLowerCase().trim().replace(/\s+/g, '-').replace(/[^\w-]/g, '')
+      // 1. Converter acentos e caracteres especiais para gerar um slug limpo (ex: "Salão Viana" -> "salao-viana")
+      const slug = empresa
+        .normalize('NFD') // Decompõe caracteres acentuados (ex: ã -> a + ~)
+        .replace(/[\u0300-\u036f]/g, '') // Remove os acentos
+        .toLowerCase()
+        .trim()
+        .replace(/\s+/g, '-') // Substitui espaços por hifens
+        .replace(/[^\w-]/g, '') // Remove caracteres que não sejam letras, números ou hifens
+        .replace(/-+/g, '-'); // Evita múltiplos hifens seguidos
 
-      if (slug.length < 3) throw new Error('Nome do estabelecimento muito curto (mínimo 3 caracteres).')
-
-      // 1. Criar usuário no Auth
-      const { data: authData, error: authError } = await supabase.auth.signUp({ email, password: senha })
-      if (authError) throw authError
-      if (!authData.user) throw new Error('Falha ao criar usuário. Tente novamente.')
-
-      const userId = authData.user.id
-
-      // 2. Buscar configurações do SAAS para pegar o número de dias do trial
-      let trialDias = 7
-      try {
-        const { data: configData } = await supabase.from('saas_configuracoes').select('trial_dias').limit(1).maybeSingle()
-        if (configData && configData.trial_dias) {
-          trialDias = configData.trial_dias
-        }
-      } catch (e) {
-        console.warn('Erro ao buscar saas_configuracoes, usando fallback de 7 dias', e)
+      // Verificar se o slug gerado é válido/não ficou vazio
+      if (!slug || slug.length < 3) {
+        setErrorMessage('O nome do estabelecimento gerou um slug inválido. Tente outro nome.');
+        setLoading(false);
+        return;
       }
 
-      // 3. Criar estabelecimento (política anon permite INSERT durante onboarding)
+      // 2. Verificar se o slug já existe na tabela de estabelecimentos
+      const { data: existingEstab, error: checkError } = await supabase
+        .from('estabelecimentos')
+        .select('id')
+        .eq('slug', slug)
+        .maybeSingle();
+
+      if (checkError) {
+        console.error('Erro ao verificar slug:', checkError);
+      }
+
+      if (existingEstab) {
+        setErrorMessage('Este nome de estabelecimento já está em uso (slug duplicado). Por favor, escolha outro nome.');
+        setLoading(false);
+        return;
+      }
+
+      // ---- Email validation (basic) ----
+      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+      if (!emailRegex.test(email)) {
+        setErrorMessage('Por favor, insira um e‑mail válido.');
+        setLoading(false);
+        return;
+      }
+
+      // 3. Criar usuário no Auth
+      const { data: authData, error: authError } = await supabase.auth.signUp({ email, password: senha });
+      if (authError) {
+        const lowerAuthMsg = authError.message?.toLowerCase() || '';
+        if (lowerAuthMsg.includes('already') || lowerAuthMsg.includes('cadastrado')) {
+          setErrorMessage('Já existe uma conta com este e‑mail. Faça login ou recupere sua senha.');
+          setLoading(false);
+          return;
+        }
+        setErrorMessage(authError.message);
+        setLoading(false);
+        return;
+      }
+      if (!authData.user) throw new Error('Falha ao criar usuário. Tente novamente.');
+
+      // If the user needs to confirm email, stop here – the user record exists but no session yet.
+      if (!authData.session) {
+        setRegistrationSuccess(true);
+        setLoading(false);
+        return;
+      }
+
+      // Continue with establishment creation only when a session is present
+      const userId = authData.user.id;
+
+      // 4. Buscar trial dias (fallback 7)
+      let trialDias = 7;
+      try {
+        const { data: configData } = await supabase.from('saas_configuracoes').select('trial_dias').limit(1).maybeSingle();
+        if (configData && configData.trial_dias) trialDias = configData.trial_dias;
+      } catch (e) {
+        console.warn('Erro ao buscar config trial, usando 7 dias', e);
+      }
+
+      // 5. Criar estabelecimento
       const { data: estabData, error: estabError } = await supabase
         .from('estabelecimentos')
         .insert({
@@ -52,49 +131,87 @@ export function RegisterPage({ onLogin }: { onLogin: (session: UserSession) => v
           trial_active: true,
         })
         .select()
-        .single()
+        .single();
 
       if (estabError) {
-        if (estabError.code === '23505') throw new Error(`O slug "${slug}" já está em uso. Escolha outro nome.`)
-        throw estabError
+        if (estabError.code === '23505') {
+          throw new Error('Este nome de estabelecimento já está em uso. Por favor, escolha outro nome.');
+        }
+        throw estabError;
       }
 
-      // 3. Criar membro administrador inicial com PIN padrão 0000
+      // 4. Criar membro administrador
       const { data: membroData, error: membroError } = await supabase
         .from('membros_equipe')
         .insert({
           estabelecimento_id: estabData.id,
           nome: nome || empresa.split(' ')[0],
           pin_hash: '0000',
-          cargo: 'administrador'
+          cargo: 'administrador',
         })
         .select()
-        .single()
+        .single();
+      if (membroError) throw membroError;
 
-      if (membroError) throw membroError
-
-      // 4. Montar sessão local se estiver autenticado (autologin), senão exigir confirmação
+      // 5. Autologin ou confirmação
       if (authData.session) {
         const session: UserSession = {
           id: userId,
-          membro_id: membroData?.id || null,
+          membro_id: membroData?.id ?? null,
           nome: nome || empresa,
           estabelecimento_id: estabData.id,
           estabelecimento_slug: estabData.slug,
-          role: 'administrador'
-        }
-        onLogin(session)
-        alert(`✅ Bem-vindo ao GFin, ${nome}!\n\nSeu PIN inicial é: 0000\nAcesse: /${estabData.slug}/login`)
-        navigate('/admin')
+          role: 'administrador',
+        };
+        onLogin(session);
+        alert(`✅ Bem‑vindo ao GFin, ${nome}!\n\nSeu PIN inicial é: 0000`);
+        navigate('/admin');
       } else {
-        setRegistrationSuccess(true)
+        setRegistrationSuccess(true);
       }
-    } catch (err: any) {
-      alert('Erro ao criar conta: ' + err.message)
-    } finally {
-      setLoading(false)
-    }
-  }
+      } catch (err) {
+        console.error('Register error:', err);
+        // Helper to map Supabase/PostgREST errors to user-friendly messages
+        const getFriendlyMessage = (error: any): string => {
+          // Auth errors
+          if (error?.message) {
+            const msg = error.message.toString().toLowerCase();
+            if (msg.includes('already') || msg.includes('cadastrado')) {
+              return 'Já existe uma conta com este e‑mail. Faça login ou recupere sua senha.';
+            }
+            if (msg.includes('invalid email') || msg.includes('must be a valid')) {
+              return 'Por favor, insira um e‑mail válido.';
+            }
+            if (msg.includes('rate limit') || msg.includes('limit exceeded')) {
+              return 'Muitas tentativas de cadastro seguidas. Aguarde alguns minutos antes de tentar novamente.';
+            }
+            if (msg.includes('confirmation') || msg.includes('smtp') || msg.includes('failed to send')) {
+              return 'Erro ao enviar e‑mail de confirmação. Verifique as configurações de Auth ou desative a confirmação de e‑mail para testes.';
+            }
+          }
+          // PostgREST errors (from table inserts)
+          if (error?.code) {
+            switch (error.code) {
+              case '23505': // unique violation
+                if (error.message?.includes('slug')) {
+                  return `O slug escolhido já está em uso. Tente outro nome para o estabelecimento.`;
+                }
+                return 'Já existe um estabelecimento com este e‑mail ou nome. Por favor, verifique os dados.';
+              case '23503': // foreign key violation
+                return 'Erro ao criar estabelecimento: o usuário não foi criado corretamente. Tente novamente.';
+              default:
+                break;
+            }
+          }
+          // Fallback generic message
+          return error?.message?.toString() || 'Erro ao criar conta. Por favor, tente novamente.';
+        };
+        const friendlyMsg = getFriendlyMessage(err);
+        setErrorMessage(friendlyMsg);
+      } finally {
+        setLoading(false);
+      }
+  };
 
   if (registrationSuccess) {
     return (
@@ -190,13 +307,18 @@ export function RegisterPage({ onLogin }: { onLogin: (session: UserSession) => v
             />
           </div>
           
-          <div className="pt-2">
-            <button disabled={loading} className="w-full bg-emerald-500 hover:bg-emerald-400 disabled:opacity-50 text-white font-bold py-3.5 md:py-4 px-4 rounded-xl shadow-lg shadow-emerald-500/20 active:scale-[0.98] transition-all text-sm md:text-base flex justify-center items-center">
-              {loading ? (
-                 <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-              ) : 'Criar minha Barbearia'}
-            </button>
-          </div>
+          <button disabled={loading} className="w-full bg-emerald-500 hover:bg-emerald-400 disabled:opacity-50 text-white font-bold py-3.5 md:py-4 px-4 rounded-xl shadow-lg shadow-emerald-500/20 active:scale-[0.98] transition-all text-sm md:text-base flex justify-center items-center">
+            {loading ? (
+              <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+            ) : 'Criar Conta'}
+          </button>
+
+          {errorMessage && (
+            <div className="bg-red-600/20 border border-red-600 text-red-200 rounded-md p-3 mb-4 text-sm">
+              {errorMessage}
+            </div>
+          )}
+
         </form>
 
         <div className="text-center pt-2 border-t border-white/5">

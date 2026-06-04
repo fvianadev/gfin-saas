@@ -63,7 +63,9 @@ CREATE TABLE IF NOT EXISTS public.transacoes (
     motivo_exclusao TEXT,
     alterado_por UUID REFERENCES public.membros_equipe(id),
     motivo_alteracao TEXT,
-    metadata JSONB DEFAULT '{}'::jsonb
+    metadata JSONB DEFAULT '{}'::jsonb,
+    agendamento_id UUID REFERENCES public.agendamentos(id),
+    UNIQUE (agendamento_id)
 );
 
 -- 4. TABELA DE AUDITORIA DE EDIÇÕES
@@ -283,6 +285,12 @@ DROP POLICY IF EXISTS "Publico vê agendamentos para disponibilidade" ON public.
 CREATE POLICY "Publico vê agendamentos para disponibilidade" ON public.agendamentos
     FOR SELECT TO anon, authenticated
     USING (true);
+
+DROP POLICY IF EXISTS "Staff gerencia agenda" ON public.agendamentos;
+CREATE POLICY "Staff gerencia agenda" ON public.agendamentos
+    FOR ALL TO anon, authenticated
+    USING (true)
+    WITH CHECK (true);
 
 -- 8. Políticas para saas_admins
 DROP POLICY IF EXISTS "Leitura permitida para autenticados" ON public.saas_admins;

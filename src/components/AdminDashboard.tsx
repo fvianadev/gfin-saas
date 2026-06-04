@@ -138,6 +138,13 @@ export function AdminDashboard({ onBack, estabelecimentoId, membroId, cargo }: A
   const [salvandoHorario, setSalvandoHorario] = useState<string | null>(null)
 
   const [devPassword, setDevPassword] = useState('')
+
+  const [whatsappPrompt, setWhatsappPrompt] = useState<{
+    isOpen: boolean;
+    mensagem: string;
+    onConfirm: () => void;
+    onCancel: () => void;
+  } | null>(null)
   const [isDevMode, setIsDevMode] = useState(false)
 
   const subscriptionStatus = useMemo(() => {
@@ -414,6 +421,25 @@ export function AdminDashboard({ onBack, estabelecimentoId, membroId, cargo }: A
         const servico = Array.isArray(ag.servicos_produtos) ? ag.servicos_produtos[0] : ag.servicos_produtos;
         const preco = servico?.preco_sugerido || 0;
         
+        // Verifica se já existe transação para este agendamento
+        const { data: txExist, error: errCheck } = await supabase
+          .from('transacoes')
+          .select('id')
+          .eq('agendamento_id', ag.id)
+          .single();
+
+        if (errCheck && errCheck.code !== 'PGRST116') { // ignore not-found error
+          console.error('Erro ao checar transação existente:', errCheck);
+          alert('Não foi possível verificar transação existente.');
+          return;
+        }
+
+        if (txExist) {
+          alert('Esta agenda já foi finalizada e a transação já foi lançada.');
+          fetchAgendamentos();
+          return;
+        }
+
         const { error: errorTx } = await supabase.from('transacoes').insert({
           estabelecimento_id: estabelecimentoId,
           membro_id: ag.membro_id || membroId,
@@ -422,7 +448,7 @@ export function AdminDashboard({ onBack, estabelecimentoId, membroId, cargo }: A
           descricao: `Agendamento: ${ag.cliente_nome} (${ag.servicos_produtos?.nome || 'Serviço'})`,
           categoria: ag.servicos_produtos?.categoria || 'Geral',
           data_competencia: new Date().toISOString().split('T')[0],
-          metadata: { agendamento_id: ag.id }
+          agendamento_id: ag.id
         })
 
         if (errorTx) {
@@ -437,28 +463,34 @@ export function AdminDashboard({ onBack, estabelecimentoId, membroId, cargo }: A
       
       // 3. Notificar via WhatsApp apenas para Confirmação ou Cancelamento
       if (novoStatus !== 'concluido') {
-        const querAvisar = confirm(
-          novoStatus === 'confirmado'
-            ? `Agendamento confirmado! Deseja enviar o WhatsApp de confirmação para ${ag.cliente_nome}?`
-            : `Agendamento cancelado. Deseja enviar o aviso de indisponibilidade para ${ag.cliente_nome}?`
-        )
+        const msgTexto = novoStatus === 'confirmado'
+          ? `Agendamento confirmado! Deseja enviar o WhatsApp de confirmação para ${ag.cliente_nome}?`
+          : `Agendamento cancelado. Deseja enviar o aviso de indisponibilidade para ${ag.cliente_nome}?`;
 
-        if (querAvisar) {
-          const dataObj = new Date(ag.data_hora_inicio)
-          const dataFormatada = dataObj.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' })
-          const horaFormatada = dataObj.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })
+        setWhatsappPrompt({
+          isOpen: true,
+          mensagem: msgTexto,
+          onConfirm: () => {
+            const dataObj = new Date(ag.data_hora_inicio)
+            const dataFormatada = dataObj.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' })
+            const horaFormatada = dataObj.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })
 
-          const msg = encodeURIComponent(
-            novoStatus === 'confirmado'
-              ? `Olá ${ag.cliente_nome}! Seu agendamento na ${estab.nome} para o dia ${dataFormatada} às ${horaFormatada} foi CONFIRMADO. \u2705\n\nTe aguardamos! \uD83D\uDE0A`
-              : `Olá ${ag.cliente_nome}, infelizmente não poderemos te atender na data e hora solicitada (${dataFormatada} às ${horaFormatada}) na ${estab.nome}. \u274C\n\nPoderia escolher outro horário? \uD83D\uDE4F`
-          )
-          
-          const fone = ag.cliente_whatsapp?.replace(/\D/g, '')
-          if (fone) {
-            window.open(`https://wa.me/55${fone}?text=${msg}`, '_blank')
+            const msg = encodeURIComponent(
+              novoStatus === 'confirmado'
+                ? `Olá ${ag.cliente_nome}! Seu agendamento na ${estab.nome} para o dia ${dataFormatada} às ${horaFormatada} foi CONFIRMADO. \u2705\n\nTe aguardamos! \uD83D\uDE0A`
+                : `Olá ${ag.cliente_nome}, infelizmente não poderemos te atender na data e hora solicitada (${dataFormatada} às ${horaFormatada}) na ${estab.nome}. \u274C\n\nPoderia escolher outro horário? \uD83D\uDE4F`
+            )
+            
+            const fone = ag.cliente_whatsapp?.replace(/\D/g, '')
+            if (fone) {
+              window.open(`https://wa.me/55${fone}?text=${msg}`, '_blank')
+            }
+            setWhatsappPrompt(null)
+          },
+          onCancel: () => {
+            setWhatsappPrompt(null)
           }
-        }
+        })
       }
     } catch (err: any) {
       console.error("Erro fatal na função:", err)
@@ -798,6 +830,12 @@ export function AdminDashboard({ onBack, estabelecimentoId, membroId, cargo }: A
     )
   }
 
+  const isEmailLogin = !!localStorage.getItem('gfin_admin');
+  const loggedMembro = membros.find(m => m.id === membroId);
+  const nomeExibicao = loggedMembro ? loggedMembro.nome : (isEmailLogin ? (estab?.nome || 'Dono') : 'Staff');
+  const sufixo = isEmailLogin ? ' (CEO)' : (cargo === 'administrador' ? ' (Adm)' : ' (Usu)');
+  const textoUsuario = `${nomeExibicao}${sufixo}`;
+
   return (
     <div className="min-h-screen bg-slate-950 text-white flex flex-col lg:flex-row pb-24 lg:pb-0">
       <aside className="hidden lg:flex w-64 bg-slate-900/50 border-r border-white/5 flex-col p-6 sticky top-0 h-screen print:hidden">
@@ -811,24 +849,27 @@ export function AdminDashboard({ onBack, estabelecimentoId, membroId, cargo }: A
             <span className="font-black text-sm sm:text-base leading-none tracking-tighter uppercase break-words line-clamp-2">
               {estab?.nome || 'GFin'}
             </span>
+            <span className="text-[10px] text-slate-400 font-bold uppercase mt-1">
+              {textoUsuario}
+            </span>
           </div>
         </div>
         <nav className="space-y-2 flex-1">
           <button onClick={() => setActiveTab('resumo')} className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all ${activeTab === 'resumo' ? 'bg-emerald-500 text-white shadow-lg' : 'text-slate-500 hover:bg-white/5'}`}><PieChart size={18} /> Resumo</button>
           <button onClick={() => setActiveTab('transacoes')} className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all ${activeTab === 'transacoes' ? 'bg-emerald-500 text-white shadow-lg' : 'text-slate-500 hover:bg-white/5'}`}><List size={18} /> Lançamentos</button>
           <button onClick={() => setActiveTab('itens')} className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all ${activeTab === 'itens' ? 'bg-emerald-500 text-white shadow-lg' : 'text-slate-500 hover:bg-white/5'}`}><Scissors size={18} /> Serviços/Produtos</button>
+          <button onClick={() => setActiveTab('agenda')} className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all ${activeTab === 'agenda' ? 'bg-emerald-500 text-white shadow-lg' : 'text-slate-500 hover:bg-white/5'}`}><Calendar size={18} /> Agenda</button>
           
           {cargo === 'administrador' && (
             <>
               <button onClick={() => setActiveTab('equipe')} className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all ${activeTab === 'equipe' ? 'bg-emerald-500 text-white shadow-lg' : 'text-slate-500 hover:bg-white/5'}`}><Users size={18} /> Equipe</button>
-              <button onClick={() => setActiveTab('agenda')} className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all ${activeTab === 'agenda' ? 'bg-emerald-500 text-white shadow-lg' : 'text-slate-500 hover:bg-white/5'}`}><Calendar size={18} /> Agenda</button>
               <button onClick={() => setActiveTab('auditoria')} className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all ${activeTab === 'auditoria' ? 'bg-emerald-500 text-white shadow-lg' : 'text-slate-500 hover:bg-white/5'}`}><ShieldAlert size={18} /> Auditoria</button>
               <button onClick={() => setActiveTab('relatorios')} className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all ${activeTab === 'relatorios' ? 'bg-emerald-500 text-white shadow-lg' : 'text-slate-500 hover:bg-white/5'}`}><PieChart size={18} /> Relatórios</button>
               <button onClick={() => setActiveTab('config')} className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all ${activeTab === 'config' ? 'bg-emerald-500 text-white shadow-lg' : 'text-slate-500 hover:bg-white/5'}`}><Settings size={18} /> Configurações</button>
             </>
           )}
         </nav>
-        <button onClick={onBack} className="flex items-center gap-3 px-4 py-3 text-rose-400 hover:bg-rose-500/10 rounded-xl mt-auto font-bold"><ArrowLeft size={18} /> Sair do Admin</button>
+        <button onClick={onBack} className="flex items-center gap-3 px-4 py-3 text-rose-400 hover:bg-rose-500/10 rounded-xl mt-auto font-bold"><ArrowLeft size={18} /> Sair</button>
       </aside>
 
       <main className="flex-1 p-4 sm:p-8 lg:p-12 max-w-7xl mx-auto w-full">
@@ -841,7 +882,7 @@ export function AdminDashboard({ onBack, estabelecimentoId, membroId, cargo }: A
               )}
               <div>
                 <h2 className="font-bold text-sm uppercase tracking-widest text-emerald-500 leading-tight">{estab?.nome || 'GFin'}</h2>
-                <p className="text-[10px] text-slate-400 font-bold uppercase">{membros.find(m => m.id === membroId)?.nome || 'Carregando...'}</p>
+                <p className="text-[10px] text-slate-400 font-bold uppercase">{textoUsuario}</p>
               </div>
            </div>
            <button onClick={onBack} className="p-2 glass-card rounded-full text-rose-400"><ArrowLeft size={18} /></button>
@@ -1335,6 +1376,19 @@ export function AdminDashboard({ onBack, estabelecimentoId, membroId, cargo }: A
                       onChange={e => setNovoAgendamento(prev => ({ ...prev, hora: e.target.value }))}
                     />
                   </div>
+                  <div className="space-y-1 sm:col-span-2">
+                    <label className="text-[10px] font-bold text-slate-500 uppercase px-1">Status</label>
+                    <select 
+                      className="w-full bg-slate-900 border border-white/5 rounded-2xl p-4 text-sm font-bold outline-none focus:border-emerald-500 transition-all appearance-none"
+                      value={novoAgendamento.status}
+                      onChange={e => setNovoAgendamento(prev => ({ ...prev, status: e.target.value }))}
+                    >
+                      <option value="pendente">⏳ Pendente</option>
+                      <option value="confirmado">✅ Confirmado</option>
+                      <option value="concluido">🏁 Concluído</option>
+                      <option value="cancelado">❌ Cancelado</option>
+                    </select>
+                  </div>
                 </div>
 
                 <div className="flex gap-3 pt-4">
@@ -1585,8 +1639,24 @@ export function AdminDashboard({ onBack, estabelecimentoId, membroId, cargo }: A
                          </div>
                        </div>
                        
-                        <div className="flex items-center gap-2 border-t border-white/5 sm:border-0 pt-3 sm:pt-0">
-                          {ag.status !== 'concluido' && (
+                        <div className="flex items-center gap-2 border-t border-white/5 sm:border-0 pt-3 sm:pt-0 flex-wrap">
+                          {/* 1. Confirmar */}
+                          {ag.status !== 'concluido' && ag.status !== 'cancelado' && (
+                            <button 
+                              onClick={() => handleAgendamentoAction(ag, 'confirmado')} 
+                              className={`px-4 py-2 rounded-xl text-[10px] font-black uppercase transition-all ${
+                                ag.status === 'confirmado' 
+                                  ? 'bg-emerald-500/20 text-emerald-500 cursor-default' 
+                                  : 'bg-emerald-500 text-white shadow-lg shadow-emerald-500/20 active:scale-95'
+                              }`}
+                              title="Confirmar"
+                            >
+                              {ag.status === 'confirmado' ? '✅ Confirmado' : '✅ Confirmar'}
+                            </button>
+                          )}
+
+                          {/* 2. Finalizar */}
+                          {ag.status !== 'concluido' && ag.status !== 'cancelado' && (
                             <button 
                               onClick={() => {
                                 const servico = Array.isArray(ag.servicos_produtos) ? ag.servicos_produtos[0] : ag.servicos_produtos;
@@ -1595,12 +1665,14 @@ export function AdminDashboard({ onBack, estabelecimentoId, membroId, cargo }: A
                                   handleAgendamentoAction(ag, 'concluido')
                                 }
                               }} 
-                              className="px-4 py-2 bg-indigo-500 text-white rounded-xl text-[10px] font-black uppercase shadow-lg shadow-indigo-500/20 active:scale-95 transition-all flex items-center gap-2"
+                              className="px-4 py-2 bg-indigo-500 text-white rounded-xl text-[10px] font-black uppercase shadow-lg shadow-indigo-500/20 active:scale-95 transition-all flex items-center gap-1.5"
                               title="Finalizar e Cobrar"
                             >
                               <DollarSign size={14} /> Finalizar
                             </button>
                           )}
+
+                          {/* 3. Editar */}
                           <button 
                             onClick={() => {
                               const d = new Date(ag.data_hora_inicio)
@@ -1624,32 +1696,19 @@ export function AdminDashboard({ onBack, estabelecimentoId, membroId, cargo }: A
                           >
                             <Edit2 size={16} />
                           </button>
-                          {ag.status !== 'concluido' && (
+
+                          {/* 4. Cancelar */}
+                          {ag.status !== 'concluido' && ag.status !== 'cancelado' && (
                             <button 
-                              onClick={() => handleAgendamentoAction(ag, 'confirmado')} 
-                              className={`px-4 py-2 rounded-xl text-[10px] font-black uppercase transition-all ${
-                                ag.status === 'confirmado' 
-                                  ? 'bg-emerald-500/20 text-emerald-500 cursor-default' 
-                                  : 'bg-emerald-500 text-white shadow-lg shadow-emerald-500/20 active:scale-95'
-                              }`}
-                              title="Confirmar"
+                              onClick={() => handleAgendamentoAction(ag, 'cancelado')} 
+                              className="p-2 rounded-xl border border-white/5 transition-all bg-slate-900 text-slate-400 hover:text-rose-500"
+                              title="Cancelar"
                             >
-                              {ag.status === 'confirmado' ? 'Confirmado' : 'Confirmar'}
+                              <X size={16} />
                             </button>
                           )}
-                          
-                          <button 
-                            onClick={() => handleAgendamentoAction(ag, 'cancelado')} 
-                            className={`p-2 rounded-xl border border-white/5 transition-all ${
-                              ag.status === 'cancelado'
-                                ? 'bg-rose-500/20 text-rose-500 cursor-default'
-                                : 'bg-slate-900 text-slate-400 hover:text-rose-500'
-                            }`}
-                            title="Cancelar"
-                          >
-                            <X size={16} />
-                          </button>
 
+                          {/* 5. Excluir */}
                           <button 
                             onClick={() => deletarAgendamento(ag.id)} 
                             className="p-2 bg-slate-900 text-slate-700 hover:text-rose-500 rounded-xl border border-white/5 transition-all"
@@ -1958,17 +2017,15 @@ export function AdminDashboard({ onBack, estabelecimentoId, membroId, cargo }: A
           <span className="text-[9px] font-bold uppercase">Lista</span>
         </button>
         
+        <button onClick={() => { setActiveTab('agenda'); setIsMoreMenuOpen(false); }} className={`flex flex-col items-center gap-1 transition-all flex-1 ${activeTab === 'agenda' && !isMoreMenuOpen ? 'text-emerald-500 scale-110' : 'text-slate-500'}`}>
+          <Calendar size={20} />
+          <span className="text-[9px] font-bold uppercase">Agenda</span>
+        </button>
         {cargo === 'administrador' ? (
-          <>
-            <button onClick={() => { setActiveTab('equipe'); setIsMoreMenuOpen(false); }} className={`flex flex-col items-center gap-1 transition-all flex-1 ${activeTab === 'equipe' && !isMoreMenuOpen ? 'text-emerald-500 scale-110' : 'text-slate-500'}`}>
-              <Users size={20} />
-              <span className="text-[9px] font-bold uppercase">Equipe</span>
-            </button>
-            <button onClick={() => setIsMoreMenuOpen(!isMoreMenuOpen)} className={`flex flex-col items-center gap-1 transition-all flex-1 ${isMoreMenuOpen ? 'text-emerald-500 scale-110' : 'text-slate-500'}`}>
-              <MoreVertical size={20} />
-              <span className="text-[9px] font-bold uppercase">Mais</span>
-            </button>
-          </>
+          <button onClick={() => setIsMoreMenuOpen(!isMoreMenuOpen)} className={`flex flex-col items-center gap-1 transition-all flex-1 ${isMoreMenuOpen ? 'text-emerald-500 scale-110' : 'text-slate-500'}`}>
+            <MoreVertical size={20} />
+            <span className="text-[9px] font-bold uppercase">Mais</span>
+          </button>
         ) : (
           <button onClick={() => { setActiveTab('itens'); setIsMoreMenuOpen(false); }} className={`flex flex-col items-center gap-1 transition-all flex-1 ${activeTab === 'itens' && !isMoreMenuOpen ? 'text-emerald-500 scale-110' : 'text-slate-500'}`}>
             <Scissors size={20} />
@@ -2019,6 +2076,40 @@ export function AdminDashboard({ onBack, estabelecimentoId, membroId, cargo }: A
         canSelectMember={true}
         editingTransaction={transactionToEdit}
       />
+
+      {/* MODAL CUSTOMIZADO WHATSAPP PROMPT */}
+      {whatsappPrompt && whatsappPrompt.isOpen && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-in fade-in duration-200">
+          <div className="bg-amber-500/10 border border-amber-500/20 backdrop-blur-xl w-full max-w-md rounded-3xl p-6 sm:p-8 shadow-2xl animate-in zoom-in-95 duration-200 text-center relative overflow-hidden">
+            {/* Elemento de iluminação decorativa para a sofisticação do design */}
+            <div className="absolute -top-12 -left-12 w-24 h-24 bg-amber-500/20 rounded-full blur-2xl pointer-events-none" />
+            
+            <div className="w-14 h-14 bg-amber-500/20 text-amber-400 rounded-2xl flex items-center justify-center mx-auto mb-5 border border-amber-500/30 shadow-lg shadow-amber-500/5">
+              <MessageCircle size={26} />
+            </div>
+            
+            <h4 className="font-black text-amber-400 text-base uppercase tracking-widest mb-2">Enviar WhatsApp</h4>
+            <p className="text-sm text-slate-300 mb-6 leading-relaxed font-semibold">
+              {whatsappPrompt.mensagem}
+            </p>
+            
+            <div className="flex gap-3 justify-center">
+              <button 
+                onClick={whatsappPrompt.onCancel}
+                className="flex-1 bg-slate-900 border border-white/5 hover:bg-slate-800 hover:text-white text-slate-400 font-bold py-3.5 rounded-2xl transition-all active:scale-95 text-xs uppercase tracking-widest"
+              >
+                Não
+              </button>
+              <button 
+                onClick={whatsappPrompt.onConfirm}
+                className="flex-1 bg-amber-500 hover:bg-amber-400 text-slate-950 font-black py-3.5 rounded-2xl shadow-xl shadow-amber-500/20 transition-all active:scale-95 text-xs uppercase tracking-widest"
+              >
+                Sim
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

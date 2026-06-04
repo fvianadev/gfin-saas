@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { useNavigate, Link } from 'react-router-dom'
 import { supabase } from '../../lib/supabase'
-import { LayoutDashboard, ArrowLeft, Mail } from 'lucide-react'
+import { LayoutDashboard, ArrowLeft, Mail, Lock } from 'lucide-react'
 import type { UserSession } from '../../types/auth'
 
 export function LoginPage({ onLogin }: { onLogin: (session: UserSession) => void }) {
@@ -140,7 +140,7 @@ export function LoginPage({ onLogin }: { onLogin: (session: UserSession) => void
                   <label className="text-[10px] md:text-xs font-bold text-slate-400 uppercase tracking-wider">Senha</label>
                   <button 
                     type="button" 
-                    onClick={() => { setMode('forgot'); setForgotSuccess(false); setForgotEmail(''); }}
+                onClick={() => { setMode('forgot'); setForgotSuccess(false); setForgotEmail(''); }}
                     className="text-[10px] md:text-xs font-bold text-emerald-500 hover:text-emerald-400 transition-colors uppercase tracking-wider hover:underline"
                   >
                     Esqueceu a senha?

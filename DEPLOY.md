@@ -41,8 +41,8 @@ supabase db push
 
 Após o deploy do frontend, adicione a URL do site em:
 
-- **Authentication → URL Configuration → Site URL**: `https://seu-dominio.netlify.app`
-- **Authentication → URL Configuration → Redirect URLs**: `https://seu-dominio.netlify.app/**`
+42: - **Authentication → URL Configuration → Site URL**: `https://seu-dominio.vercel.app`
+43: - **Authentication → URL Configuration → Redirect URLs**: `https://seu-dominio.vercel.app/**`
 
 ### 2.4 Configuração de E-mail & SMTP em Produção
 
@@ -66,18 +66,14 @@ Para que os fluxos de confirmação de cadastro e recuperação de senha funcion
      - **Password**: Uma **Senha de App (App Password)** de 16 caracteres.
        *💡 DICA: O Google bloqueia logins SMTP com a senha convencional. Você precisa ativar a "Verificação em duas etapas" na sua conta Google e acessar [myaccount.google.com/apppasswords](https://myaccount.google.com/apppasswords) para gerar uma Senha de App específica.*
 
-     **Exemplo usando Provedores Dedicados (Ex: Resend, SendGrid, etc. para produção em larga escala):**
-     - **SMTP Host**: Endereço do host do provedor (ex: `smtp.resend.com`).
-     - **Port**: `587` (TLS) ou `465` (SSL).
-     - **From Email Address**: O e-mail sob o seu domínio próprio verificado (ex: `suporte@gfin.com.br`).
-     - **Sender Name**: Nome visível de quem envia (ex: `GFin SaaS`).
-     - **User Name** & **Password**: Chave de API / Credenciais de SMTP geradas no painel do provedor.
+      **Exemplo usando Provedor Gratuito (Recomendado: Resend)**:
+      - **SMTP Host**: `smtp.resend.com`
+      - **Port**: `465` (SSL) ou `587` (TLS)
+      - **From Email Address**: Endereço de e‑mail fornecido pelo Resend (ex.: `onboarding@resend.dev`).
+      - **Sender Name**: Nome que aparecerá no e‑mail (ex.: `GFin SaaS`).
+      - **User Name** & **Password**: Sua **API Key** do Resend (`re_XXXXXXXX`).
+      - **Observação**: Quando seu domínio próprio for verificado, troque o *From Email* para algo como `noreply@gfin.com.br` e continue usando a mesma API Key.
 
-3. **Adicionar URL de Redirecionamento de Senha**:
-   - Vá em **Authentication → URL Configuration → Redirect URLs**.
-   - Adicione a URL específica do fluxo de redefinição de senha:
-     - `https://seu-dominio.netlify.app/reset-password`
-     - *(Substitua `seu-dominio.netlify.app` pelo domínio real de produção do seu SaaS).*
 
 ---
 
