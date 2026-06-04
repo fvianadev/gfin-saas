@@ -1,7 +1,7 @@
 import { useState, useEffect, useMemo } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts'
-import { ArrowLeft, ArrowRight, TrendingUp, TrendingDown, Lock, Shield, Calendar, Filter, ArrowUpRight, ArrowDownLeft, Trash2, Edit2, Plus, Users, DollarSign, LayoutDashboard, MoreVertical, PieChart, List, Settings, Copy, Link2, CheckCircle, MessageCircle, ShieldAlert, History, User, Scissors, Search, X, Download, Printer, CheckSquare, Square, RefreshCw, Clock } from 'lucide-react'
+import { ArrowLeft, ArrowRight, TrendingUp, TrendingDown, Lock, Shield, Calendar, Filter, ArrowUpRight, ArrowDownLeft, Trash2, Edit2, Plus, Users, DollarSign, LayoutDashboard, MoreVertical, PieChart, List, Settings, Copy, Link2, CheckCircle, MessageCircle, ShieldAlert, History, User, Scissors, Search, X, Download, Printer, CheckSquare, Square, RefreshCw, Clock, Award, ShoppingBag, Percent, XCircle } from 'lucide-react'
 import { supabase } from '../lib/supabase'
 import { TransactionModal } from './TransactionModal'
 import { formatCurrency, formatDateTime } from '../lib/format'
@@ -40,8 +40,11 @@ export function AdminDashboard({ onBack, estabelecimentoId, membroId, cargo, isO
   const [tipoFiltro, setTipoFiltro] = useState<'todos' | 'receita' | 'despesa'>('todos')
   const [searchTx, setSearchTx] = useState('')
   const [membros, setMembros] = useState<any[]>([])
+  const [filtroMembro, setFiltroMembro] = useState<string>('todos')
+  const [agendamentos, setAgendamentos] = useState<any[]>([])
+  const [carregandoAgendamentos, setCarregandoAgendamentos] = useState(false)
 
-  const { filteredTransactions, stats, chartData } = useMemo(() => {
+  const { filteredTransactions, stats } = useMemo(() => {
     let filtered = transactions;
 
     if (tipoFiltro !== 'todos') {
@@ -63,20 +66,108 @@ export function AdminDashboard({ onBack, estabelecimentoId, membroId, cargo, isO
     const totalVendas = filtered.filter(t => t.tipo === 'receita').length
     const calcStats = { receita: rec, despesa: des, lucro: rec - des, ticketMedio: totalVendas > 0 ? rec / totalVendas : 0 }
 
-    const grouped = filtered.reduce((acc: any, t) => {
-      const date = t.data_competencia ? t.data_competencia.split('-').reverse().slice(0, 2).join('/') : new Date(t.created_at).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' })
-      if (!acc[date]) acc[date] = { name: date, receita: 0, despesa: 0 }
-      if (t.tipo === 'receita') acc[date].receita += Number(t.valor)
-      else acc[date].despesa += Number(t.valor)
-      return acc
-    }, {})
-    
     return {
       filteredTransactions: filtered,
-      stats: calcStats,
-      chartData: Object.values(grouped).reverse()
+      stats: calcStats
     }
   }, [transactions, tipoFiltro, searchTx, cargo])
+
+  const dashboardMetrics = useMemo(() => {
+    let filteredTxs = transactions;
+    
+    if (cargo !== 'usuario' && filtroMembro !== 'todos') {
+      filteredTxs = transactions.filter(t => t.membro_id === filtroMembro);
+    }
+
+    const receitas = filteredTxs.filter(t => t.tipo === 'receita');
+    const despesas = filteredTxs.filter(t => t.tipo === 'despesa');
+
+    const totalReceitas = receitas.reduce((acc, t) => acc + Number(t.valor), 0);
+    const totalDespesas = despesas.reduce((acc, t) => acc + Number(t.valor), 0);
+    const lucroLiquido = totalReceitas - totalDespesas;
+    const ticketMedio = receitas.length > 0 ? totalReceitas / receitas.length : 0;
+
+    let comissoesTotais = 0;
+    let comissaoPessoal = 0;
+
+    const profissionalMap: { [key: string]: { nome: string; faturamento: number; comissao: number; quantidade: number } } = {};
+    const servicosMap: { [key: string]: { nome: string; quantidade: number; total: number } } = {};
+
+    transactions.forEach(t => {
+      if (t.tipo === 'receita') {
+        const mPct = Number(t.membros_equipe?.percentual_comissao) || 0;
+        const vComissao = Number(t.valor) * (mPct / 100);
+        
+        comissoesTotais += vComissao;
+        if (t.membro_id === membroId) {
+          comissaoPessoal += vComissao;
+        }
+
+        const mId = t.membro_id;
+        const mNome = t.membros_equipe?.nome || 'Profissional';
+        if (!profissionalMap[mId]) {
+          profissionalMap[mId] = { nome: mNome, faturamento: 0, comissao: 0, quantidade: 0 };
+        }
+        profissionalMap[mId].faturamento += Number(t.valor);
+        profissionalMap[mId].comissao += vComissao;
+        profissionalMap[mId].quantidade += 1;
+      }
+    });
+
+    receitas.forEach(t => {
+      const desc = t.descricao || 'Geral';
+      if (!servicosMap[desc]) {
+        servicosMap[desc] = { nome: desc, quantidade: 0, total: 0 };
+      }
+      servicosMap[desc].quantidade += 1;
+      servicosMap[desc].total += Number(t.valor);
+    });
+
+    const rankingProfissionais = Object.entries(profissionalMap).map(([id, info]) => ({
+      id,
+      ...info
+    })).sort((a, b) => b.faturamento - a.faturamento);
+
+    const rankingServicos = Object.values(servicosMap).sort((a, b) => b.quantidade - a.quantidade);
+
+    let filteredAgendamentos = agendamentos;
+    if (cargo === 'usuario') {
+      filteredAgendamentos = agendamentos.filter(a => a.membro_id === membroId);
+    } else if (filtroMembro !== 'todos') {
+      filteredAgendamentos = agendamentos.filter(a => a.membro_id === filtroMembro);
+    }
+
+    const totalAgendamentos = filteredAgendamentos.length;
+    const agendamentosConcluidos = filteredAgendamentos.filter(a => a.status === 'concluido').length;
+    const agendamentosCancelados = filteredAgendamentos.filter(a => a.status === 'cancelado').length;
+    const agendamentosPendentes = filteredAgendamentos.filter(a => a.status === 'pendente' || a.status === 'confirmado').length;
+
+    const grouped = filteredTxs.reduce((acc: any, t) => {
+      const date = t.data_competencia ? t.data_competencia.split('-').reverse().slice(0, 2).join('/') : new Date(t.created_at).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' });
+      if (!acc[date]) acc[date] = { name: date, receita: 0, despesa: 0 };
+      if (t.tipo === 'receita') acc[date].receita += Number(t.valor);
+      else acc[date].despesa += Number(t.valor);
+      return acc;
+    }, {});
+
+    const chartData = Object.values(grouped).reverse();
+
+    return {
+      totalReceitas,
+      totalDespesas,
+      lucroLiquido,
+      ticketMedio,
+      comissoesTotais,
+      comissaoPessoal,
+      rankingProfissionais,
+      rankingServicos,
+      totalAgendamentos,
+      agendamentosConcluidos,
+      agendamentosCancelados,
+      agendamentosPendentes,
+      chartData
+    };
+  }, [transactions, agendamentos, cargo, filtroMembro, membroId])
   const [loading, setLoading] = useState(true)
   const [auditData, setAuditData] = useState<any[]>([])
   const [auditFilterAcao, setAuditFilterAcao] = useState<string>('todos')
@@ -120,8 +211,6 @@ export function AdminDashboard({ onBack, estabelecimentoId, membroId, cargo, isO
   const [itemParaEditar, setItemParaEditar] = useState<string | null>(null)
   const [itemSaving, setItemSaving] = useState(false)
  
-  const [agendamentos, setAgendamentos] = useState<any[]>([])
-  const [carregandoAgendamentos, setCarregandoAgendamentos] = useState(false)
   const [isAgendamentoModalOpen, setIsAgendamentoModalOpen] = useState(false)
   const [agendamentoParaEditar, setAgendamentoParaEditar] = useState<any>(null)
   const [novoAgendamento, setNovoAgendamento] = useState({
@@ -389,10 +478,10 @@ export function AdminDashboard({ onBack, estabelecimentoId, membroId, cargo, isO
     fetchMembros()
     fetchEstab()
     fetchSaasConfig()
+    fetchAgendamentos()
     if (activeTab === 'auditoria') fetchAuditData()
     if (activeTab === 'itens' || activeTab === 'agenda') fetchItens()
     if (activeTab === 'config') fetchHorarios()
-    if (activeTab === 'agenda') fetchAgendamentos()
   }, [periodo, activeTab])
 
   const fetchAgendamentos = async () => {
@@ -709,7 +798,7 @@ export function AdminDashboard({ onBack, estabelecimentoId, membroId, cargo, isO
       console.log('Admin: Buscando dados para Estabelecimento:', estabelecimentoId)
       
       let query = supabase.from('transacoes')
-        .select('*, membros_equipe!transacoes_membro_id_fkey(nome)')
+        .select('*, membros_equipe!transacoes_membro_id_fkey(nome, percentual_comissao)')
         .eq('estabelecimento_id', estabelecimentoId)
         .eq('excluido', false)
 
@@ -942,58 +1031,153 @@ export function AdminDashboard({ onBack, estabelecimentoId, membroId, cargo, isO
             )}
           </div>
         )}
-
         {(activeTab === 'resumo' || activeTab === 'transacoes') && (
-          <div className="space-y-4 mb-8 animate-in fade-in duration-300">
+          <div className="space-y-4 mb-8 animate-in fade-in duration-500">
             <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-              <div className="flex gap-1 bg-slate-900/50 p-1 rounded-full border border-white/5 w-full sm:w-auto overflow-x-auto scrollbar-hide">
-                 {(['hoje', '7dias', '30dias', 'todos'] as Periodo[]).map(p => (
-                   <button key={p} onClick={() => setPeriodo(p)} className={`flex-1 sm:flex-none px-4 py-2 rounded-full text-[10px] font-bold transition-all whitespace-nowrap ${periodo === p ? 'bg-emerald-500 text-white shadow-lg' : 'text-slate-500'}`}>
-                     {p === 'hoje' ? 'HOJE' : p === '7dias' ? '7 DIAS' : p === '30dias' ? '30 DIAS' : 'TUDO'}
-                   </button>
-                 ))}
+              <div className="flex flex-wrap gap-2 w-full sm:w-auto items-center">
+                <div className="flex gap-1 bg-slate-900/50 p-1 rounded-full border border-white/5 overflow-x-auto scrollbar-hide">
+                   {(['hoje', '7dias', '30dias', 'todos'] as Periodo[]).map(p => (
+                     <button key={p} onClick={() => setPeriodo(p)} className={`px-4 py-2 rounded-full text-[10px] font-bold transition-all whitespace-nowrap ${periodo === p ? 'bg-emerald-500 text-white shadow-lg' : 'text-slate-500'}`}>
+                       {p === 'hoje' ? 'HOJE' : p === '7dias' ? '7 DIAS' : p === '30dias' ? '30 DIAS' : 'TUDO'}
+                     </button>
+                   ))}
+                </div>
+
+                {/* Filtro por Profissional (Útil para Dono/Admin na aba Resumo) */}
+                {((isOwner || cargo === 'administrador') && activeTab === 'resumo') && (
+                  <div className="flex items-center gap-2 bg-slate-900/50 border border-white/5 rounded-full px-4 py-1.5 h-[34px]">
+                    <User size={12} className="text-emerald-500" />
+                    <select 
+                      value={filtroMembro} 
+                      onChange={(e) => setFiltroMembro(e.target.value)} 
+                      className="bg-transparent border-0 text-[10px] font-bold text-slate-300 focus:ring-0 focus:outline-none cursor-pointer pr-8"
+                    >
+                      <option value="todos" className="bg-slate-950 text-slate-300">TODOS OS PROFISSIONAIS</option>
+                      {membros.map(m => (
+                        <option key={m.id} value={m.id} className="bg-slate-950 text-slate-300">{m.nome.toUpperCase()}</option>
+                      ))}
+                    </select>
+                  </div>
+                )}
               </div>
+
               <div className="flex gap-2 w-full sm:w-auto">
                  <button onClick={() => { setModalType('receita'); setIsModalOpen(true) }} className="flex-1 sm:flex-none flex items-center justify-center gap-2 bg-emerald-500 text-white px-4 py-3 rounded-xl font-bold text-xs shadow-lg shadow-emerald-500/20 active:scale-95 transition-all"><Plus size={14} /> Receita</button>
                  <button onClick={() => { setModalType('despesa'); setIsModalOpen(true) }} className="flex-1 sm:flex-none flex items-center justify-center gap-2 bg-rose-500 text-white px-4 py-3 rounded-xl font-bold text-xs shadow-lg shadow-rose-500/20 active:scale-95 transition-all"><Plus size={14} /> Despesa</button>
               </div>
             </div>
 
-            <div className="flex flex-col md:flex-row gap-4">
-              <div className="flex gap-1 bg-slate-900/50 p-1 rounded-xl border border-white/5 w-full md:w-auto">
-                 {(['todos', 'receita', 'despesa'] as const).map(t => (
-                   <button key={t} onClick={() => setTipoFiltro(t)} className={`flex-1 px-4 py-2 rounded-lg text-xs font-bold transition-all uppercase ${tipoFiltro === t ? 'bg-emerald-500 text-white shadow-lg' : 'text-slate-500 hover:bg-white/5'}`}>
-                     {t}
-                   </button>
-                 ))}
-              </div>
-              {cargo === 'administrador' && (
-                <div className="relative flex-1 group">
-                  <input type="text" placeholder="Buscar por usuário, descrição ou categoria..." value={searchTx} onChange={e => setSearchTx(e.target.value)} className="w-full bg-slate-900 border border-white/5 rounded-xl py-2 pl-10 pr-4 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/50 transition-all" />
-                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500 group-focus-within:text-emerald-500 transition-colors" size={16} />
+            {/* Filtros e Busca específicos para a aba Lançamentos */}
+            {activeTab === 'transacoes' && (
+              <div className="flex flex-col md:flex-row gap-4 animate-in fade-in duration-300">
+                <div className="flex gap-1 bg-slate-900/50 p-1 rounded-xl border border-white/5 w-full md:w-auto">
+                   {(['todos', 'receita', 'despesa'] as const).map(t => (
+                     <button key={t} onClick={() => setTipoFiltro(t)} className={`flex-1 px-4 py-2 rounded-lg text-xs font-bold transition-all uppercase ${tipoFiltro === t ? 'bg-emerald-500 text-white shadow-lg' : 'text-slate-500 hover:bg-white/5'}`}>
+                       {t}
+                     </button>
+                   ))}
                 </div>
-              )}
-            </div>
+                {cargo === 'administrador' && (
+                  <div className="relative flex-1 group">
+                    <input type="text" placeholder="Buscar por usuário, descrição ou categoria..." value={searchTx} onChange={e => setSearchTx(e.target.value)} className="w-full bg-slate-900 border border-white/5 rounded-xl py-2 pl-10 pr-4 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/50 transition-all" />
+                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500 group-focus-within:text-emerald-500 transition-colors" size={16} />
+                  </div>
+                )}
+              </div>
+            )}
           </div>
         )}
 
         {activeTab === 'resumo' && (
           <div className="space-y-6 animate-in fade-in duration-500">
+            {/* ROW 1: CARDS PRINCIPAIS */}
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4 sm:gap-6">
-               <div className="glass-card p-6 bg-gradient-to-br from-emerald-500/10 to-teal-500/5 border-emerald-500/20 relative overflow-hidden group">
+              {/* Card 1: Lucro Líquido (Dono) ou Faturamento (PIN Admin) ou Comissão (PIN Usuário) */}
+              {isOwner ? (
+                <div className="glass-card p-6 bg-gradient-to-br from-emerald-500/10 to-teal-500/5 border-emerald-500/20 relative overflow-hidden group">
                   <div className="absolute -right-4 -top-4 w-24 h-24 bg-emerald-500/10 rounded-full blur-2xl group-hover:scale-150 transition-all" />
-                  <p className="text-slate-400 text-[10px] font-bold uppercase tracking-widest mb-1">Lucro Líquido</p>
-                  <h3 className="text-3xl sm:text-4xl font-black text-white">{formatCurrency(stats.lucro)}</h3>
+                  <p className="text-slate-400 text-[10px] font-bold uppercase tracking-widest mb-1">Lucro Líquido Global</p>
+                  <h3 className="text-3xl sm:text-4xl font-black text-white">{formatCurrency(dashboardMetrics.lucroLiquido)}</h3>
                   <div className="flex items-center gap-2 text-emerald-400 text-[9px] font-bold mt-2 bg-emerald-400/10 w-fit px-2 py-0.5 rounded-full"><TrendingUp size={10} /> Saudável</div>
-               </div>
-               <div className="glass-card p-6 border-white/5"><p className="text-slate-500 text-[10px] font-bold uppercase mb-1">Receitas</p><h3 className="text-2xl font-black text-emerald-400">{formatCurrency(stats.receita)}</h3></div>
-               <div className="glass-card p-6 border-white/5"><p className="text-slate-500 text-[10px] font-bold uppercase mb-1">Despesas</p><h3 className="text-2xl font-black text-rose-500">{formatCurrency(stats.despesa)}</h3></div>
+                </div>
+              ) : cargo === 'administrador' ? (
+                <div className="glass-card p-6 bg-gradient-to-br from-emerald-500/10 to-teal-500/5 border-emerald-500/20 relative overflow-hidden group">
+                  <div className="absolute -right-4 -top-4 w-24 h-24 bg-emerald-500/10 rounded-full blur-2xl group-hover:scale-150 transition-all" />
+                  <p className="text-slate-400 text-[10px] font-bold uppercase tracking-widest mb-1">Faturamento Geral</p>
+                  <h3 className="text-3xl sm:text-4xl font-black text-emerald-400">{formatCurrency(dashboardMetrics.totalReceitas)}</h3>
+                  <div className="flex items-center gap-2 text-slate-400 text-[9px] font-bold mt-2 bg-slate-400/10 w-fit px-2 py-0.5 rounded-full"><TrendingUp size={10} /> Operação Ativa</div>
+                </div>
+              ) : (
+                <div className="glass-card p-6 bg-gradient-to-br from-emerald-500/10 to-teal-500/5 border-emerald-500/20 relative overflow-hidden group">
+                  <div className="absolute -right-4 -top-4 w-24 h-24 bg-emerald-500/10 rounded-full blur-2xl group-hover:scale-150 transition-all" />
+                  <p className="text-slate-400 text-[10px] font-bold uppercase tracking-widest mb-1">Minhas Comissões</p>
+                  <h3 className="text-3xl sm:text-4xl font-black text-white">{formatCurrency(dashboardMetrics.comissaoPessoal)}</h3>
+                  <div className="flex items-center gap-2 text-emerald-400 text-[9px] font-bold mt-2 bg-emerald-400/10 w-fit px-2 py-0.5 rounded-full"><Percent size={10} /> Meu Ganho</div>
+                </div>
+              )}
+
+              {/* Card 2: Receitas (Dono/PIN Admin) ou Ticket Médio Pessoal (PIN Usuário) */}
+              {cargo !== 'usuario' ? (
+                <div className="glass-card p-6 border-white/5 relative overflow-hidden group">
+                  <p className="text-slate-500 text-[10px] font-bold uppercase mb-1">Receitas Operacionais</p>
+                  <h3 className="text-2xl font-black text-emerald-400">{formatCurrency(dashboardMetrics.totalReceitas)}</h3>
+                  <p className="text-[10px] text-slate-500 font-bold uppercase mt-2">Ticket Médio: {formatCurrency(dashboardMetrics.ticketMedio)}</p>
+                </div>
+              ) : (
+                <div className="glass-card p-6 border-white/5 relative overflow-hidden group">
+                  <p className="text-slate-500 text-[10px] font-bold uppercase mb-1">Meu Ticket Médio</p>
+                  <h3 className="text-2xl font-black text-emerald-400">{formatCurrency(dashboardMetrics.ticketMedio)}</h3>
+                  <p className="text-[10px] text-slate-500 font-bold uppercase mt-2">Por atendimento realizado</p>
+                </div>
+              )}
+
+              {/* Card 3: Despesas (Dono/PIN Admin) ou Total de Atendimentos (PIN Usuário) */}
+              {cargo !== 'usuario' ? (
+                <div className="glass-card p-6 border-white/5 relative overflow-hidden group">
+                  <p className="text-slate-500 text-[10px] font-bold uppercase mb-1">Despesas Operacionais</p>
+                  <h3 className="text-2xl font-black text-rose-500">{formatCurrency(dashboardMetrics.totalDespesas)}</h3>
+                  <p className="text-[10px] text-slate-500 font-bold uppercase mt-2">Comissões Totais: {formatCurrency(dashboardMetrics.comissoesTotais)}</p>
+                </div>
+              ) : (
+                <div className="glass-card p-6 border-white/5 relative overflow-hidden group">
+                  <p className="text-slate-500 text-[10px] font-bold uppercase mb-1">Meus Atendimentos</p>
+                  <h3 className="text-2xl font-black text-blue-400">{dashboardMetrics.totalAgendamentos}</h3>
+                  <p className="text-[10px] text-slate-500 font-bold uppercase mt-2">
+                    Concluídos: <span className="text-emerald-400">{dashboardMetrics.agendamentosConcluidos}</span> • Canc: <span className="text-rose-400">{dashboardMetrics.agendamentosCancelados}</span>
+                  </p>
+                </div>
+              )}
             </div>
-            <section className="glass-card p-4 sm:p-8 border-white/5 overflow-hidden">
-               <h3 className="font-bold mb-8 text-sm flex items-center gap-2 uppercase tracking-widest"><TrendingUp size={16} className="text-emerald-500" /> Fluxo de Caixa</h3>
-               <div className="h-64 sm:h-80 w-full">
+
+            {/* ROW 2: DETALHES DE AGENDAMENTOS OPERACIONAIS (Apenas Dono/PIN Admin) */}
+            {cargo !== 'usuario' && (
+              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4">
+                <div className="glass-card p-4 border-white/5 text-center">
+                  <p className="text-slate-500 text-[9px] font-bold uppercase">Total Agendados</p>
+                  <h4 className="text-xl font-bold text-white mt-1">{dashboardMetrics.totalAgendamentos}</h4>
+                </div>
+                <div className="glass-card p-4 border-white/5 text-center">
+                  <p className="text-slate-500 text-[9px] font-bold uppercase text-emerald-500">Concluídos</p>
+                  <h4 className="text-xl font-bold text-emerald-400 mt-1">{dashboardMetrics.agendamentosConcluidos}</h4>
+                </div>
+                <div className="glass-card p-4 border-white/5 text-center">
+                  <p className="text-slate-500 text-[9px] font-bold uppercase text-amber-500">Pendentes / Conf.</p>
+                  <h4 className="text-xl font-bold text-amber-400 mt-1">{dashboardMetrics.agendamentosPendentes}</h4>
+                </div>
+                <div className="glass-card p-4 border-white/5 text-center">
+                  <p className="text-slate-500 text-[9px] font-bold uppercase text-rose-500">Cancelados</p>
+                  <h4 className="text-xl font-bold text-rose-400 mt-1">{dashboardMetrics.agendamentosCancelados}</h4>
+                </div>
+              </div>
+            )}
+
+            {/* ROW 3: GRÁFICO DE FLUXO DE CAIXA (Ocultado para PIN Usuário comum) */}
+            {cargo !== 'usuario' && (
+              <section className="glass-card p-4 sm:p-8 border-white/5 overflow-hidden">
+                <h3 className="font-bold mb-8 text-sm flex items-center gap-2 uppercase tracking-widest"><TrendingUp size={16} className="text-emerald-500" /> Fluxo de Caixa</h3>
+                <div className="h-64 sm:h-80 w-full">
                   <ResponsiveContainer width="100%" height="100%">
-                    <AreaChart data={chartData}>
+                    <AreaChart data={dashboardMetrics.chartData}>
                       <defs>
                         <linearGradient id="colorRec" x1="0" y1="0" x2="0" y2="1"><stop offset="5%" stopColor="#10b981" stopOpacity={0.3}/><stop offset="95%" stopColor="#10b981" stopOpacity={0}/></linearGradient>
                         <linearGradient id="colorDes" x1="0" y1="0" x2="0" y2="1"><stop offset="5%" stopColor="#f43f5e" stopOpacity={0.2}/><stop offset="95%" stopColor="#f43f5e" stopOpacity={0}/></linearGradient>
@@ -1006,8 +1190,116 @@ export function AdminDashboard({ onBack, estabelecimentoId, membroId, cargo, isO
                       <Area type="monotone" dataKey="despesa" stroke="#f43f5e" strokeWidth={3} fillOpacity={1} fill="url(#colorDes)" />
                     </AreaChart>
                   </ResponsiveContainer>
-               </div>
-            </section>
+                </div>
+              </section>
+            )}
+
+            {/* ROW 4: RANKINGS E TABELAS (CONFORME NÍVEL DE ACESSO) */}
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+              {/* Coluna A: Desempenho da Equipe (Dono/PIN Admin) ou Meus Serviços Campeões (PIN Usuário) */}
+              {cargo !== 'usuario' ? (
+                <section className="glass-card p-6 border-white/5">
+                  <h3 className="font-bold mb-4 text-xs flex items-center gap-2 uppercase tracking-widest text-slate-300">
+                    <Award size={16} className="text-emerald-500" /> Desempenho da Equipe
+                  </h3>
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-left text-xs">
+                      <thead>
+                        <tr className="border-b border-white/5 text-slate-500 uppercase font-black">
+                          <th className="py-2">Profissional</th>
+                          <th className="py-2 text-right">Qtd</th>
+                          <th className="py-2 text-right">Faturamento</th>
+                          <th className="py-2 text-right">Comissão</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-white/5">
+                        {dashboardMetrics.rankingProfissionais.map((prof) => (
+                          <tr key={prof.id} className="hover:bg-white/5 transition-colors">
+                            <td className="py-3 font-bold text-white">{prof.nome}</td>
+                            <td className="py-3 text-right text-slate-400 font-bold">{prof.quantidade}</td>
+                            <td className="py-3 text-right text-emerald-400 font-bold">{formatCurrency(prof.faturamento)}</td>
+                            <td className="py-3 text-right text-amber-500 font-bold">{formatCurrency(prof.comissao)}</td>
+                          </tr>
+                        ))}
+                        {dashboardMetrics.rankingProfissionais.length === 0 && (
+                          <tr>
+                            <td colSpan={4} className="py-4 text-center text-slate-500">Nenhum faturamento registrado no período.</td>
+                          </tr>
+                        )}
+                      </tbody>
+                    </table>
+                  </div>
+                </section>
+              ) : (
+                <section className="glass-card p-6 border-white/5">
+                  <h3 className="font-bold mb-4 text-xs flex items-center gap-2 uppercase tracking-widest text-slate-300">
+                    <Award size={16} className="text-emerald-500" /> Meus Serviços Campeões
+                  </h3>
+                  <div className="space-y-4">
+                    {dashboardMetrics.rankingServicos.slice(0, 5).map((serv, index) => (
+                      <div key={serv.nome} className="flex items-center justify-between border-b border-white/5 pb-2 last:border-0 last:pb-0">
+                        <div className="flex items-center gap-2">
+                          <span className="w-5 h-5 rounded-full bg-slate-800 flex items-center justify-center text-[10px] font-bold text-emerald-500">{index + 1}</span>
+                          <span className="font-bold text-white text-xs">{serv.nome}</span>
+                        </div>
+                        <div className="text-right">
+                          <p className="font-bold text-xs text-slate-300">{serv.quantidade} atendimentos</p>
+                          <p className="text-[10px] font-bold text-emerald-500">{formatCurrency(serv.total)}</p>
+                        </div>
+                      </div>
+                    ))}
+                    {dashboardMetrics.rankingServicos.length === 0 && (
+                      <p className="text-xs text-center text-slate-500 py-4">Nenhum serviço realizado no período.</p>
+                    )}
+                  </div>
+                </section>
+              )}
+
+              {/* Coluna B: Serviços Mais Agendados (Dono/PIN Admin) ou Detalhamento de Comissões Pessoais */}
+              {cargo !== 'usuario' ? (
+                <section className="glass-card p-6 border-white/5">
+                  <h3 className="font-bold mb-4 text-xs flex items-center gap-2 uppercase tracking-widest text-slate-300">
+                    <ShoppingBag size={16} className="text-emerald-500" /> Serviços Mais Procurados
+                  </h3>
+                  <div className="space-y-4">
+                    {dashboardMetrics.rankingServicos.slice(0, 5).map((serv, index) => (
+                      <div key={serv.nome} className="flex items-center justify-between border-b border-white/5 pb-2 last:border-0 last:pb-0">
+                        <div className="flex items-center gap-2">
+                          <span className="w-5 h-5 rounded-full bg-slate-800 flex items-center justify-center text-[10px] font-bold text-emerald-500">{index + 1}</span>
+                          <span className="font-bold text-white text-xs">{serv.nome}</span>
+                        </div>
+                        <div className="text-right">
+                          <p className="font-bold text-xs text-slate-300">{serv.quantidade} vendas</p>
+                          <p className="text-[10px] font-bold text-emerald-500">{formatCurrency(serv.total)}</p>
+                        </div>
+                      </div>
+                    ))}
+                    {dashboardMetrics.rankingServicos.length === 0 && (
+                      <p className="text-xs text-center text-slate-500 py-4">Nenhum serviço vendido no período.</p>
+                    )}
+                  </div>
+                </section>
+              ) : (
+                <section className="glass-card p-6 border-white/5">
+                  <h3 className="font-bold mb-4 text-xs flex items-center gap-2 uppercase tracking-widest text-slate-300">
+                    <Percent size={16} className="text-emerald-500" /> Minhas Comissões Detalhadas
+                  </h3>
+                  <div className="space-y-3">
+                    <div className="flex justify-between items-center bg-white/5 p-3 rounded-xl">
+                      <span className="text-xs text-slate-400 font-bold">Total Faturado por Mim</span>
+                      <span className="text-sm font-black text-white">{formatCurrency(dashboardMetrics.totalReceitas)}</span>
+                    </div>
+                    <div className="flex justify-between items-center bg-emerald-500/10 border border-emerald-500/20 p-3 rounded-xl">
+                      <span className="text-xs text-emerald-400 font-bold">Total Comissão Acumulada</span>
+                      <span className="text-sm font-black text-emerald-400">{formatCurrency(dashboardMetrics.comissaoPessoal)}</span>
+                    </div>
+                    <p className="text-[9px] text-slate-500 font-bold leading-relaxed uppercase mt-4">
+                      * O percentual de comissão é cadastrado pelo administrador e aplicado diretamente sobre cada serviço concluído no período.
+                    </p>
+                  </div>
+                </section>
+              )}
+            </div>
           </div>
         )}
 
