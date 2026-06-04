@@ -54,7 +54,7 @@ export function PublicBooking() {
     try {
       setCarregandoHorarios(true)
       setError(null)
-      
+
       // Criar range de data local para evitar problemas de timezone
       const startOfDay = `${selecionado.data}T00:00:00`
       const endOfDay = `${selecionado.data}T23:59:59`
@@ -74,7 +74,7 @@ export function PublicBooking() {
         hora: new Date(a.hora).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }),
         membro_id: a.membro_id
       }))
-      
+
       setAgendamentosExistentes(formatados)
     } catch (err: any) {
       console.error('Erro ao buscar agendamentos:', err)
@@ -93,7 +93,7 @@ export function PublicBooking() {
         .select('*')
         .eq('slug', slug)
         .single()
-      
+
       if (fetchError) throw fetchError
       if (!data) throw new Error('Estabelecimento não encontrado.')
 
@@ -167,16 +167,16 @@ export function PublicBooking() {
 
   const handleFinish = async () => {
     if (!selecionado.clienteNome || !selecionado.clienteWhatsapp) return
-    
+
     try {
       setIsFinishing(true)
       const pad = (n: number) => n.toString().padStart(2, '0')
       const [ano, mes, dia] = selecionado.data.split('-').map(Number)
       const [h, m] = selecionado.hora.split(':').map(Number)
-      
+
       // Criar data local e converter para ISO
       const dataInicio = new Date(ano, mes - 1, dia, h, m)
-      
+
       const dataFim = new Date(dataInicio)
       dataFim.setMinutes(dataFim.getMinutes() + (selecionado.servico.duracao_minutos || 30))
 
@@ -187,7 +187,7 @@ export function PublicBooking() {
         const ocupadosNesseHorario = agendamentosExistentes.filter(a => a.hora === selecionado.hora);
         const idsOcupados = ocupadosNesseHorario.map(a => a.membro_id);
         const disponiveis = profissionais.filter(p => !idsOcupados.includes(p.id));
-        
+
         if (disponiveis.length > 0) {
           profissionalId = disponiveis[0].id;
         } else {
@@ -265,8 +265,8 @@ export function PublicBooking() {
                 <h3 className="text-[10px] font-black text-slate-500 uppercase tracking-widest px-1">{cat}</h3>
                 <div className="grid grid-cols-1 gap-3">
                   {items.map((item: any) => (
-                    <button 
-                      key={item.id} 
+                    <button
+                      key={item.id}
                       onClick={() => { setSelecionado(prev => ({ ...prev, servico: item })); setStep(2); }}
                       className="glass-card p-5 border-white/5 text-left flex justify-between items-center group active:scale-95 transition-all"
                     >
@@ -291,7 +291,7 @@ export function PublicBooking() {
           <div className="space-y-8 animate-in fade-in slide-in-from-right-4 duration-500">
             <h2 className="text-xl font-black text-white leading-tight">Com <span className="text-emerald-500">quem?</span></h2>
             <div className="grid grid-cols-1 gap-3">
-              <button 
+              <button
                 onClick={() => { setSelecionado(prev => ({ ...prev, profissional: null })); setStep(3); }}
                 className="glass-card p-5 border-white/5 text-left flex items-center gap-4 active:scale-95 transition-all"
               >
@@ -304,8 +304,8 @@ export function PublicBooking() {
                 </div>
               </button>
               {profissionais.map(p => (
-                <button 
-                  key={p.id} 
+                <button
+                  key={p.id}
                   onClick={() => { setSelecionado(prev => ({ ...prev, profissional: p })); setStep(3); }}
                   className="glass-card p-5 border-white/5 text-left flex items-center gap-4 active:scale-95 transition-all"
                 >
@@ -326,11 +326,11 @@ export function PublicBooking() {
         {step === 3 && (
           <div className="space-y-8 animate-in fade-in slide-in-from-right-4 duration-500">
             <h2 className="text-xl font-black text-white leading-tight">Escolha o <span className="text-emerald-500">horário</span></h2>
-            
+
             <div className="space-y-4">
               <label className="text-[10px] font-bold text-slate-500 uppercase px-1">Selecione o Dia</label>
-              <input 
-                type="date" 
+              <input
+                type="date"
                 min={new Date().toISOString().split('T')[0]}
                 className="w-full bg-slate-900 border border-white/5 rounded-2xl p-5 text-sm font-bold text-white outline-none focus:border-emerald-500 transition-all"
                 value={selecionado.data}
@@ -361,7 +361,7 @@ export function PublicBooking() {
                     if (!disponivel) return null
 
                     return (
-                      <button 
+                      <button
                         key={h}
                         onClick={() => { setSelecionado(prev => ({ ...prev, hora: h })); setStep(4); }}
                         className={`py-3 rounded-xl text-xs font-black transition-all ${selecionado.hora === h ? 'bg-emerald-500 text-white shadow-lg shadow-emerald-500/20' : 'bg-slate-900 text-slate-400 border border-white/5'}`}
@@ -372,7 +372,7 @@ export function PublicBooking() {
                   })}
                 </div>
                 {agendamentosExistentes.length > 0 && (
-                   <p className="text-[10px] text-slate-600 italic mt-2">* Horários ocupados não são exibidos.</p>
+                  <p className="text-[10px] text-slate-600 italic mt-2">* Horários ocupados não são exibidos.</p>
                 )}
               </div>
             )}
@@ -383,14 +383,14 @@ export function PublicBooking() {
         {step === 4 && (
           <div className="space-y-8 animate-in fade-in slide-in-from-right-4 duration-500">
             <h2 className="text-xl font-black text-white leading-tight">Para <span className="text-emerald-500">finalizar...</span></h2>
-            
+
             <div className="glass-card p-6 border-emerald-500/20 bg-emerald-500/5 mb-6">
-               <p className="text-[10px] text-emerald-500 font-bold uppercase mb-3">Resumo do Agendamento</p>
-               <div className="space-y-2">
-                 <p className="text-sm font-bold flex items-center gap-2"><Scissors size={14} className="text-emerald-500" /> {selecionado.servico.nome}</p>
-                 <p className="text-sm font-bold flex items-center gap-2"><User size={14} className="text-emerald-500" /> {selecionado.profissional?.nome || 'Qualquer Profissional'}</p>
-                 <p className="text-sm font-bold flex items-center gap-2"><Calendar size={14} className="text-emerald-500" /> {new Date(selecionado.data).toLocaleDateString('pt-BR')} às {selecionado.hora}</p>
-               </div>
+              <p className="text-[10px] text-emerald-500 font-bold uppercase mb-3">Resumo do Agendamento</p>
+              <div className="space-y-2">
+                <p className="text-sm font-bold flex items-center gap-2"><Scissors size={14} className="text-emerald-500" /> {selecionado.servico.nome} ({formatCurrency(selecionado.servico.preco_sugerido || 0)})</p>
+                <p className="text-sm font-bold flex items-center gap-2"><User size={14} className="text-emerald-500" /> {selecionado.profissional?.nome || 'Qualquer Profissional'}</p>
+                <p className="text-sm font-bold flex items-center gap-2"><Calendar size={14} className="text-emerald-500" /> {new Date(selecionado.data).toLocaleDateString('pt-BR')} às {selecionado.hora}</p>
+              </div>
             </div>
 
             <div className="space-y-4">
@@ -400,13 +400,13 @@ export function PublicBooking() {
               </div>
               <div className="space-y-1">
                 <label className="text-[10px] font-bold text-slate-500 uppercase px-1">Seu WhatsApp</label>
-                <input 
-                  required 
-                  type="tel" 
-                  className="w-full bg-slate-900 border border-white/5 rounded-2xl p-5 text-sm font-bold outline-none focus:border-emerald-500 transition-all" 
-                  value={applyPhoneMask(selecionado.clienteWhatsapp)} 
-                  onChange={e => setSelecionado(prev => ({ ...prev, clienteWhatsapp: e.target.value.replace(/\D/g, '') }))} 
-                  placeholder="(99) 9 9999-9999" 
+                <input
+                  required
+                  type="tel"
+                  className="w-full bg-slate-900 border border-white/5 rounded-2xl p-5 text-sm font-bold outline-none focus:border-emerald-500 transition-all"
+                  value={applyPhoneMask(selecionado.clienteWhatsapp)}
+                  onChange={e => setSelecionado(prev => ({ ...prev, clienteWhatsapp: e.target.value.replace(/\D/g, '') }))}
+                  placeholder="(99) 9 9999-9999"
                 />
               </div>
               <button onClick={handleFinish} className="w-full bg-emerald-500 py-5 rounded-2xl font-black text-sm shadow-xl shadow-emerald-500/20 active:scale-95 transition-all mt-6 uppercase tracking-widest">
@@ -426,12 +426,12 @@ export function PublicBooking() {
               <h2 className="text-2xl font-black text-white">Quase tudo pronto!</h2>
               <p className="text-slate-400 mt-2 text-sm">Seu agendamento foi enviado e está <b>pendente de confirmação</b> pela equipe.</p>
             </div>
-            <button 
+            <button
               onClick={() => {
                 const dataObj = new Date(selecionado.data + 'T12:00:00');
                 const diaSemana = dataObj.toLocaleDateString('pt-BR', { weekday: 'long' });
                 const dataFormatada = dataObj.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' });
-                
+
                 // WhatsApp Dinâmico: Se tiver profissional, manda pra ele. Senão, manda pro estabelecimento.
                 const whatsappDestino = selecionado.profissional?.whatsapp || estab.configuracoes?.whatsapp || '';
 

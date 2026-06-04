@@ -1614,6 +1614,9 @@ export function AdminDashboard({ onBack, estabelecimentoId, membroId, cargo }: A
                ) : (
                  agendamentos.map(ag => {
                    const data = new Date(ag.data_hora_inicio);
+                   const servico = Array.isArray(ag.servicos_produtos) ? ag.servicos_produtos[0] : ag.servicos_produtos;
+                   const servicoNome = servico?.nome || '';
+                   const preco = servico?.preco_sugerido || 0;
                    return (
                      <div key={ag.id} className="glass-card p-5 border-white/5 flex flex-col sm:flex-row sm:items-center justify-between gap-4 group">
                        <div className="flex items-center gap-4">
@@ -1633,7 +1636,7 @@ export function AdminDashboard({ onBack, estabelecimentoId, membroId, cargo }: A
                              </span>
                            </div>
                            <p className="text-[11px] text-slate-500 flex items-center gap-1 mt-1">
-                             <Clock size={10} /> {data.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })} • {ag.servicos_produtos?.nome}
+                             <Clock size={10} /> {data.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })} • {servicoNome} • {formatCurrency(preco)}
                            </p>
                            <p className="text-[10px] text-emerald-500/60 font-bold uppercase tracking-widest mt-0.5">Profissional: {ag.membros_equipe?.nome || 'Qualquer'}</p>
                          </div>

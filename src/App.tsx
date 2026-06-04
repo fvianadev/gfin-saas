@@ -76,31 +76,34 @@ function StaffLogin() {
   }, [slug])
 
   useEffect(() => {
+    const validatePin = async () => {
       if (pin.length === 4 && selectedMembro) {
         setLoading(true);
-        supabase
-          .from('membros_equipe')
-          .select('*')
-          .eq('id', selectedMembro.id)
-          .eq('pin_hash', pin)
-          .single()
-          .then(({ data, error }) => {
-            setLoading(false);
-            if (error || !data) {
-              alert('PIN inválido');
-              setPin('');
-            } else {
-              localStorage.setItem('gfin_staff', JSON.stringify({ ...data, role: data.cargo || 'usuario', slug }));
-              navigate(`/${slug}/dashboard`);
-            }
-          })
-          .catch((e) => {
-            console.error('Erro ao validar PIN:', e);
-            setLoading(false);
-            alert('Erro ao validar PIN. Tente novamente.');
+        try {
+          const { data, error } = await supabase
+            .from('membros_equipe')
+            .select('*')
+            .eq('id', selectedMembro.id)
+            .eq('pin_hash', pin)
+            .single();
+
+          setLoading(false);
+          if (error || !data) {
+            alert('PIN inválido');
             setPin('');
-          });
+          } else {
+            localStorage.setItem('gfin_staff', JSON.stringify({ ...data, role: data.cargo || 'usuario', slug }));
+            navigate(`/${slug}/dashboard`);
+          }
+        } catch (e) {
+          console.error('Erro ao validar PIN:', e);
+          setLoading(false);
+          alert('Erro ao validar PIN. Tente novamente.');
+          setPin('');
+        }
       }
+    };
+    validatePin();
   }, [pin, selectedMembro, slug, navigate])
 
   if (!estab) return <div className="min-h-screen bg-slate-950 flex items-center justify-center text-slate-500 font-bold">Carregando...</div>
