@@ -1,11 +1,13 @@
 import { useState } from 'react'
 import { useNavigate, Link } from 'react-router-dom'
 import { supabase } from '../../lib/supabase'
-import { Lock, ArrowLeft, CheckCircle } from 'lucide-react'
+import { Lock, ArrowLeft, CheckCircle, Eye, EyeOff } from 'lucide-react'
 
 export function ResetPasswordPage() {
   const [senha, setSenha] = useState('')
   const [confirmarSenha, setConfirmarSenha] = useState('')
+  const [showSenha, setShowSenha] = useState(false)
+  const [showConfirmarSenha, setShowConfirmarSenha] = useState(false)
   const [loading, setLoading] = useState(false)
   const [success, setSuccess] = useState(false)
   const navigate = useNavigate()
@@ -79,26 +81,44 @@ export function ResetPasswordPage() {
             <form onSubmit={handleReset} className="space-y-5">
               <div className="space-y-1.5">
                 <label className="text-[10px] md:text-xs font-bold text-slate-400 uppercase px-1 tracking-wider">Nova Senha</label>
-                <input 
-                  required 
-                  type="password" 
-                  value={senha} 
-                  onChange={e => setSenha(e.target.value)} 
-                  className="w-full bg-slate-900 border border-white/10 rounded-xl p-3.5 md:p-4 text-sm md:text-base text-white outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 transition-all" 
-                  placeholder="•••••••• (mínimo 6 caracteres)"
-                />
+                <div className="relative">
+                  <input 
+                    required 
+                    type={showSenha ? 'text' : 'password'} 
+                    value={senha} 
+                    onChange={e => setSenha(e.target.value)} 
+                    className="w-full bg-slate-900 border border-white/10 rounded-xl p-3.5 pr-11 md:p-4 md:pr-11 text-sm md:text-base text-white outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 transition-all" 
+                    placeholder="•••••••• (mínimo 6 caracteres)"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowSenha(!showSenha)}
+                    className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-500 hover:text-white transition-colors cursor-pointer animate-in fade-in"
+                  >
+                    {showSenha ? <EyeOff size={18} /> : <Eye size={18} />}
+                  </button>
+                </div>
               </div>
 
               <div className="space-y-1.5">
                 <label className="text-[10px] md:text-xs font-bold text-slate-400 uppercase px-1 tracking-wider">Confirmar Nova Senha</label>
-                <input 
-                  required 
-                  type="password" 
-                  value={confirmarSenha} 
-                  onChange={e => setConfirmarSenha(e.target.value)} 
-                  className="w-full bg-slate-900 border border-white/10 rounded-xl p-3.5 md:p-4 text-sm md:text-base text-white outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 transition-all" 
-                  placeholder="••••••••"
-                />
+                <div className="relative">
+                  <input 
+                    required 
+                    type={showConfirmarSenha ? 'text' : 'password'} 
+                    value={confirmarSenha} 
+                    onChange={e => setConfirmarSenha(e.target.value)} 
+                    className="w-full bg-slate-900 border border-white/10 rounded-xl p-3.5 pr-11 md:p-4 md:pr-11 text-sm md:text-base text-white outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 transition-all" 
+                    placeholder="••••••••"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowConfirmarSenha(!showConfirmarSenha)}
+                    className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-500 hover:text-white transition-colors cursor-pointer animate-in fade-in"
+                  >
+                    {showConfirmarSenha ? <EyeOff size={18} /> : <Eye size={18} />}
+                  </button>
+                </div>
               </div>
               
               <div className="pt-2">

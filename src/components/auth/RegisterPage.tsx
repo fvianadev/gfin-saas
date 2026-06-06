@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { useNavigate, Link } from 'react-router-dom'
 import { supabase } from '../../lib/supabase'
-import { ArrowLeft, Mail } from 'lucide-react'
+import { ArrowLeft, Mail, Eye, EyeOff } from 'lucide-react'
 import type { UserSession } from '../../types/auth'
 
 export function RegisterPage({ onLogin }: { onLogin: (session: UserSession) => void }) {
@@ -9,6 +9,7 @@ export function RegisterPage({ onLogin }: { onLogin: (session: UserSession) => v
   const [nome, setNome] = useState('')
   const [email, setEmail] = useState('')
   const [senha, setSenha] = useState('')
+  const [showSenha, setShowSenha] = useState(false)
   const [loading, setLoading] = useState(false)
   const [registrationSuccess, setRegistrationSuccess] = useState(false)
   const navigate = useNavigate()
@@ -298,14 +299,23 @@ export function RegisterPage({ onLogin }: { onLogin: (session: UserSession) => v
           </div>
           <div className="space-y-1.5">
             <label className="text-[10px] md:text-xs font-bold text-slate-400 uppercase px-1 tracking-wider">Senha de Acesso</label>
-            <input 
-              required 
-              type="password" 
-              value={senha} 
-              onChange={e => setSenha(e.target.value)} 
-              className="w-full bg-slate-900 border border-white/10 rounded-xl p-3.5 md:p-4 text-sm md:text-base text-white outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 transition-all" 
-              placeholder="••••••••" 
-            />
+            <div className="relative">
+              <input 
+                required 
+                type={showSenha ? 'text' : 'password'} 
+                value={senha} 
+                onChange={e => setSenha(e.target.value)} 
+                className="w-full bg-slate-900 border border-white/10 rounded-xl p-3.5 pr-11 md:p-4 md:pr-11 text-sm md:text-base text-white outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 transition-all" 
+                placeholder="••••••••" 
+              />
+              <button
+                type="button"
+                onClick={() => setShowSenha(!showSenha)}
+                className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-500 hover:text-white transition-colors cursor-pointer animate-in fade-in"
+              >
+                {showSenha ? <EyeOff size={18} /> : <Eye size={18} />}
+              </button>
+            </div>
           </div>
           
           <button disabled={loading} className="w-full bg-emerald-500 hover:bg-emerald-400 disabled:opacity-50 text-white font-bold py-3.5 md:py-4 px-4 rounded-xl shadow-lg shadow-emerald-500/20 active:scale-[0.98] transition-all text-sm md:text-base flex justify-center items-center">
