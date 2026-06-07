@@ -1,12 +1,13 @@
 import { useState } from 'react'
 import { useNavigate, Link } from 'react-router-dom'
 import { supabase } from '../../lib/supabase'
-import { LayoutDashboard, ArrowLeft, Mail, Lock } from 'lucide-react'
+import { LayoutDashboard, ArrowLeft, Mail, Lock, Eye, EyeOff } from 'lucide-react'
 import type { UserSession } from '../../types/auth'
 
 export function LoginPage({ onLogin }: { onLogin: (session: UserSession) => void }) {
   const [email, setEmail] = useState('')
   const [senha, setSenha] = useState('')
+  const [showSenha, setShowSenha] = useState(false)
   const [loading, setLoading] = useState(false)
   const [mode, setMode] = useState<'login' | 'forgot'>('login')
   const [forgotEmail, setForgotEmail] = useState('')
@@ -146,14 +147,23 @@ export function LoginPage({ onLogin }: { onLogin: (session: UserSession) => void
                     Esqueceu a senha?
                   </button>
                 </div>
-                <input 
-                  required 
-                  type="password" 
-                  value={senha} 
-                  onChange={e => setSenha(e.target.value)} 
-                  className="w-full bg-slate-900 border border-white/10 rounded-xl p-3.5 md:p-4 text-sm md:text-base text-white outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 transition-all" 
-                  placeholder="••••••••"
-                />
+                <div className="relative">
+                  <input 
+                    required 
+                    type={showSenha ? 'text' : 'password'} 
+                    value={senha} 
+                    onChange={e => setSenha(e.target.value)} 
+                    className="w-full bg-slate-900 border border-white/10 rounded-xl p-3.5 pr-11 md:p-4 md:pr-11 text-sm md:text-base text-white outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 transition-all" 
+                    placeholder="••••••••"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowSenha(!showSenha)}
+                    className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-500 hover:text-white transition-colors cursor-pointer animate-in fade-in"
+                  >
+                    {showSenha ? <EyeOff size={18} /> : <Eye size={18} />}
+                  </button>
+                </div>
               </div>
               
               <div className="pt-2">

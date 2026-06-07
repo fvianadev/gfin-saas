@@ -12,6 +12,7 @@ import {
 import {
   AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, BarChart, Bar
 } from 'recharts'
+import { AlertTriangle, Trash2 } from 'lucide-react'
 
 // ========================
 // TYPES
@@ -70,7 +71,7 @@ interface Stats {
   realSaasReceita: number
 }
 
-type Tab = 'dashboard' | 'estabelecimentos' | 'faturamento' | 'configuracoes'
+type Tab = 'dashboard' | 'estabelecimentos' | 'faturamento' | 'configuracoes' | 'admins'
 
 // ========================
 // PLANO CONFIG
@@ -272,6 +273,10 @@ function EstabelecimentosTab({ estabelecimentos, onUpdate, loading }: {
   const [filterStatus, setFilterStatus] = useState<string>('todos')
   const [updating, setUpdating] = useState<string | null>(null)
 
+  const [deleteModal, setDeleteModal] = useState<Estabelecimento | null>(null)
+  const [deleteConfirmText, setDeleteConfirmText] = useState('')
+  const [isDeleting, setIsDeleting] = useState(false)
+
   const filtered = estabelecimentos.filter(e => {
     const matchSearch = e.nome.toLowerCase().includes(search.toLowerCase()) ||
       e.email_dono.toLowerCase().includes(search.toLowerCase()) ||
@@ -286,6 +291,22 @@ function EstabelecimentosTab({ estabelecimentos, onUpdate, loading }: {
     const { error } = await supabase.from('estabelecimentos').update({ [field]: value }).eq('id', id)
     if (!error) onUpdate()
     setUpdating(null)
+  }
+
+  const handleDeleteConfirm = async () => {
+    if (!deleteModal || deleteConfirmText !== deleteModal.slug) return
+    setIsDeleting(true)
+    
+    // Call the RPC to delete the user which cascades to the establishment
+    const { error } = await supabase.rpc('delete_saas_user', { target_user_id: deleteModal.owner_id })
+    
+    setIsDeleting(false)
+    if (!error) {
+      setDeleteModal(null)
+      onUpdate()
+    } else {
+      alert("Erro ao excluir: " + error.message)
+    }
   }
 
   return (
@@ -424,7 +445,13 @@ function EstabelecimentosTab({ estabelecimentos, onUpdate, loading }: {
                   </div>
                 </div>
 
-                <div className="ml-auto">
+                <div className="ml-auto flex items-center gap-2">
+                  <button
+                    onClick={() => { setDeleteModal(e); setDeleteConfirmText('') }}
+                    className="inline-flex items-center gap-1 px-3 py-1.5 rounded-xl text-xs font-bold bg-rose-500/10 hover:bg-rose-500/20 hover:text-rose-400 text-rose-500 border border-rose-500/20 transition-all"
+                  >
+                    <Trash2 size={11} /> Excluir
+                  </button>
                   <a
                     href={`/${e.slug}/login`}
                     target="_blank"
@@ -437,6 +464,58 @@ function EstabelecimentosTab({ estabelecimentos, onUpdate, loading }: {
               </div>
             </div>
           ))}
+        </div>
+      )}
+
+      {/* Delete Confirmation Modal */}
+      {deleteModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm overflow-y-auto">
+          <div className="bg-slate-900 border border-rose-500/30 rounded-2xl w-full max-w-lg shadow-2xl overflow-hidden my-8">
+            <div className="p-4 sm:p-5 border-b border-white/5 flex items-center justify-between">
+              <h3 className="font-bold text-white text-base sm:text-lg">Confirme a exclusão de {deleteModal.nome}</h3>
+              <button onClick={() => setDeleteModal(null)} className="text-slate-500 hover:text-white p-1 rounded-lg hover:bg-white/5 transition-all"><X size={18}/></button>
+            </div>
+
+            <div className="p-4 sm:p-5 space-y-4">
+              <div className="flex items-start sm:items-center gap-3 p-3 sm:p-4 bg-rose-500/10 border border-rose-500/20 rounded-xl text-rose-400 font-bold text-sm">
+                <AlertTriangle size={20} className="flex-shrink-0 mt-0.5 sm:mt-0" /> 
+                <span>Esta ação não pode ser desfeita.</span>
+              </div>
+
+              <div className="text-sm text-slate-300 space-y-3">
+                <p>Isso excluirá permanentemente o estabelecimento <strong>{deleteModal.nome}</strong> e <strong>TODOS</strong> os seus dados, incluindo transações, membros, serviços e configurações.</p>
+                <p>O usuário dono (<strong>{deleteModal.email_dono}</strong>) também será <strong>excluído permanentemente</strong> do sistema.</p>
+              </div>
+
+              <div className="bg-slate-950 p-4 sm:p-5 rounded-xl border border-white/5 mt-4">
+                <label className="text-xs sm:text-sm font-bold text-slate-400 mb-2 sm:mb-3 block">Digite <strong className="text-white select-all">{deleteModal.slug}</strong> para confirmar.</label>
+                <input 
+                  type="text" 
+                  value={deleteConfirmText} 
+                  onChange={e => setDeleteConfirmText(e.target.value)}
+                  placeholder={deleteModal.slug}
+                  className="w-full bg-slate-900 border border-white/10 rounded-xl px-4 py-3 text-white outline-none focus:border-rose-500 transition-all text-sm font-mono"
+                />
+              </div>
+            </div>
+
+            <div className="p-4 sm:p-5 border-t border-white/5 bg-slate-900/50 flex flex-col sm:flex-row justify-end gap-3">
+              <button 
+                onClick={() => setDeleteModal(null)} 
+                className="w-full sm:w-auto px-5 py-3 sm:py-2.5 rounded-xl text-sm font-bold text-slate-400 hover:text-white bg-white/5 hover:bg-white/10 transition-all order-2 sm:order-1"
+              >
+                Cancelar
+              </button>
+              <button 
+                disabled={deleteConfirmText.trim() !== deleteModal.slug || isDeleting}
+                onClick={handleDeleteConfirm}
+                className="w-full sm:w-auto px-5 py-3 sm:py-2.5 rounded-xl text-sm font-bold bg-rose-600 hover:bg-rose-500 text-white disabled:opacity-50 disabled:cursor-not-allowed transition-all flex items-center justify-center gap-2 order-1 sm:order-2"
+              >
+                {isDeleting ? <RefreshCw className="animate-spin" size={16}/> : <Trash2 size={16}/>}
+                Entendi, exclua este estabelecimento.
+              </button>
+            </div>
+          </div>
         </div>
       )}
     </div>
@@ -926,6 +1005,136 @@ function FaturamentoTab({ estabelecimentos, whatsappAdmin, onUpdate }: {
 }
 
 // ========================
+// ADMINS TAB
+// ========================
+interface SaasAdmin {
+  id: string
+  email: string
+  created_at: string
+}
+
+function AdminsTab({ currentUserId }: { currentUserId: string }) {
+  const [admins, setAdmins] = useState<SaasAdmin[]>([])
+  const [loading, setLoading] = useState(true)
+  const [deletingId, setDeletingId] = useState<string | null>(null)
+
+  const fetchAdmins = async () => {
+    setLoading(true)
+    const { data } = await supabase
+      .from('saas_admins')
+      .select('id, email, created_at')
+      .order('created_at', { ascending: true })
+    setAdmins(data || [])
+    setLoading(false)
+  }
+
+  useEffect(() => { fetchAdmins() }, [])
+
+  const handleDelete = async (admin: SaasAdmin) => {
+    if (!confirm(`Excluir permanentemente o admin "${admin.email}"?\n\nEsta ação removerá o usuário completamente do sistema (Auth + banco de dados) e não pode ser desfeita.`)) return
+    setDeletingId(admin.id)
+    const { error } = await supabase.rpc('delete_saas_user', { target_user_id: admin.id })
+    if (error) {
+      alert('Erro ao excluir admin: ' + error.message)
+    } else {
+      fetchAdmins()
+    }
+    setDeletingId(null)
+  }
+
+  if (loading) return (
+    <div className="flex items-center justify-center h-40">
+      <div className="w-8 h-8 border-2 border-emerald-500 border-t-transparent rounded-full animate-spin" />
+    </div>
+  )
+
+  return (
+    <div className="space-y-6 max-w-2xl">
+      {/* Header com botão de adicionar */}
+      <div className="flex items-center justify-between">
+        <p className="text-xs font-bold uppercase tracking-widest text-slate-500">
+          {admins.length} admin{admins.length !== 1 ? 's' : ''} cadastrado{admins.length !== 1 ? 's' : ''}
+        </p>
+        <a
+          href="/novo-admin"
+          target="_blank"
+          rel="noopener noreferrer"
+          className="inline-flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-bold bg-emerald-500 hover:bg-emerald-400 text-white transition-all shadow-lg shadow-emerald-500/20"
+        >
+          <Shield size={14} /> Adicionar novo Admin
+        </a>
+      </div>
+
+      {/* Aviso informativo */}
+      <div className="flex items-start gap-3 p-4 bg-rose-500/10 border border-rose-500/20 rounded-xl text-rose-300 text-sm">
+        <AlertCircle size={16} className="flex-shrink-0 mt-0.5" />
+        <span>Excluir um admin o remove <strong>permanentemente do sistema</strong> — incluindo o acesso de autenticação (Auth). Esta ação não pode ser desfeita.</span>
+      </div>
+
+      {/* Lista */}
+      <div className="rounded-2xl border border-white/5 bg-slate-900/50 overflow-hidden">
+        {admins.length === 0 ? (
+          <div className="p-10 text-center text-slate-600">
+            <Shield size={36} className="mx-auto mb-3 opacity-20" />
+            <p className="font-bold">Nenhum admin cadastrado.</p>
+          </div>
+        ) : (
+          <div className="divide-y divide-white/5">
+            {admins.map(admin => {
+              const isSelf = admin.id === currentUserId
+              return (
+                <div key={admin.id} className="flex items-center gap-4 p-4 hover:bg-white/2 transition-all">
+                  {/* Avatar */}
+                  <div className="w-10 h-10 rounded-xl bg-emerald-900/40 border border-emerald-700/30 flex items-center justify-center text-sm font-black text-emerald-400 flex-shrink-0">
+                    {admin.email.charAt(0).toUpperCase()}
+                  </div>
+
+                  {/* Info */}
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <p className="text-sm font-bold text-white truncate">{admin.email}</p>
+                      {isSelf && (
+                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-lg text-[10px] font-bold bg-emerald-500/10 border border-emerald-500/20 text-emerald-400">
+                          <Crown size={9} /> Você
+                        </span>
+                      )}
+                    </div>
+                    <p className="text-xs text-slate-600 mt-0.5">
+                      Admin desde {new Date(admin.created_at).toLocaleDateString('pt-BR', { day: '2-digit', month: 'long', year: 'numeric' })}
+                    </p>
+                  </div>
+
+                  {/* Ação */}
+                  {isSelf ? (
+                    <span
+                      title="Você não pode remover a si mesmo"
+                      className="inline-flex items-center gap-1 px-3 py-1.5 rounded-xl text-xs font-bold bg-slate-800/50 text-slate-600 border border-slate-700/30 cursor-not-allowed"
+                    >
+                      <Trash2 size={11} /> Remover
+                    </span>
+                  ) : (
+                    <button
+                      onClick={() => handleDelete(admin)}
+                      disabled={deletingId === admin.id}
+                      className="inline-flex items-center gap-1 px-3 py-1.5 rounded-xl text-xs font-bold bg-rose-500/10 hover:bg-rose-500/20 hover:text-rose-400 text-rose-500 border border-rose-500/20 transition-all disabled:opacity-50"
+                    >
+                      {deletingId === admin.id
+                        ? <RefreshCw size={11} className="animate-spin" />
+                        : <Trash2 size={11} />}
+                      Remover
+                    </button>
+                  )}
+                </div>
+              )
+            })}
+          </div>
+        )}
+      </div>
+    </div>
+  )
+}
+
+// ========================
 // MAIN COMPONENT
 // ========================
 export function SuperAdminDashboard({ onLogout }: { onLogout: () => void }) {
@@ -937,6 +1146,13 @@ export function SuperAdminDashboard({ onLogout }: { onLogout: () => void }) {
   const [loading, setLoading] = useState(true)
   const [sidebarOpen, setSidebarOpen] = useState(false)
   const [saasConfig, setSaasConfig] = useState<any>(null)
+  const [currentUserId, setCurrentUserId] = useState<string>('')
+
+  useEffect(() => {
+    supabase.auth.getUser().then(({ data }) => {
+      if (data.user) setCurrentUserId(data.user.id)
+    })
+  }, [])
 
   const fetchData = async () => {
     setLoading(true)
@@ -983,6 +1199,7 @@ export function SuperAdminDashboard({ onLogout }: { onLogout: () => void }) {
     { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
     { id: 'estabelecimentos', label: 'Estabelecimentos', icon: Store },
     { id: 'faturamento', label: 'Faturamento', icon: DollarSign },
+    { id: 'admins', label: 'Admins', icon: Shield },
     { id: 'configuracoes', label: 'Configurações', icon: Settings },
   ]
 
@@ -1112,6 +1329,7 @@ export function SuperAdminDashboard({ onLogout }: { onLogout: () => void }) {
         {activeTab === 'faturamento' && (
           <FaturamentoTab estabelecimentos={estabelecimentos} whatsappAdmin="" onUpdate={fetchData} />
         )}
+        {activeTab === 'admins' && <AdminsTab currentUserId={currentUserId} />}
         {activeTab === 'configuracoes' && <ConfiguracoesTab onSaved={fetchData} />}
       </main>
 

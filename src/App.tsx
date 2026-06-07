@@ -13,6 +13,7 @@ import type { UserSession } from './types/auth'
 import { LandingPage } from './components/LandingPage'
 import { LoginPage } from './components/auth/LoginPage'
 import { RegisterPage } from './components/auth/RegisterPage'
+import { RegisterSaasAdminPage } from './components/auth/RegisterSaasAdminPage'
 import { ResetPasswordPage } from './components/auth/ResetPasswordPage'
 import AuthCallback from './pages/AuthCallback'
 
@@ -327,6 +328,8 @@ export default function App() {
       <Route path="/" element={<LandingPage />} />
       <Route path="/login" element={<LoginPage onLogin={handleLoginState} />} />
       <Route path="/register" element={<RegisterPage onLogin={handleLoginState} />} />
+      <Route path="/register-saas-admin" element={<RegisterSaasAdminPage onLogin={handleLoginState} />} />
+      <Route path="/novo-admin" element={<Navigate to="/register-saas-admin" replace />} />
       <Route path="/reset-password" element={<ResetPasswordPage />} />
       <Route path="/signup" element={<Navigate to="/register" replace />} />
       <Route path="/create-account" element={<Navigate to="/register" replace />} />

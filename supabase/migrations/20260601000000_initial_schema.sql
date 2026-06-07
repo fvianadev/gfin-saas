@@ -460,3 +460,48 @@ CREATE INDEX IF NOT EXISTS idx_auditoria_estabelecimento ON public.auditoria_tra
 INSERT INTO public.saas_configuracoes (id, whatsapp_contato, email_contato, trial_dias, grace_period_dias, aviso_trial_dias, saas_nome)
 SELECT 1, '5511999999999', 'suporte@gfin.com.br', 14, 5, 3, 'GFin SaaS'
 WHERE NOT EXISTS (SELECT 1 FROM public.saas_configuracoes);
+
+--=========================================================
+-- Migration: Auto create saas admins from user metadata
+-- Created on 2026-06-06
+--=========================================================
+
+CREATE OR REPLACE FUNCTION public.handle_new_saas_admin()
+RETURNS TRIGGER AS $$
+BEGIN
+  IF NEW.raw_user_meta_data->>'is_saas_admin' = 'true' THEN
+    INSERT INTO public.saas_admins (id, email)
+    VALUES (NEW.id, NEW.email)
+    ON CONFLICT (id) DO NOTHING;
+  END IF;
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
+
+-- Trigger
+DROP TRIGGER IF EXISTS on_auth_user_created_saas_admin ON auth.users;
+CREATE TRIGGER on_auth_user_created_saas_admin
+  AFTER INSERT ON auth.users
+  FOR EACH ROW EXECUTE FUNCTION public.handle_new_saas_admin();
+
+
+ -- =========================================================
+-- Migration: Add delete_saas_user RPC for SaaS Admin
+-- Description: Permite que um SaaS Admin exclua um usuário do auth.users.
+-- O CASCADE cuidará de excluir o estabelecimento e todos os seus dados.
+-- =========================================================
+
+CREATE OR REPLACE FUNCTION public.delete_saas_user(target_user_id uuid)
+RETURNS void AS $$
+BEGIN
+  -- 1. Verificar se quem está chamando a função é um SaaS Admin
+  IF NOT EXISTS (SELECT 1 FROM public.saas_admins WHERE id = auth.uid()) THEN
+    RAISE EXCEPTION 'Acesso negado: apenas administradores do SaaS podem excluir usuários.';
+  END IF;
+
+  -- 2. Deletar o usuário da tabela auth.users
+  -- Como owner_id em estabelecimentos tem ON DELETE CASCADE para auth.users(id),
+  -- o estabelecimento também será excluído em cascata.
+  DELETE FROM auth.users WHERE id = target_user_id;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
