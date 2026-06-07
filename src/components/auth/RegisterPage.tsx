@@ -200,7 +200,7 @@ export function RegisterPage({ onLogin }: { onLogin: (session: UserSession) => v
                 }
                 return 'Já existe um estabelecimento com este e‑mail ou nome. Por favor, verifique os dados.';
               case '23503': // foreign key violation
-                return 'Erro ao criar estabelecimento: o usuário não foi criado corretamente. Tente novamente.';
+                return 'Este e‑mail já está cadastrado no sistema (ou o usuário correspondente é um administrador). Por favor, use outro e‑mail ou faça login.';
               default:
                 break;
             }

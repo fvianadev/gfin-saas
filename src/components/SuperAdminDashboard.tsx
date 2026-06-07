@@ -493,8 +493,8 @@ function EstabelecimentosTab({ estabelecimentos, onUpdate, loading }: {
                   type="text" 
                   value={deleteConfirmText} 
                   onChange={e => setDeleteConfirmText(e.target.value)}
-                  placeholder="Digite o nome do projeto aqui."
-                  className="w-full bg-slate-900 border border-white/10 rounded-xl px-4 py-3 text-white outline-none focus:border-rose-500 transition-all text-sm"
+                  placeholder={deleteModal.slug}
+                  className="w-full bg-slate-900 border border-white/10 rounded-xl px-4 py-3 text-white outline-none focus:border-rose-500 transition-all text-sm font-mono"
                 />
               </div>
             </div>
@@ -507,12 +507,12 @@ function EstabelecimentosTab({ estabelecimentos, onUpdate, loading }: {
                 Cancelar
               </button>
               <button 
-                disabled={deleteConfirmText !== deleteModal.slug || isDeleting}
+                disabled={deleteConfirmText.trim() !== deleteModal.slug || isDeleting}
                 onClick={handleDeleteConfirm}
                 className="w-full sm:w-auto px-5 py-3 sm:py-2.5 rounded-xl text-sm font-bold bg-rose-600 hover:bg-rose-500 text-white disabled:opacity-50 disabled:cursor-not-allowed transition-all flex items-center justify-center gap-2 order-1 sm:order-2"
               >
                 {isDeleting ? <RefreshCw className="animate-spin" size={16}/> : <Trash2 size={16}/>}
-                Entendi, exclua este projeto.
+                Entendi, exclua este estabelecimento.
               </button>
             </div>
           </div>

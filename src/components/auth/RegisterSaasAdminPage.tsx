@@ -54,9 +54,38 @@ export function RegisterSaasAdminPage({ onLogin }: { onLogin: (session: UserSess
     e.preventDefault()
     if (!validateForm()) return
     setLoading(true)
+    setErrorMessage('')
 
     try {
-      // 1. Criar usuário no Supabase Auth com o metadado is_saas_admin
+      // 1. Verificar se o e-mail já existe na tabela de saas_admins
+      const { data: existingAdmin, error: adminCheckError } = await supabase
+        .from('saas_admins')
+        .select('id')
+        .eq('email', email)
+        .maybeSingle()
+
+      if (adminCheckError) {
+        console.error('Erro ao verificar saas_admins:', adminCheckError)
+      }
+
+      // 2. Verificar se o e-mail já existe na tabela de estabelecimentos (como dono)
+      const { data: existingEstab, error: estabCheckError } = await supabase
+        .from('estabelecimentos')
+        .select('id')
+        .eq('email_dono', email)
+        .maybeSingle()
+
+      if (estabCheckError) {
+        console.error('Erro ao verificar estabelecimentos:', estabCheckError)
+      }
+
+      if (existingAdmin || existingEstab) {
+        setErrorMessage('Este e‑mail já está cadastrado no sistema. Por favor, use outro e‑mail.')
+        setLoading(false)
+        return
+      }
+
+      // 3. Criar usuário no Supabase Auth com o metadado is_saas_admin
       const { data: authData, error: authError } = await supabase.auth.signUp({
         email,
         password: senha,
@@ -78,7 +107,7 @@ export function RegisterSaasAdminPage({ onLogin }: { onLogin: (session: UserSess
 
       const userId = authData.user.id
 
-      // 2. Se o Supabase gerou a sessão imediatamente (confirmação desativada),
+      // 4. Se o Supabase gerou a sessão imediatamente (confirmação desativada),
       // realiza login direto. Caso contrário, exibe tela de confirmação de e-mail.
       if (authData.session) {
         const session: UserSession = {
@@ -96,7 +125,27 @@ export function RegisterSaasAdminPage({ onLogin }: { onLogin: (session: UserSess
       }
     } catch (err: any) {
       console.error('Erro ao cadastrar SaaS Admin:', err)
-      setErrorMessage(err.message || 'Erro ao criar conta de Administrador.')
+      
+      const getFriendlyMessage = (error: any): string => {
+        if (error?.message) {
+          const msg = error.message.toString().toLowerCase()
+          if (msg.includes('already') || msg.includes('cadastrado')) {
+            return 'Já existe uma conta com este e‑mail. Faça login ou recupere sua senha.'
+          }
+          if (msg.includes('invalid email') || msg.includes('must be a valid')) {
+            return 'Por favor, insira um e‑mail válido.'
+          }
+          if (msg.includes('rate limit') || msg.includes('limit exceeded')) {
+            return 'Muitas tentativas de cadastro seguidas. Aguarde alguns minutos antes de tentar novamente.'
+          }
+          if (msg.includes('confirmation') || msg.includes('smtp') || msg.includes('failed to send')) {
+            return 'Erro ao enviar e‑mail de confirmação. Verifique as configurações de Auth ou desative a confirmação de e‑mail para testes.'
+          }
+        }
+        return error?.message?.toString() || 'Erro ao criar conta de Administrador. Por favor, tente novamente.'
+      }
+      
+      setErrorMessage(getFriendlyMessage(err))
     } finally {
       setLoading(false)
     }
