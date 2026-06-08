@@ -235,7 +235,17 @@ export function AdminDashboard({ onBack, estabelecimentoId, membroId, cargo, isO
     onConfirm: () => void;
     onCancel: () => void;
   } | null>(null)
+  const [feedbackModal, setFeedbackModal] = useState<{
+    isOpen: boolean;
+    variant: 'success' | 'error' | 'confirm';
+    title: string;
+    message: string;
+    onConfirm: () => void;
+    onCancel?: () => void;
+  } | null>(null)
   const [isDevMode, setIsDevMode] = useState(false)
+
+  const closeFeedbackModal = () => setFeedbackModal(null)
 
   const subscriptionStatus = useMemo(() => {
     if (!estab) return { status: 'loading', daysLeft: 0, showWarning: false }
@@ -351,18 +361,6 @@ export function AdminDashboard({ onBack, estabelecimentoId, membroId, cargo, isO
     setGerandoRelatorio(false)
   }
 
-  const baixarCSV = () => {
-    let csv = "Profissional,Servicos,Total Produzido,Comissao (%),Comissao Devida\n"
-    relatorioDados.forEach(row => {
-      csv += `${row.nome},${row.qtd_servicos},${row.total_receita.toFixed(2)},${row.comissao_pct}%,${row.total_comissao.toFixed(2)}\n`
-    })
-    const blob = new Blob([csv], { type: 'text/csv' })
-    const url = window.URL.createObjectURL(blob)
-    const a = document.createElement('a')
-    a.setAttribute('href', url)
-    a.setAttribute('download', `relatorio_producao_${relatorioFiltro.dataInicio}_a_${relatorioFiltro.dataFim}.csv`)
-    a.click()
-  }
 
   const fetchEstab = async () => {
     const { data } = await supabase.from('estabelecimentos').select('*').eq('id', estabelecimentoId).single()
@@ -421,27 +419,62 @@ export function AdminDashboard({ onBack, estabelecimentoId, membroId, cargo, isO
     const { error } = await supabase.from('transacoes').insert(toInsert)
     setConfigSaving(false)
     if (!error) {
-      alert('Dados demo gerados com sucesso!')
       fetchAdminData()
+      setFeedbackModal({
+        isOpen: true,
+        variant: 'success',
+        title: 'Dados demo gerados',
+        message: 'Lançamentos fictícios criados com sucesso. Eles estão marcados com a tag [DEMO].',
+        onConfirm: closeFeedbackModal,
+      })
+    } else {
+      setFeedbackModal({
+        isOpen: true,
+        variant: 'error',
+        title: 'Erro ao gerar',
+        message: 'Não foi possível gerar os dados demo: ' + error.message,
+        onConfirm: closeFeedbackModal,
+      })
     }
   }
 
-  const removeDemoData = async () => {
-    if (!confirm('Isso apagará TODAS as transações com [DEMO] no nome neste estabelecimento. Continuar?')) return
-    setConfigSaving(true)
-    const { error } = await supabase
-      .from('transacoes')
-      .delete()
-      .eq('estabelecimento_id', estabelecimentoId)
-      .like('descricao', '%[DEMO]%')
-      
-    setConfigSaving(false)
-    if (!error) {
-      alert('Dados demo removidos com sucesso!')
-      fetchAdminData()
-    } else {
-      alert('Erro ao remover: ' + error.message)
-    }
+  const removeDemoData = () => {
+    setFeedbackModal({
+      isOpen: true,
+      variant: 'confirm',
+      title: 'Limpar dados demo',
+      message: 'Isso apagará TODAS as transações com [DEMO] no nome neste estabelecimento. Deseja continuar?',
+      onCancel: closeFeedbackModal,
+      onConfirm: async () => {
+        closeFeedbackModal()
+        setConfigSaving(true)
+        const { error } = await supabase
+          .from('transacoes')
+          .delete()
+          .eq('estabelecimento_id', estabelecimentoId)
+          .like('descricao', '%[DEMO]%')
+
+        setConfigSaving(false)
+        if (!error) {
+          fetchAdminData()
+          setFeedbackModal({
+            isOpen: true,
+            variant: 'success',
+            title: 'Dados demo removidos',
+            message: 'Todos os lançamentos com a tag [DEMO] foram excluídos com sucesso.',
+            onConfirm: closeFeedbackModal,
+          })
+        } else {
+          setFeedbackModal({
+            isOpen: true,
+            variant: 'error',
+            title: 'Erro ao limpar',
+            message: 'Não foi possível remover os dados demo: ' + error.message,
+            onConfirm: closeFeedbackModal,
+          })
+        }
+      },
+    })
   }
 
   const copyText = (text: string, type: string) => {
@@ -1884,18 +1917,18 @@ export function AdminDashboard({ onBack, estabelecimentoId, membroId, cargo, isO
             ) : (
               <div className="glass-card p-6 border-white/5 space-y-4">
                  <h3 className="font-bold text-sm text-slate-400 uppercase tracking-widest">Modo Desenvolvedor</h3>
-                 <div className="flex gap-2">
+                 <div className="flex flex-col sm:flex-row gap-2">
                    <input 
                      type="password" 
                      placeholder="Senha de liberação" 
-                     className="flex-1 bg-slate-900 border border-white/5 rounded-xl px-4 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/50" 
+                     className="w-full min-w-0 sm:flex-1 bg-slate-900 border border-white/5 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/50" 
                      value={devPassword} 
                      onChange={e => setDevPassword(e.target.value)} 
                      onKeyDown={e => { if (e.key === 'Enter') { if (devPassword === import.meta.env.VITE_DEV_PASSWORD) setIsDevMode(true); else alert('Senha incorreta') } }}
                    />
                    <button 
                      onClick={() => { if(devPassword === import.meta.env.VITE_DEV_PASSWORD) setIsDevMode(true); else alert('Senha incorreta') }} 
-                     className="bg-slate-800 text-slate-300 px-4 py-2 rounded-xl text-sm font-bold hover:bg-slate-700 transition-all"
+                     className="w-full sm:w-auto sm:shrink-0 bg-slate-800 text-slate-300 px-4 py-2.5 rounded-xl text-sm font-bold hover:bg-slate-700 transition-all"
                    >
                      Desbloquear
                    </button>
@@ -2302,13 +2335,10 @@ export function AdminDashboard({ onBack, estabelecimentoId, membroId, cargo, isO
                    </table>
                  </div>
                  
-                 <div className="p-4 bg-slate-900/50 border-t border-white/5 flex flex-col sm:flex-row gap-4 print:hidden">
-                   <button onClick={() => window.print()} className="flex-1 py-3 bg-white/5 text-white rounded-xl font-bold hover:bg-white/10 transition-all flex justify-center items-center gap-2">
-                     <Printer size={16} /> Salvar PDF
-                   </button>
-                   <button onClick={baixarCSV} className="flex-1 py-3 bg-indigo-500/10 text-indigo-400 rounded-xl font-bold hover:bg-indigo-500 hover:text-white transition-all flex justify-center items-center gap-2">
-                     <Download size={16} /> Baixar Planilha
-                   </button>
+                 <div className="p-4 bg-slate-900/50 border-t border-white/5 print:hidden">
+                    <button onClick={() => window.print()} className="w-full py-3 bg-indigo-500 text-white rounded-xl font-bold hover:bg-indigo-600 shadow-lg shadow-indigo-500/20 active:scale-95 transition-all flex justify-center items-center gap-2">
+                      <Printer size={16} /> Salvar como PDF
+                    </button>
                  </div>
                </div>
              )}
@@ -2331,7 +2361,7 @@ export function AdminDashboard({ onBack, estabelecimentoId, membroId, cargo, isO
           <span className="text-[9px] font-bold uppercase">Agenda</span>
         </button>
         {cargo === 'administrador' ? (
-          <button onClick={() => setIsMoreMenuOpen(!isMoreMenuOpen)} className={`flex flex-col items-center gap-1 transition-all flex-1 ${isMoreMenuOpen ? 'text-emerald-500 scale-110' : 'text-slate-500'}`}>
+          <button onClick={() => setIsMoreMenuOpen(!isMoreMenuOpen)} className={`flex flex-col items-center gap-1 transition-all flex-1 ${isMoreMenuOpen || ['equipe', 'itens', 'relatorios', 'auditoria', 'config'].includes(activeTab) ? 'text-emerald-500 scale-110' : 'text-slate-500'}`}>
             <MoreVertical size={20} />
             <span className="text-[9px] font-bold uppercase">Mais</span>
           </button>
@@ -2357,6 +2387,10 @@ export function AdminDashboard({ onBack, estabelecimentoId, membroId, cargo, isO
             <button onClick={() => { setActiveTab('itens'); setIsMoreMenuOpen(false); }} className="w-full flex items-center gap-4 bg-white/5 hover:bg-white/10 p-4 rounded-2xl transition-all">
               <div className="bg-slate-800 p-2 rounded-xl text-emerald-500"><Scissors size={20} /></div>
               <span className="font-bold text-sm">Serviços e Produtos</span>
+            </button>
+            <button onClick={() => { setActiveTab('equipe'); setIsMoreMenuOpen(false); }} className="w-full flex items-center gap-4 bg-white/5 hover:bg-white/10 p-4 rounded-2xl transition-all">
+              <div className="bg-slate-800 p-2 rounded-xl text-emerald-400"><Users size={20} /></div>
+              <span className="font-bold text-sm">Equipe</span>
             </button>
             <button onClick={() => { setActiveTab('relatorios'); setIsMoreMenuOpen(false); }} className="w-full flex items-center gap-4 bg-white/5 hover:bg-white/10 p-4 rounded-2xl transition-all">
               <div className="bg-slate-800 p-2 rounded-xl text-indigo-500"><PieChart size={20} /></div>
@@ -2385,6 +2419,73 @@ export function AdminDashboard({ onBack, estabelecimentoId, membroId, cargo, isO
         canSelectMember={true}
         editingTransaction={transactionToEdit}
       />
+
+      {/* MODAL DE FEEDBACK (sucesso, erro, confirmação) */}
+      {feedbackModal && feedbackModal.isOpen && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-in fade-in duration-200">
+          <div className={`w-full max-w-md rounded-3xl p-6 sm:p-8 shadow-2xl animate-in zoom-in-95 duration-200 text-center relative overflow-hidden border backdrop-blur-xl ${
+            feedbackModal.variant === 'success'
+              ? 'bg-emerald-500/10 border-emerald-500/20'
+              : feedbackModal.variant === 'error'
+                ? 'bg-rose-500/10 border-rose-500/20'
+                : 'bg-amber-500/10 border-amber-500/20'
+          }`}>
+            <div className={`w-14 h-14 rounded-2xl flex items-center justify-center mx-auto mb-5 border shadow-lg ${
+              feedbackModal.variant === 'success'
+                ? 'bg-emerald-500/20 text-emerald-400 border-emerald-500/30 shadow-emerald-500/5'
+                : feedbackModal.variant === 'error'
+                  ? 'bg-rose-500/20 text-rose-400 border-rose-500/30 shadow-rose-500/5'
+                  : 'bg-amber-500/20 text-amber-400 border-amber-500/30 shadow-amber-500/5'
+            }`}>
+              {feedbackModal.variant === 'success' && <CheckCircle size={26} />}
+              {feedbackModal.variant === 'error' && <XCircle size={26} />}
+              {feedbackModal.variant === 'confirm' && <ShieldAlert size={26} />}
+            </div>
+
+            <h4 className={`font-black text-base uppercase tracking-widest mb-2 ${
+              feedbackModal.variant === 'success'
+                ? 'text-emerald-400'
+                : feedbackModal.variant === 'error'
+                  ? 'text-rose-400'
+                  : 'text-amber-400'
+            }`}>
+              {feedbackModal.title}
+            </h4>
+            <p className="text-sm text-slate-300 mb-6 leading-relaxed font-semibold">
+              {feedbackModal.message}
+            </p>
+
+            {feedbackModal.variant === 'confirm' ? (
+              <div className="flex gap-3 justify-center">
+                <button
+                  onClick={feedbackModal.onCancel}
+                  className="flex-1 bg-slate-900 border border-white/5 hover:bg-slate-800 hover:text-white text-slate-400 font-bold py-3.5 rounded-2xl transition-all active:scale-95 text-xs uppercase tracking-widest"
+                >
+                  Cancelar
+                </button>
+                <button
+                  onClick={feedbackModal.onConfirm}
+                  disabled={configSaving}
+                  className="flex-1 bg-amber-500 hover:bg-amber-400 disabled:opacity-50 text-slate-950 font-black py-3.5 rounded-2xl shadow-xl shadow-amber-500/20 transition-all active:scale-95 text-xs uppercase tracking-widest"
+                >
+                  {configSaving ? 'Aguarde...' : 'Confirmar'}
+                </button>
+              </div>
+            ) : (
+              <button
+                onClick={feedbackModal.onConfirm}
+                className={`w-full font-black py-3.5 rounded-2xl shadow-xl transition-all active:scale-95 text-xs uppercase tracking-widest ${
+                  feedbackModal.variant === 'success'
+                    ? 'bg-emerald-500 hover:bg-emerald-400 text-white shadow-emerald-500/20'
+                    : 'bg-rose-500 hover:bg-rose-400 text-white shadow-rose-500/20'
+                }`}
+              >
+                Entendi
+              </button>
+            )}
+          </div>
+        </div>
+      )}
 
       {/* MODAL CUSTOMIZADO WHATSAPP PROMPT */}
       {whatsappPrompt && whatsappPrompt.isOpen && (

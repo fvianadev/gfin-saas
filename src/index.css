@@ -40,3 +40,90 @@ body {
   transform: translateY(-2px);
   box-shadow: 0 10px 20px -10px rgba(236, 72, 153, 0.5);
 }
+
+/* ===== PRINT STYLES — Relatório PDF limpo ===== */
+@media print {
+  @page {
+    margin: 1.5cm;
+    size: A4 portrait;
+  }
+
+  /* Reset: fundo branco, texto preto */
+  html, body {
+    background: white !important;
+    color: black !important;
+    font-family: 'Outfit', Arial, sans-serif;
+    font-size: 12pt;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+
+  /* Esconder TODA a UI do app */
+  nav,
+  aside,
+  .print\\:hidden,
+  [class*="print:hidden"],
+  button:not(.print-keep),
+  .glass-card > .print\\:hidden {
+    display: none !important;
+  }
+
+  /* O conteúdo de relatório fica visível e limpo */
+  .glass-card {
+    background: white !important;
+    backdrop-filter: none !important;
+    border: none !important;
+    border-radius: 0 !important;
+    box-shadow: none !important;
+    padding: 0 !important;
+  }
+
+  /* Tabela limpa */
+  table {
+    width: 100% !important;
+    border-collapse: collapse !important;
+  }
+
+  th {
+    background: #f3f4f6 !important;
+    color: #374151 !important;
+    font-weight: 700 !important;
+    font-size: 9pt !important;
+    text-transform: uppercase !important;
+    letter-spacing: 0.05em !important;
+    padding: 8px 12px !important;
+    border: 1px solid #d1d5db !important;
+  }
+
+  td {
+    color: #111827 !important;
+    font-size: 10pt !important;
+    padding: 8px 12px !important;
+    border: 1px solid #e5e7eb !important;
+  }
+
+  /* Linha de totais */
+  tr:last-child td {
+    font-weight: 800 !important;
+    border-top: 2px solid #9ca3af !important;
+    background: #f9fafb !important;
+  }
+
+  /* Evitar quebra de página no meio de uma linha */
+  tr {
+    break-inside: avoid;
+  }
+
+  /* Cabeçalho do relatório (print:block) */
+  .print\\:block,
+  [class*="print:block"] {
+    display: block !important;
+    color: black !important;
+  }
+
+  /* Animações desligadas */
+  * {
+    animation: none !important;
+    transition: none !important;
+  }
+}
