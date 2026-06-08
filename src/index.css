@@ -1,9 +1,12 @@
 @import "tailwindcss";
 
 @theme {
-  --color-brand-primary: #ec4899; /* Pink 500 */
-  --color-brand-secondary: #8b5cf6; /* Violet 500 */
-  --color-surface-dark: #0f172a; /* Slate 900 */
+  --color-brand-primary: #ec4899;
+  /* Pink 500 */
+  --color-brand-secondary: #8b5cf6;
+  /* Violet 500 */
+  --color-surface-dark: #0f172a;
+  /* Slate 900 */
   --color-surface-glass: rgba(255, 255, 255, 0.05);
 }
 
@@ -21,7 +24,7 @@ body {
   min-width: 320px;
   min-height: 100vh;
   background: radial-gradient(circle at top right, rgba(236, 72, 153, 0.15), transparent),
-              radial-gradient(circle at bottom left, rgba(139, 92, 246, 0.15), transparent);
+    radial-gradient(circle at bottom left, rgba(139, 92, 246, 0.15), transparent);
 }
 
 .glass-card {
@@ -49,7 +52,8 @@ body {
   }
 
   /* Reset: fundo branco, texto preto */
-  html, body {
+  html,
+  body {
     background: white !important;
     color: black !important;
     font-family: 'Outfit', Arial, sans-serif;
@@ -64,7 +68,7 @@ body {
   .print\\:hidden,
   [class*="print:hidden"],
   button:not(.print-keep),
-  .glass-card > .print\\:hidden {
+  .glass-card>.print\\:hidden {
     display: none !important;
   }
 

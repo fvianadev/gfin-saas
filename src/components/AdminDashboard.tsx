@@ -21,7 +21,7 @@ export function AdminDashboard({ onBack, estabelecimentoId, membroId, cargo, isO
   const [searchParams, setSearchParams] = useSearchParams()
   const activeTab = (searchParams.get('aba') as Tab) || 'resumo'
   const setActiveTab = (tab: Tab) => setSearchParams({ aba: tab }, { replace: true })
-  
+
   const applyPhoneMask = (value: string) => {
     const rawValue = value.replace(/\D/g, '')
     if (rawValue.length <= 11) {
@@ -35,7 +35,7 @@ export function AdminDashboard({ onBack, estabelecimentoId, membroId, cargo, isO
   }
   const [isMoreMenuOpen, setIsMoreMenuOpen] = useState(false)
   const [periodo, setPeriodo] = useState<Periodo>('30dias')
-  
+
   const [transactions, setTransactions] = useState<any[]>([])
   const [tipoFiltro, setTipoFiltro] = useState<'todos' | 'receita' | 'despesa'>('todos')
   const [searchTx, setSearchTx] = useState('')
@@ -74,7 +74,7 @@ export function AdminDashboard({ onBack, estabelecimentoId, membroId, cargo, isO
 
   const dashboardMetrics = useMemo(() => {
     let filteredTxs = transactions;
-    
+
     if (cargo !== 'usuario' && filtroMembro !== 'todos') {
       filteredTxs = transactions.filter(t => t.membro_id === filtroMembro);
     }
@@ -97,7 +97,7 @@ export function AdminDashboard({ onBack, estabelecimentoId, membroId, cargo, isO
       if (t.tipo === 'receita') {
         const mPct = Number(t.membros_equipe?.percentual_comissao) || 0;
         const vComissao = Number(t.valor) * (mPct / 100);
-        
+
         comissoesTotais += vComissao;
         if (t.membro_id === membroId) {
           comissaoPessoal += vComissao;
@@ -179,12 +179,12 @@ export function AdminDashboard({ onBack, estabelecimentoId, membroId, cargo, isO
       const matchAcao = auditFilterAcao === 'todos' || log.acao === auditFilterAcao;
       const matchMembro = auditFilterMembro === 'todos' || log.membro_id === auditFilterMembro;
       const term = auditSearch.toLowerCase();
-      const matchSearch = !term || 
+      const matchSearch = !term ||
         (log.motivo && log.motivo.toLowerCase().includes(term)) ||
         (log.transacoes?.descricao && log.transacoes.descricao.toLowerCase().includes(term)) ||
         (log.dados_anteriores?.descricao && log.dados_anteriores.descricao.toLowerCase().includes(term)) ||
         (log.membros_equipe?.nome && log.membros_equipe.nome.toLowerCase().includes(term));
-      
+
       return matchAcao && matchMembro && matchSearch;
     });
   }, [auditData, auditFilterAcao, auditFilterMembro, auditSearch]);
@@ -205,12 +205,12 @@ export function AdminDashboard({ onBack, estabelecimentoId, membroId, cargo, isO
   const [configSaving, setConfigSaving] = useState(false)
   const [configSaved, setConfigSaved] = useState(false)
   const [urlCopied, setUrlCopied] = useState<string | null>(null)
-  
+
   const [itens, setItens] = useState<any[]>([])
   const [novoItem, setNovoItem] = useState({ nome: '', preco: '', tipo: 'receita' as 'receita' | 'despesa', categoria: 'Geral', duracao: '30' })
   const [itemParaEditar, setItemParaEditar] = useState<string | null>(null)
   const [itemSaving, setItemSaving] = useState(false)
- 
+
   const [isAgendamentoModalOpen, setIsAgendamentoModalOpen] = useState(false)
   const [agendamentoParaEditar, setAgendamentoParaEditar] = useState<any>(null)
   const [novoAgendamento, setNovoAgendamento] = useState({
@@ -337,12 +337,12 @@ export function AdminDashboard({ onBack, estabelecimentoId, membroId, cargo, isO
     }
 
     const { data, error } = await query
-    
+
     if (error) {
       console.error("Erro ao gerar relatório:", error)
       alert("Erro ao gerar relatório: " + error.message)
     }
-    
+
     if (data) {
       const agrupado = data.reduce((acc: any, t: any) => {
         const m = t.membros_equipe
@@ -366,8 +366,8 @@ export function AdminDashboard({ onBack, estabelecimentoId, membroId, cargo, isO
     const { data } = await supabase.from('estabelecimentos').select('*').eq('id', estabelecimentoId).single()
     if (data) {
       setEstab(data)
-      setConfigForm({ 
-        nome: data.nome, 
+      setConfigForm({
+        nome: data.nome,
         logo_url: data.configuracoes?.logo_url || '',
         whatsapp: data.configuracoes?.whatsapp || ''
       })
@@ -386,10 +386,10 @@ export function AdminDashboard({ onBack, estabelecimentoId, membroId, cargo, isO
     setConfigSaving(true)
     const { error } = await supabase.from('estabelecimentos').update({
       nome: configForm.nome,
-      configuracoes: { 
-        ...estab?.configuracoes, 
+      configuracoes: {
+        ...estab?.configuracoes,
         logo_url: configForm.logo_url,
-        whatsapp: configForm.whatsapp 
+        whatsapp: configForm.whatsapp
       }
     }).eq('id', estabelecimentoId)
     setConfigSaving(false)
@@ -524,7 +524,7 @@ export function AdminDashboard({ onBack, estabelecimentoId, membroId, cargo, isO
       .select('*, membros_equipe(nome), servicos_produtos(nome, preco_sugerido)')
       .eq('estabelecimento_id', estabelecimentoId)
       .order('data_hora_inicio', { ascending: true })
-    
+
     setAgendamentos(data || [])
     setCarregandoAgendamentos(false)
   }
@@ -533,7 +533,7 @@ export function AdminDashboard({ onBack, estabelecimentoId, membroId, cargo, isO
     try {
       // 1. Atualizar o status do agendamento
       const { error: errorStatus } = await supabase.from('agendamentos').update({ status: novoStatus }).eq('id', ag.id)
-      
+
       if (errorStatus) {
         alert("Erro ao atualizar status: " + errorStatus.message)
         return
@@ -543,7 +543,7 @@ export function AdminDashboard({ onBack, estabelecimentoId, membroId, cargo, isO
       if (novoStatus === 'concluido') {
         const servico = Array.isArray(ag.servicos_produtos) ? ag.servicos_produtos[0] : ag.servicos_produtos;
         const preco = servico?.preco_sugerido || 0;
-        
+
         // Verifica se já existe transação para este agendamento
         const { data: txExist, error: errCheck } = await supabase
           .from('transacoes')
@@ -583,7 +583,7 @@ export function AdminDashboard({ onBack, estabelecimentoId, membroId, cargo, isO
       }
 
       fetchAgendamentos()
-      
+
       // 3. Notificar via WhatsApp apenas para Confirmação ou Cancelamento
       if (novoStatus !== 'concluido') {
         const msgTexto = novoStatus === 'confirmado'
@@ -603,7 +603,7 @@ export function AdminDashboard({ onBack, estabelecimentoId, membroId, cargo, isO
                 ? `Olá ${ag.cliente_nome}! Seu agendamento na ${estab.nome} para o dia ${dataFormatada} às ${horaFormatada} foi CONFIRMADO. \u2705\n\nTe aguardamos! \uD83D\uDE0A`
                 : `Olá ${ag.cliente_nome}, infelizmente não poderemos te atender na data e hora solicitada (${dataFormatada} às ${horaFormatada}) na ${estab.nome}. \u274C\n\nPoderia escolher outro horário? \uD83D\uDE4F`
             )
-            
+
             const fone = ag.cliente_whatsapp?.replace(/\D/g, '')
             if (fone) {
               window.open(`https://wa.me/55${fone}?text=${msg}`, '_blank')
@@ -631,14 +631,14 @@ export function AdminDashboard({ onBack, estabelecimentoId, membroId, cargo, isO
     const [ano, mes, dia] = novoAgendamento.data.split('-').map(Number)
     const [h, min] = novoAgendamento.hora.split(':').map(Number)
     const dataHoraBrasil = `${ano}-${pad(mes)}-${pad(dia)}T${pad(h)}:${pad(min)}:00-03:00`
-    
+
     const payload = {
       cliente_nome: novoAgendamento.cliente_nome,
       cliente_whatsapp: novoAgendamento.cliente_whatsapp.replace(/\D/g, ''),
       servico_id: novoAgendamento.servico_id || null,
       membro_id: novoAgendamento.membro_id || null,
       data_hora_inicio: dataHoraBrasil,
-      data_hora_fim: dataHoraBrasil, 
+      data_hora_fim: dataHoraBrasil,
       status: novoAgendamento.status
     }
 
@@ -674,7 +674,7 @@ export function AdminDashboard({ onBack, estabelecimentoId, membroId, cargo, isO
       .select('*')
       .eq('estabelecimento_id', estabelecimentoId)
       .order('dia_semana', { ascending: true })
-    
+
     if (data && data.length > 0) {
       setHorarios(data)
     } else {
@@ -693,7 +693,7 @@ export function AdminDashboard({ onBack, estabelecimentoId, membroId, cargo, isO
 
   const updateHorario = async (diaSemana: number, campo: string, valor: any) => {
     const index = horarios.findIndex(item => item.dia_semana === diaSemana)
-    
+
     let novoHorario;
     const novosHorarios = [...horarios];
 
@@ -702,12 +702,12 @@ export function AdminDashboard({ onBack, estabelecimentoId, membroId, cargo, isO
       novosHorarios[index] = novoHorario;
     } else {
       // Se não existe no estado (ainda não salvo no banco), cria o objeto base
-      novoHorario = { 
-        dia_semana: diaSemana, 
-        hora_inicio: '08:00', 
-        hora_fim: '18:00', 
+      novoHorario = {
+        dia_semana: diaSemana,
+        hora_inicio: '08:00',
+        hora_fim: '18:00',
         ativo: false,
-        [campo]: valor 
+        [campo]: valor
       };
       novosHorarios.push(novoHorario);
     }
@@ -728,7 +728,7 @@ export function AdminDashboard({ onBack, estabelecimentoId, membroId, cargo, isO
         hora_fim: novoHorario.hora_fim,
         ativo: novoHorario.ativo
       }).select()
-      
+
       if (error) {
         console.error("Erro ao inserir horário:", error)
         alert("Erro ao salvar horário: " + error.message)
@@ -744,7 +744,7 @@ export function AdminDashboard({ onBack, estabelecimentoId, membroId, cargo, isO
     setItens(data || [])
   }
 
-   const handleSaveItem = async (e: React.FormEvent) => {
+  const handleSaveItem = async (e: React.FormEvent) => {
     e.preventDefault()
     if (!novoItem.nome.trim()) return
     setItemSaving(true)
@@ -792,7 +792,7 @@ export function AdminDashboard({ onBack, estabelecimentoId, membroId, cargo, isO
       `)
       .eq('estabelecimento_id', estabelecimentoId)
       .order('created_at', { ascending: false })
-    
+
     setAuditData(data || [])
   }
 
@@ -829,7 +829,7 @@ export function AdminDashboard({ onBack, estabelecimentoId, membroId, cargo, isO
     try {
       setLoading(true)
       console.log('Admin: Buscando dados para Estabelecimento:', estabelecimentoId)
-      
+
       let query = supabase.from('transacoes')
         .select('*, membros_equipe!transacoes_membro_id_fkey(nome, percentual_comissao)')
         .eq('estabelecimento_id', estabelecimentoId)
@@ -841,15 +841,15 @@ export function AdminDashboard({ onBack, estabelecimentoId, membroId, cargo, isO
 
       const now = new Date()
       const formatDate = (d: Date) => d.toLocaleDateString('en-CA')
-      
+
       if (periodo === 'hoje') query = query.eq('data_competencia', formatDate(now))
-      else if (periodo === '7dias') { 
-        const d = new Date(); d.setDate(d.getDate() - 7); 
-        query = query.gte('data_competencia', formatDate(d)) 
+      else if (periodo === '7dias') {
+        const d = new Date(); d.setDate(d.getDate() - 7);
+        query = query.gte('data_competencia', formatDate(d))
       }
-      else if (periodo === '30dias') { 
-        const d = new Date(); d.setDate(d.getDate() - 30); 
-        query = query.gte('data_competencia', formatDate(d)) 
+      else if (periodo === '30dias') {
+        const d = new Date(); d.setDate(d.getDate() - 30);
+        query = query.gte('data_competencia', formatDate(d))
       }
 
       const { data, error } = await query.order('created_at', { ascending: false })
@@ -897,17 +897,17 @@ export function AdminDashboard({ onBack, estabelecimentoId, membroId, cargo, isO
         {/* Efeito de Gradiente de Fundo Premium */}
         <div className="absolute top-1/4 left-1/2 -translate-x-1/2 w-[300px] sm:w-[500px] h-[300px] sm:h-[500px] bg-rose-500/10 rounded-full blur-[100px] pointer-events-none" />
         <div className="absolute bottom-1/4 left-1/4 w-[250px] h-[250px] bg-amber-500/5 rounded-full blur-[80px] pointer-events-none" />
-        
+
         <div className="glass-card w-full max-w-lg p-6 sm:p-8 border-rose-500/20 text-center space-y-6 md:space-y-8 animate-in fade-in zoom-in-95 duration-500 relative z-10">
           <div className="w-16 h-16 rounded-2xl bg-rose-500/10 border border-rose-500/20 flex items-center justify-center mx-auto shadow-lg shadow-rose-500/10 animate-bounce">
             <Lock size={32} className="text-rose-500" />
           </div>
-          
+
           <div className="space-y-2.5">
             <h1 className="text-2xl sm:text-3xl font-black tracking-tight text-white">Acesso Suspenso</h1>
             <p className="text-xs text-slate-500 font-bold uppercase tracking-widest text-emerald-500">{estab?.nome}</p>
           </div>
-          
+
           <p className="text-slate-400 text-sm sm:text-base leading-relaxed max-w-md mx-auto">
             {subscriptionStatus.reason === 'trial_expired' ? (
               <span>Seu período de teste grátis de 14 dias expirou. Para continuar gerindo as finanças e a agenda da sua barbearia com o GFin, assine o plano Pro.</span>
@@ -929,16 +929,16 @@ export function AdminDashboard({ onBack, estabelecimentoId, membroId, cargo, isO
               </p>
             </div>
           </div>
-          
+
           <div className="flex flex-col sm:flex-row gap-3 pt-2">
-            <button 
+            <button
               onClick={onBack}
               className="flex-1 py-3.5 rounded-xl font-bold text-sm bg-slate-900 border border-white/5 text-slate-400 hover:text-white hover:bg-slate-800 active:scale-95 transition-all"
             >
               Voltar ao Login
             </button>
             {cleanSupportPhone && (
-              <a 
+              <a
                 href={`https://wa.me/${cleanSupportPhone}?text=${whatsappMessage}`}
                 target="_blank"
                 rel="noopener noreferrer"
@@ -982,8 +982,8 @@ export function AdminDashboard({ onBack, estabelecimentoId, membroId, cargo, isO
           <button onClick={() => setActiveTab('transacoes')} className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all ${activeTab === 'transacoes' ? 'bg-emerald-500 text-white shadow-lg' : 'text-slate-500 hover:bg-white/5'}`}><List size={18} /> Lançamentos</button>
           <button onClick={() => setActiveTab('itens')} className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all ${activeTab === 'itens' ? 'bg-emerald-500 text-white shadow-lg' : 'text-slate-500 hover:bg-white/5'}`}><Scissors size={18} /> Serviços/Produtos</button>
           <button onClick={() => setActiveTab('agenda')} className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all ${activeTab === 'agenda' ? 'bg-emerald-500 text-white shadow-lg' : 'text-slate-500 hover:bg-white/5'}`}><Calendar size={18} /> Agenda</button>
-          
-                    {cargo === 'administrador' && (
+
+          {cargo === 'administrador' && (
             <>
               <button onClick={() => setActiveTab('equipe')} className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all ${activeTab === 'equipe' ? 'bg-emerald-500 text-white shadow-lg' : 'text-slate-500 hover:bg-white/5'}`}>
                 <Users size={18} /> Equipe
@@ -1010,26 +1010,25 @@ export function AdminDashboard({ onBack, estabelecimentoId, membroId, cargo, isO
 
       <main className="flex-1 p-4 sm:p-8 lg:p-12 max-w-7xl mx-auto w-full">
         <header className="lg:hidden flex justify-between items-center mb-6">
-           <div className="flex items-center gap-2">
-              {estab?.configuracoes?.logo_url ? (
-                <img src={estab.configuracoes.logo_url} alt="Logo" className="w-8 h-8 rounded-lg object-cover border border-white/10" />
-              ) : (
-                <div className="w-8 h-8 rounded-lg bg-emerald-500 flex items-center justify-center"><LayoutDashboard size={16} /></div>
-              )}
-              <div>
-                <h2 className="font-bold text-sm uppercase tracking-widest text-emerald-500 leading-tight">{estab?.nome || 'GFin'}</h2>
-                <p className="text-[10px] text-slate-400 font-bold uppercase">{textoUsuario}</p>
-              </div>
-           </div>
-           <button onClick={onBack} className="p-2 glass-card rounded-full text-rose-400"><ArrowLeft size={18} /></button>
+          <div className="flex items-center gap-2">
+            {estab?.configuracoes?.logo_url ? (
+              <img src={estab.configuracoes.logo_url} alt="Logo" className="w-8 h-8 rounded-lg object-cover border border-white/10" />
+            ) : (
+              <div className="w-8 h-8 rounded-lg bg-emerald-500 flex items-center justify-center"><LayoutDashboard size={16} /></div>
+            )}
+            <div>
+              <h2 className="font-bold text-sm uppercase tracking-widest text-emerald-500 leading-tight">{estab?.nome || 'GFin'}</h2>
+              <p className="text-[10px] text-slate-400 font-bold uppercase">{textoUsuario}</p>
+            </div>
+          </div>
+          <button onClick={onBack} className="p-2 glass-card rounded-full text-rose-400"><ArrowLeft size={18} /></button>
         </header>
 
         {subscriptionStatus.showWarning && (
-          <div className={`mb-6 p-4 rounded-xl border flex flex-col sm:flex-row items-center justify-between gap-3 animate-in slide-in-from-top-4 duration-500 ${
-            subscriptionStatus.reason === 'trial_warning' 
-              ? 'bg-amber-500/10 border-amber-500/20 text-amber-400' 
+          <div className={`mb-6 p-4 rounded-xl border flex flex-col sm:flex-row items-center justify-between gap-3 animate-in slide-in-from-top-4 duration-500 ${subscriptionStatus.reason === 'trial_warning'
+              ? 'bg-amber-500/10 border-amber-500/20 text-amber-400'
               : 'bg-rose-500/10 border-rose-500/20 text-rose-400'
-          }`}>
+            }`}>
             <div className="flex items-center gap-3">
               <div className="w-8 h-8 rounded-lg flex items-center justify-center bg-white/5 flex-shrink-0">
                 <ShieldAlert size={16} />
@@ -1049,7 +1048,7 @@ export function AdminDashboard({ onBack, estabelecimentoId, membroId, cargo, isO
                 </p>
               </div>
             </div>
-            
+
             {saasConfig?.whatsapp_contato && (
               <a
                 href={`https://wa.me/${saasConfig.whatsapp_contato.replace(/\D/g, '').startsWith('55') ? saasConfig.whatsapp_contato.replace(/\D/g, '') : '55' + saasConfig.whatsapp_contato.replace(/\D/g, '')}?text=${encodeURIComponent(
@@ -1069,20 +1068,20 @@ export function AdminDashboard({ onBack, estabelecimentoId, membroId, cargo, isO
             <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
               <div className="flex flex-wrap gap-2 w-full sm:w-auto items-center">
                 <div className="flex gap-1 bg-slate-900/50 p-1 rounded-full border border-white/5 overflow-x-auto scrollbar-hide">
-                   {(['hoje', '7dias', '30dias', 'todos'] as Periodo[]).map(p => (
-                     <button key={p} onClick={() => setPeriodo(p)} className={`px-4 py-2 rounded-full text-[10px] font-bold transition-all whitespace-nowrap ${periodo === p ? 'bg-emerald-500 text-white shadow-lg' : 'text-slate-500'}`}>
-                       {p === 'hoje' ? 'HOJE' : p === '7dias' ? '7 DIAS' : p === '30dias' ? '30 DIAS' : 'TUDO'}
-                     </button>
-                   ))}
+                  {(['hoje', '7dias', '30dias', 'todos'] as Periodo[]).map(p => (
+                    <button key={p} onClick={() => setPeriodo(p)} className={`px-4 py-2 rounded-full text-[10px] font-bold transition-all whitespace-nowrap ${periodo === p ? 'bg-emerald-500 text-white shadow-lg' : 'text-slate-500'}`}>
+                      {p === 'hoje' ? 'HOJE' : p === '7dias' ? '7 DIAS' : p === '30dias' ? '30 DIAS' : 'TUDO'}
+                    </button>
+                  ))}
                 </div>
 
                 {/* Filtro por Profissional (Útil para Dono/Admin na aba Resumo) */}
                 {((isOwner || cargo === 'administrador') && activeTab === 'resumo') && (
                   <div className="flex items-center gap-2 bg-slate-900/50 border border-white/5 rounded-full px-4 py-1.5 h-[34px]">
                     <User size={12} className="text-emerald-500" />
-                    <select 
-                      value={filtroMembro} 
-                      onChange={(e) => setFiltroMembro(e.target.value)} 
+                    <select
+                      value={filtroMembro}
+                      onChange={(e) => setFiltroMembro(e.target.value)}
                       className="bg-transparent border-0 text-[10px] font-bold text-slate-300 focus:ring-0 focus:outline-none cursor-pointer pr-8"
                     >
                       <option value="todos" className="bg-slate-950 text-slate-300">TODOS OS PROFISSIONAIS</option>
@@ -1095,8 +1094,8 @@ export function AdminDashboard({ onBack, estabelecimentoId, membroId, cargo, isO
               </div>
 
               <div className="flex gap-2 w-full sm:w-auto">
-                 <button onClick={() => { setModalType('receita'); setIsModalOpen(true) }} className="flex-1 sm:flex-none flex items-center justify-center gap-2 bg-emerald-500 text-white px-4 py-3 rounded-xl font-bold text-xs shadow-lg shadow-emerald-500/20 active:scale-95 transition-all"><Plus size={14} /> Receita</button>
-                 <button onClick={() => { setModalType('despesa'); setIsModalOpen(true) }} className="flex-1 sm:flex-none flex items-center justify-center gap-2 bg-rose-500 text-white px-4 py-3 rounded-xl font-bold text-xs shadow-lg shadow-rose-500/20 active:scale-95 transition-all"><Plus size={14} /> Despesa</button>
+                <button onClick={() => { setModalType('receita'); setIsModalOpen(true) }} className="flex-1 sm:flex-none flex items-center justify-center gap-2 bg-emerald-500 text-white px-4 py-3 rounded-xl font-bold text-xs shadow-lg shadow-emerald-500/20 active:scale-95 transition-all"><Plus size={14} /> Receita</button>
+                <button onClick={() => { setModalType('despesa'); setIsModalOpen(true) }} className="flex-1 sm:flex-none flex items-center justify-center gap-2 bg-rose-500 text-white px-4 py-3 rounded-xl font-bold text-xs shadow-lg shadow-rose-500/20 active:scale-95 transition-all"><Plus size={14} /> Despesa</button>
               </div>
             </div>
 
@@ -1104,11 +1103,11 @@ export function AdminDashboard({ onBack, estabelecimentoId, membroId, cargo, isO
             {activeTab === 'transacoes' && (
               <div className="flex flex-col md:flex-row gap-4 animate-in fade-in duration-300">
                 <div className="flex gap-1 bg-slate-900/50 p-1 rounded-xl border border-white/5 w-full md:w-auto">
-                   {(['todos', 'receita', 'despesa'] as const).map(t => (
-                     <button key={t} onClick={() => setTipoFiltro(t)} className={`flex-1 px-4 py-2 rounded-lg text-xs font-bold transition-all uppercase ${tipoFiltro === t ? 'bg-emerald-500 text-white shadow-lg' : 'text-slate-500 hover:bg-white/5'}`}>
-                       {t}
-                     </button>
-                   ))}
+                  {(['todos', 'receita', 'despesa'] as const).map(t => (
+                    <button key={t} onClick={() => setTipoFiltro(t)} className={`flex-1 px-4 py-2 rounded-lg text-xs font-bold transition-all uppercase ${tipoFiltro === t ? 'bg-emerald-500 text-white shadow-lg' : 'text-slate-500 hover:bg-white/5'}`}>
+                      {t}
+                    </button>
+                  ))}
                 </div>
                 {cargo === 'administrador' && (
                   <div className="relative flex-1 group">
@@ -1212,8 +1211,8 @@ export function AdminDashboard({ onBack, estabelecimentoId, membroId, cargo, isO
                   <ResponsiveContainer width="100%" height="100%">
                     <AreaChart data={dashboardMetrics.chartData}>
                       <defs>
-                        <linearGradient id="colorRec" x1="0" y1="0" x2="0" y2="1"><stop offset="5%" stopColor="#10b981" stopOpacity={0.3}/><stop offset="95%" stopColor="#10b981" stopOpacity={0}/></linearGradient>
-                        <linearGradient id="colorDes" x1="0" y1="0" x2="0" y2="1"><stop offset="5%" stopColor="#f43f5e" stopOpacity={0.2}/><stop offset="95%" stopColor="#f43f5e" stopOpacity={0}/></linearGradient>
+                        <linearGradient id="colorRec" x1="0" y1="0" x2="0" y2="1"><stop offset="5%" stopColor="#10b981" stopOpacity={0.3} /><stop offset="95%" stopColor="#10b981" stopOpacity={0} /></linearGradient>
+                        <linearGradient id="colorDes" x1="0" y1="0" x2="0" y2="1"><stop offset="5%" stopColor="#f43f5e" stopOpacity={0.2} /><stop offset="95%" stopColor="#f43f5e" stopOpacity={0} /></linearGradient>
                       </defs>
                       <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#1e293b" />
                       <XAxis dataKey="name" stroke="#475569" fontSize={9} axisLine={false} tickLine={false} />
@@ -1337,304 +1336,304 @@ export function AdminDashboard({ onBack, estabelecimentoId, membroId, cargo, isO
         )}
 
         {activeTab === 'transacoes' && (
-           <section className="animate-in slide-in-from-bottom duration-300">
-              <h3 className="font-bold text-slate-400 text-[10px] uppercase tracking-widest px-2 mb-4">Lançamentos ({filteredTransactions.length})</h3>
-              <div className="space-y-2">
-                 {filteredTransactions.map(t => (
-                    <div key={t.id} className="glass-card p-4 flex items-center justify-between border-white/5 group">
-                       <div className="flex items-center gap-3 flex-1 min-w-0">
-                         <div className={`p-2 rounded-lg flex-shrink-0 ${t.tipo === 'receita' ? 'bg-emerald-500/10 text-emerald-400' : 'bg-rose-500/10 text-rose-400'}`}>{t.tipo === 'receita' ? <ArrowUpRight size={18} /> : <ArrowDownLeft size={18} />}</div>
-                         <div className="flex-1 min-w-0">
-                            <p className="font-bold text-sm truncate">{t.descricao || 'Lançamento'}</p>
-                            <p className="text-[9px] text-slate-500 font-bold uppercase truncate">
-                              {t.data_competencia ? t.data_competencia.split('-').reverse().join('/') : new Date(t.created_at).toLocaleDateString()} • {t.membros_equipe?.nome}
-                            </p>
-                         </div>
-                       </div>
-                       <div className="flex items-center gap-3 flex-shrink-0 ml-4">
-                         <div className="flex items-center gap-1">
-                            <button 
-                              onClick={() => { setModalType(t.tipo); setTransactionToEdit(t); setIsModalOpen(true) }}
-                              className="p-2 text-slate-500 hover:text-emerald-500 hover:bg-emerald-500/10 rounded-lg transition-all"
-                            >
-                              <Edit2 size={14} />
-                            </button>
-                            <button 
-                              onClick={() => handleDelete(t.id)} 
-                              className="p-2 text-slate-500 hover:text-rose-500 hover:bg-rose-500/10 rounded-lg transition-all"
-                            >
-                              <Trash2 size={14} />
-                            </button>
-                         </div>
-                         <div className="w-24 text-right">
-                           <p className={`font-mono font-black text-sm whitespace-nowrap ${t.tipo === 'receita' ? 'text-emerald-400' : 'text-rose-400'}`}>
-                             {t.tipo === 'receita' ? '+' : '-'} {formatCurrency(t.valor)}
-                           </p>
-                         </div>
-                       </div>
+          <section className="animate-in slide-in-from-bottom duration-300">
+            <h3 className="font-bold text-slate-400 text-[10px] uppercase tracking-widest px-2 mb-4">Lançamentos ({filteredTransactions.length})</h3>
+            <div className="space-y-2">
+              {filteredTransactions.map(t => (
+                <div key={t.id} className="glass-card p-4 flex items-center justify-between border-white/5 group">
+                  <div className="flex items-center gap-3 flex-1 min-w-0">
+                    <div className={`p-2 rounded-lg flex-shrink-0 ${t.tipo === 'receita' ? 'bg-emerald-500/10 text-emerald-400' : 'bg-rose-500/10 text-rose-400'}`}>{t.tipo === 'receita' ? <ArrowUpRight size={18} /> : <ArrowDownLeft size={18} />}</div>
+                    <div className="flex-1 min-w-0">
+                      <p className="font-bold text-sm truncate">{t.descricao || 'Lançamento'}</p>
+                      <p className="text-[9px] text-slate-500 font-bold uppercase truncate">
+                        {t.data_competencia ? t.data_competencia.split('-').reverse().join('/') : new Date(t.created_at).toLocaleDateString()} • {t.membros_equipe?.nome}
+                      </p>
                     </div>
-                 ))}
-                 {transactions.length === 0 && <div className="text-center p-12 text-slate-600 font-bold">Nenhum lançamento encontrado</div>}
-              </div>
-           </section>
+                  </div>
+                  <div className="flex items-center gap-3 flex-shrink-0 ml-4">
+                    <div className="flex items-center gap-1">
+                      <button
+                        onClick={() => { setModalType(t.tipo); setTransactionToEdit(t); setIsModalOpen(true) }}
+                        className="p-2 text-slate-500 hover:text-emerald-500 hover:bg-emerald-500/10 rounded-lg transition-all"
+                      >
+                        <Edit2 size={14} />
+                      </button>
+                      <button
+                        onClick={() => handleDelete(t.id)}
+                        className="p-2 text-slate-500 hover:text-rose-500 hover:bg-rose-500/10 rounded-lg transition-all"
+                      >
+                        <Trash2 size={14} />
+                      </button>
+                    </div>
+                    <div className="w-24 text-right">
+                      <p className={`font-mono font-black text-sm whitespace-nowrap ${t.tipo === 'receita' ? 'text-emerald-400' : 'text-rose-400'}`}>
+                        {t.tipo === 'receita' ? '+' : '-'} {formatCurrency(t.valor)}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              ))}
+              {transactions.length === 0 && <div className="text-center p-12 text-slate-600 font-bold">Nenhum lançamento encontrado</div>}
+            </div>
+          </section>
         )}
 
         {activeTab === 'equipe' && (
-           <div className="space-y-6 animate-in slide-in-from-right duration-300">
-              <div className="flex justify-between items-center">
-                <h2 className="font-black text-lg uppercase tracking-widest text-slate-400">Equipe</h2>
-                <button onClick={() => {
-                  setMembroParaEditar(null)
-                  setNovoMembro({ nome: '', pin: '', cargo: 'usuario', whatsapp: '', ativo: true, percentual_comissao: 0 })
-                  setIsMembroModalOpen(true)
-                }} className="bg-emerald-500 text-white px-4 py-2 rounded-xl font-bold text-xs shadow-lg shadow-emerald-500/20 active:scale-95 transition-all flex items-center gap-2">
-                  <Plus size={14} /> Novo Membro
-                </button>
-              </div>
+          <div className="space-y-6 animate-in slide-in-from-right duration-300">
+            <div className="flex justify-between items-center">
+              <h2 className="font-black text-lg uppercase tracking-widest text-slate-400">Equipe</h2>
+              <button onClick={() => {
+                setMembroParaEditar(null)
+                setNovoMembro({ nome: '', pin: '', cargo: 'usuario', whatsapp: '', ativo: true, percentual_comissao: 0 })
+                setIsMembroModalOpen(true)
+              }} className="bg-emerald-500 text-white px-4 py-2 rounded-xl font-bold text-xs shadow-lg shadow-emerald-500/20 active:scale-95 transition-all flex items-center gap-2">
+                <Plus size={14} /> Novo Membro
+              </button>
+            </div>
 
-              {isMembroModalOpen && (
-                <div className="fixed inset-0 z-[60] flex items-end sm:items-center justify-center bg-black/60 backdrop-blur-sm p-4 sm:p-0">
-                  <div className="bg-slate-950 w-full max-w-md rounded-3xl border border-white/10 shadow-2xl overflow-hidden animate-in slide-in-from-bottom-4 duration-300">
-                    <div className="p-6 border-b border-white/5 flex justify-between items-center bg-slate-900/50">
-                      <h3 className="font-bold text-lg">{membroParaEditar ? 'Editar Membro' : 'Novo Membro'}</h3>
-                      <button onClick={() => setIsMembroModalOpen(false)} className="text-slate-500 hover:text-rose-500 p-2 rounded-full hover:bg-white/5 transition-all"><X size={20} /></button>
-                    </div>
-                    <form
-                      onSubmit={async (e) => {
-                        e.preventDefault()
-                        setMembroError('')
-                        const nome = novoMembro.nome.trim()
-                        const pin = novoMembro.pin.trim()
-                        if (!nome) { setMembroError('O nome é obrigatório.'); return }
-                        if (!/^\d{4}$/.test(pin)) { setMembroError('O PIN deve ter exatamente 4 dígitos numéricos.'); return }
-                        setSalvandoMembro(true)
-                        
-                        let error = null
-                        if (membroParaEditar) {
-                          const result = await supabase.from('membros_equipe').update({
-                            nome,
-                            pin_hash: pin,
-                            cargo: novoMembro.cargo,
-                            whatsapp: novoMembro.whatsapp.trim(),
-                            percentual_comissao: Number(novoMembro.percentual_comissao) || 0,
-                            ativo: novoMembro.ativo,
-                          }).eq('id', membroParaEditar)
-                          error = result.error
-                        } else {
-                          const result = await supabase.from('membros_equipe').insert({
-                            estabelecimento_id: estabelecimentoId,
-                            nome,
-                            pin_hash: pin,
-                            cargo: novoMembro.cargo,
-                            whatsapp: novoMembro.whatsapp.trim(),
-                            percentual_comissao: Number(novoMembro.percentual_comissao) || 0,
-                            ativo: true,
-                          })
-                          error = result.error
-                        }
-                        
-                        setSalvandoMembro(false)
-                        if (error) {
-                          if (error.code === '23505') setMembroError('Já existe um membro com esse nome ou PIN neste estabelecimento.')
-                          else setMembroError(error.message)
-                          return
-                        }
-                        setNovoMembro({ nome: '', pin: '', cargo: 'usuario', whatsapp: '', ativo: true, percentual_comissao: 0 })
-                        setMembroParaEditar(null)
-                        setIsMembroModalOpen(false)
-                        fetchMembros()
-                      }}
-                      className="p-6 space-y-4"
-                    >
-                 <input
-                   className="w-full bg-slate-900 border border-white/5 rounded-xl p-4 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/50"
-                   placeholder="Nome"
-                   value={novoMembro.nome}
-                   onChange={e => setNovoMembro(prev => ({ ...prev, nome: e.target.value }))}
-                 />
-                 <input
-                   maxLength={4}
-                   inputMode="numeric"
-                   className="w-full bg-slate-900 border border-white/5 rounded-xl p-4 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/50"
-                   placeholder="PIN (4 dígitos)"
-                   value={novoMembro.pin}
-                   onChange={e => setNovoMembro(prev => ({ ...prev, pin: e.target.value.replace(/\D/g, '').slice(0, 4) }))}
-                 />
-                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                    <select
-                      className="w-full bg-slate-900 border border-white/5 rounded-xl p-4 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/50"
-                      value={novoMembro.cargo}
-                      onChange={e => setNovoMembro(prev => ({ ...prev, cargo: e.target.value }))}
-                    >
-                       <option value="usuario">Usuário</option>
-                       <option value="administrador">Administrador</option>
-                    </select>
-                     <input
-                      className="w-full bg-slate-900 border border-white/5 rounded-xl p-4 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/50"
-                      placeholder="WhatsApp (ex: 5511999999999)"
-                      value={applyPhoneMask(novoMembro.whatsapp)}
-                      onChange={e => setNovoMembro(prev => ({ ...prev, whatsapp: e.target.value.replace(/\D/g, '') }))}
-                    />
-                 </div>
-                 <div className="space-y-1">
-                   <label className="text-[10px] font-bold text-slate-500 uppercase px-1">Comissão Padrão (%)</label>
-                   <input
-                     type="number"
-                     min="0"
-                     max="100"
-                     className="w-full bg-slate-900 border border-white/5 rounded-xl p-4 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/50"
-                     placeholder="Ex: 50"
-                     value={novoMembro.percentual_comissao === 0 ? '' : novoMembro.percentual_comissao}
-                     onChange={e => setNovoMembro(prev => ({ ...prev, percentual_comissao: Number(e.target.value) }))}
-                   />
-                 </div>
-                 <label className="flex items-center justify-between bg-slate-900 border border-white/5 rounded-xl px-4 py-3 cursor-pointer">
-                   <span className="text-sm text-slate-300 font-medium">Membro ativo</span>
-                   <div
-                     onClick={() => setNovoMembro(prev => ({ ...prev, ativo: !prev.ativo }))}
-                     className={`relative w-11 h-6 rounded-full transition-all duration-300 ${novoMembro.ativo ? 'bg-emerald-500' : 'bg-slate-700'}`}
-                   >
-                     <span className={`absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full shadow transition-all duration-300 ${novoMembro.ativo ? 'translate-x-5' : 'translate-x-0'}`} />
-                   </div>
-                 </label>
-                 {membroError && <p className="text-rose-400 text-xs font-bold px-1">{membroError}</p>}
-                  <button
-                    type="submit"
-                    disabled={salvandoMembro}
-                    className="w-full bg-emerald-500 py-4 rounded-xl font-bold shadow-lg shadow-emerald-500/20 disabled:opacity-50 disabled:cursor-not-allowed active:scale-95 transition-all"
+            {isMembroModalOpen && (
+              <div className="fixed inset-0 z-[60] flex items-end sm:items-center justify-center bg-black/60 backdrop-blur-sm p-4 sm:p-0">
+                <div className="bg-slate-950 w-full max-w-md rounded-3xl border border-white/10 shadow-2xl overflow-hidden animate-in slide-in-from-bottom-4 duration-300">
+                  <div className="p-6 border-b border-white/5 flex justify-between items-center bg-slate-900/50">
+                    <h3 className="font-bold text-lg">{membroParaEditar ? 'Editar Membro' : 'Novo Membro'}</h3>
+                    <button onClick={() => setIsMembroModalOpen(false)} className="text-slate-500 hover:text-rose-500 p-2 rounded-full hover:bg-white/5 transition-all"><X size={20} /></button>
+                  </div>
+                  <form
+                    onSubmit={async (e) => {
+                      e.preventDefault()
+                      setMembroError('')
+                      const nome = novoMembro.nome.trim()
+                      const pin = novoMembro.pin.trim()
+                      if (!nome) { setMembroError('O nome é obrigatório.'); return }
+                      if (!/^\d{4}$/.test(pin)) { setMembroError('O PIN deve ter exatamente 4 dígitos numéricos.'); return }
+                      setSalvandoMembro(true)
+
+                      let error = null
+                      if (membroParaEditar) {
+                        const result = await supabase.from('membros_equipe').update({
+                          nome,
+                          pin_hash: pin,
+                          cargo: novoMembro.cargo,
+                          whatsapp: novoMembro.whatsapp.trim(),
+                          percentual_comissao: Number(novoMembro.percentual_comissao) || 0,
+                          ativo: novoMembro.ativo,
+                        }).eq('id', membroParaEditar)
+                        error = result.error
+                      } else {
+                        const result = await supabase.from('membros_equipe').insert({
+                          estabelecimento_id: estabelecimentoId,
+                          nome,
+                          pin_hash: pin,
+                          cargo: novoMembro.cargo,
+                          whatsapp: novoMembro.whatsapp.trim(),
+                          percentual_comissao: Number(novoMembro.percentual_comissao) || 0,
+                          ativo: true,
+                        })
+                        error = result.error
+                      }
+
+                      setSalvandoMembro(false)
+                      if (error) {
+                        if (error.code === '23505') setMembroError('Já existe um membro com esse nome ou PIN neste estabelecimento.')
+                        else setMembroError(error.message)
+                        return
+                      }
+                      setNovoMembro({ nome: '', pin: '', cargo: 'usuario', whatsapp: '', ativo: true, percentual_comissao: 0 })
+                      setMembroParaEditar(null)
+                      setIsMembroModalOpen(false)
+                      fetchMembros()
+                    }}
+                    className="p-6 space-y-4"
                   >
-                    {salvandoMembro ? 'Salvando...' : 'Salvar Membro'}
-                  </button>
-                    </form>
+                    <input
+                      className="w-full bg-slate-900 border border-white/5 rounded-xl p-4 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/50"
+                      placeholder="Nome"
+                      value={novoMembro.nome}
+                      onChange={e => setNovoMembro(prev => ({ ...prev, nome: e.target.value }))}
+                    />
+                    <input
+                      maxLength={4}
+                      inputMode="numeric"
+                      className="w-full bg-slate-900 border border-white/5 rounded-xl p-4 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/50"
+                      placeholder="PIN (4 dígitos)"
+                      value={novoMembro.pin}
+                      onChange={e => setNovoMembro(prev => ({ ...prev, pin: e.target.value.replace(/\D/g, '').slice(0, 4) }))}
+                    />
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                      <select
+                        className="w-full bg-slate-900 border border-white/5 rounded-xl p-4 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/50"
+                        value={novoMembro.cargo}
+                        onChange={e => setNovoMembro(prev => ({ ...prev, cargo: e.target.value }))}
+                      >
+                        <option value="usuario">Usuário</option>
+                        <option value="administrador">Administrador</option>
+                      </select>
+                      <input
+                        className="w-full bg-slate-900 border border-white/5 rounded-xl p-4 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/50"
+                        placeholder="WhatsApp (ex: 5511999999999)"
+                        value={applyPhoneMask(novoMembro.whatsapp)}
+                        onChange={e => setNovoMembro(prev => ({ ...prev, whatsapp: e.target.value.replace(/\D/g, '') }))}
+                      />
+                    </div>
+                    <div className="space-y-1">
+                      <label className="text-[10px] font-bold text-slate-500 uppercase px-1">Comissão Padrão (%)</label>
+                      <input
+                        type="number"
+                        min="0"
+                        max="100"
+                        className="w-full bg-slate-900 border border-white/5 rounded-xl p-4 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/50"
+                        placeholder="Ex: 50"
+                        value={novoMembro.percentual_comissao === 0 ? '' : novoMembro.percentual_comissao}
+                        onChange={e => setNovoMembro(prev => ({ ...prev, percentual_comissao: Number(e.target.value) }))}
+                      />
+                    </div>
+                    <label className="flex items-center justify-between bg-slate-900 border border-white/5 rounded-xl px-4 py-3 cursor-pointer">
+                      <span className="text-sm text-slate-300 font-medium">Membro ativo</span>
+                      <div
+                        onClick={() => setNovoMembro(prev => ({ ...prev, ativo: !prev.ativo }))}
+                        className={`relative w-11 h-6 rounded-full transition-all duration-300 ${novoMembro.ativo ? 'bg-emerald-500' : 'bg-slate-700'}`}
+                      >
+                        <span className={`absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full shadow transition-all duration-300 ${novoMembro.ativo ? 'translate-x-5' : 'translate-x-0'}`} />
+                      </div>
+                    </label>
+                    {membroError && <p className="text-rose-400 text-xs font-bold px-1">{membroError}</p>}
+                    <button
+                      type="submit"
+                      disabled={salvandoMembro}
+                      className="w-full bg-emerald-500 py-4 rounded-xl font-bold shadow-lg shadow-emerald-500/20 disabled:opacity-50 disabled:cursor-not-allowed active:scale-95 transition-all"
+                    >
+                      {salvandoMembro ? 'Salvando...' : 'Salvar Membro'}
+                    </button>
+                  </form>
+                </div>
+              </div>
+            )}
+            <div className="space-y-2">
+              {membros.map(m => (
+                <div key={m.id} className="glass-card p-4 flex justify-between items-center border-white/5">
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-xl bg-slate-800 flex items-center justify-center font-bold text-emerald-500 uppercase">{m.nome.charAt(0)}</div>
+                    <div>
+                      <p className="font-bold text-sm">{m.nome}</p>
+                      <div className="flex items-center gap-2 mt-1">
+                        <span className={`text-[9px] font-black uppercase tracking-wider px-2 py-0.5 rounded-full ${m.cargo === 'administrador' ? 'bg-violet-500/15 text-violet-400' : 'bg-slate-700/60 text-slate-400'}`}>{m.cargo}</span>
+                        <span className={`text-[9px] font-black uppercase tracking-wider px-2 py-0.5 rounded-full ${m.ativo ? 'bg-emerald-500/15 text-emerald-400' : 'bg-rose-500/15 text-rose-400'}`}>{m.ativo ? 'Ativo' : 'Inativo'}</span>
+                      </div>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-4">
+                    <div className="text-right">
+                      <p className="text-[9px] text-slate-500 font-bold uppercase">PIN</p>
+                      <p className="font-mono font-bold text-emerald-400">{m.pin_hash}</p>
+                    </div>
+                    <button
+                      onClick={() => {
+                        setMembroParaEditar(m.id)
+                        setNovoMembro({
+                          nome: m.nome,
+                          pin: m.pin_hash,
+                          cargo: m.cargo,
+                          whatsapp: m.whatsapp || '',
+                          ativo: m.ativo,
+                          percentual_comissao: m.percentual_comissao || 0
+                        })
+                        setIsMembroModalOpen(true)
+                      }}
+                      className="p-3 bg-white/5 text-slate-400 rounded-xl hover:bg-white/10 hover:text-white transition-all shadow-lg active:scale-90"
+                      title="Editar Membro"
+                    >
+                      <Edit2 size={20} />
+                    </button>
+                    {m.whatsapp && (
+                      <button
+                        onClick={() => {
+                          const msg = encodeURIComponent(`Olá ${m.nome}! Aqui está seu link de acesso ao GFin da ${estab?.nome}:\n\n🔗 ${window.location.origin}/${estab?.slug}/login\n\nSeu PIN de acesso é: ${m.pin_hash}`);
+                          window.open(`https://wa.me/${m.whatsapp}?text=${msg}`, '_blank');
+                        }}
+                        className="p-3 bg-emerald-500/10 text-emerald-500 rounded-xl hover:bg-emerald-500 hover:text-white transition-all shadow-lg active:scale-90"
+                        title="Enviar acesso via WhatsApp"
+                      >
+                        <MessageCircle size={20} />
+                      </button>
+                    )}
                   </div>
                 </div>
-              )}
-              <div className="space-y-2">
-                 {membros.map(m => (
-                   <div key={m.id} className="glass-card p-4 flex justify-between items-center border-white/5">
-                     <div className="flex items-center gap-3">
-                       <div className="w-10 h-10 rounded-xl bg-slate-800 flex items-center justify-center font-bold text-emerald-500 uppercase">{m.nome.charAt(0)}</div>
-                       <div>
-                         <p className="font-bold text-sm">{m.nome}</p>
-                         <div className="flex items-center gap-2 mt-1">
-                           <span className={`text-[9px] font-black uppercase tracking-wider px-2 py-0.5 rounded-full ${m.cargo === 'administrador' ? 'bg-violet-500/15 text-violet-400' : 'bg-slate-700/60 text-slate-400'}`}>{m.cargo}</span>
-                           <span className={`text-[9px] font-black uppercase tracking-wider px-2 py-0.5 rounded-full ${m.ativo ? 'bg-emerald-500/15 text-emerald-400' : 'bg-rose-500/15 text-rose-400'}`}>{m.ativo ? 'Ativo' : 'Inativo'}</span>
-                         </div>
-                       </div>
-                     </div>
-                     <div className="flex items-center gap-4">
-                        <div className="text-right">
-                          <p className="text-[9px] text-slate-500 font-bold uppercase">PIN</p>
-                          <p className="font-mono font-bold text-emerald-400">{m.pin_hash}</p>
-                        </div>
-                        <button 
-                          onClick={() => {
-                            setMembroParaEditar(m.id)
-                            setNovoMembro({
-                              nome: m.nome,
-                              pin: m.pin_hash,
-                              cargo: m.cargo,
-                              whatsapp: m.whatsapp || '',
-                              ativo: m.ativo,
-                              percentual_comissao: m.percentual_comissao || 0
-                            })
-                            setIsMembroModalOpen(true)
-                          }}
-                          className="p-3 bg-white/5 text-slate-400 rounded-xl hover:bg-white/10 hover:text-white transition-all shadow-lg active:scale-90"
-                          title="Editar Membro"
-                        >
-                          <Edit2 size={20} />
-                        </button>
-                        {m.whatsapp && (
-                          <button 
-                            onClick={() => {
-                              const msg = encodeURIComponent(`Olá ${m.nome}! Aqui está seu link de acesso ao GFin da ${estab?.nome}:\n\n🔗 ${window.location.origin}/${estab?.slug}/login\n\nSeu PIN de acesso é: ${m.pin_hash}`);
-                              window.open(`https://wa.me/${m.whatsapp}?text=${msg}`, '_blank');
-                            }}
-                            className="p-3 bg-emerald-500/10 text-emerald-500 rounded-xl hover:bg-emerald-500 hover:text-white transition-all shadow-lg active:scale-90"
-                            title="Enviar acesso via WhatsApp"
-                          >
-                            <MessageCircle size={20} />
-                          </button>
-                        )}
-                     </div>
-                   </div>
-                 ))}
-              </div>
-           </div>
+              ))}
+            </div>
+          </div>
         )}
 
 
 
         {activeTab === 'itens' && (
           <div className="space-y-6 animate-in slide-in-from-right duration-300">
-             <div className="flex justify-between items-center">
-               <h2 className="font-black text-lg uppercase tracking-widest text-slate-400">Serviços e Produtos</h2>
-               <button onClick={() => {
-                  setItemParaEditar(null)
-                  setNovoItem({ nome: '', preco: '', tipo: 'receita', categoria: 'Geral', duracao: '30' })
-                  setIsItemModalOpen(true)
-                }} className="bg-emerald-500 text-white px-4 py-2 rounded-xl font-bold text-xs shadow-lg shadow-emerald-500/20 active:scale-95 transition-all flex items-center gap-2">
-                 <Plus size={14} /> Novo Item
-               </button>
-             </div>
+            <div className="flex justify-between items-center">
+              <h2 className="font-black text-lg uppercase tracking-widest text-slate-400">Serviços e Produtos</h2>
+              <button onClick={() => {
+                setItemParaEditar(null)
+                setNovoItem({ nome: '', preco: '', tipo: 'receita', categoria: 'Geral', duracao: '30' })
+                setIsItemModalOpen(true)
+              }} className="bg-emerald-500 text-white px-4 py-2 rounded-xl font-bold text-xs shadow-lg shadow-emerald-500/20 active:scale-95 transition-all flex items-center gap-2">
+                <Plus size={14} /> Novo Item
+              </button>
+            </div>
 
-             {isItemModalOpen && (
-                <div className="fixed inset-0 z-[60] flex items-end sm:items-center justify-center bg-black/60 backdrop-blur-sm p-4 sm:p-0">
-                  <div className="bg-slate-950 w-full max-w-md rounded-3xl border border-white/10 shadow-2xl overflow-hidden animate-in slide-in-from-bottom-4 duration-300">
-                    <div className="p-6 border-b border-white/5 flex justify-between items-center bg-slate-900/50">
-                      <h3 className="font-bold text-lg">{itemParaEditar ? 'Editar Item' : 'Novo Item'}</h3>
-                      <button onClick={() => { setIsItemModalOpen(false); setItemParaEditar(null); }} className="text-slate-500 hover:text-rose-500 p-2 rounded-full hover:bg-white/5 transition-all"><X size={20} /></button>
-                    </div>
-                     <form onSubmit={handleSaveItem} className="p-6 space-y-4">
-                      <div className="grid grid-cols-1 gap-4">
+            {isItemModalOpen && (
+              <div className="fixed inset-0 z-[60] flex items-end sm:items-center justify-center bg-black/60 backdrop-blur-sm p-4 sm:p-0">
+                <div className="bg-slate-950 w-full max-w-md rounded-3xl border border-white/10 shadow-2xl overflow-hidden animate-in slide-in-from-bottom-4 duration-300">
+                  <div className="p-6 border-b border-white/5 flex justify-between items-center bg-slate-900/50">
+                    <h3 className="font-bold text-lg">{itemParaEditar ? 'Editar Item' : 'Novo Item'}</h3>
+                    <button onClick={() => { setIsItemModalOpen(false); setItemParaEditar(null); }} className="text-slate-500 hover:text-rose-500 p-2 rounded-full hover:bg-white/5 transition-all"><X size={20} /></button>
+                  </div>
+                  <form onSubmit={handleSaveItem} className="p-6 space-y-4">
+                    <div className="grid grid-cols-1 gap-4">
+                      <div className="space-y-1">
+                        <label className="text-[10px] font-bold text-slate-500 uppercase px-1">Nome do Serviço/Produto</label>
+                        <input required className="w-full bg-slate-900 border border-white/5 rounded-xl p-4 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/50" value={novoItem.nome} onChange={e => setNovoItem(prev => ({ ...prev, nome: e.target.value }))} placeholder="Ex: Corte Degrade" />
+                      </div>
+                      <div className="grid grid-cols-2 gap-4">
                         <div className="space-y-1">
-                          <label className="text-[10px] font-bold text-slate-500 uppercase px-1">Nome do Serviço/Produto</label>
-                          <input required className="w-full bg-slate-900 border border-white/5 rounded-xl p-4 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/50" value={novoItem.nome} onChange={e => setNovoItem(prev => ({ ...prev, nome: e.target.value }))} placeholder="Ex: Corte Degrade" />
+                          <label className="text-[10px] font-bold text-slate-500 uppercase px-1">Categoria</label>
+                          <input className="w-full bg-slate-900 border border-white/5 rounded-xl p-4 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/50" value={novoItem.categoria} onChange={e => setNovoItem(prev => ({ ...prev, categoria: e.target.value }))} placeholder="Ex: Cabelo" />
                         </div>
-                        <div className="grid grid-cols-2 gap-4">
-                          <div className="space-y-1">
-                            <label className="text-[10px] font-bold text-slate-500 uppercase px-1">Categoria</label>
-                            <input className="w-full bg-slate-900 border border-white/5 rounded-xl p-4 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/50" value={novoItem.categoria} onChange={e => setNovoItem(prev => ({ ...prev, categoria: e.target.value }))} placeholder="Ex: Cabelo" />
-                          </div>
-                          <div className="space-y-1">
-                            <label className="text-[10px] font-bold text-slate-500 uppercase px-1">Preço Sugerido</label>
-                            <input className="w-full bg-slate-900 border border-white/5 rounded-xl p-4 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/50" value={novoItem.preco} onChange={e => setNovoItem(prev => ({ ...prev, preco: e.target.value }))} placeholder="0,00" />
-                          </div>
+                        <div className="space-y-1">
+                          <label className="text-[10px] font-bold text-slate-500 uppercase px-1">Preço Sugerido</label>
+                          <input className="w-full bg-slate-900 border border-white/5 rounded-xl p-4 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/50" value={novoItem.preco} onChange={e => setNovoItem(prev => ({ ...prev, preco: e.target.value }))} placeholder="0,00" />
                         </div>
-                        {novoItem.tipo === 'receita' && (
-                          <div className="space-y-1">
-                            <label className="text-[10px] font-bold text-slate-500 uppercase px-1">Duração (Minutos)</label>
-                            <input type="number" className="w-full bg-slate-900 border border-white/5 rounded-xl p-4 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/50" value={novoItem.duracao} onChange={e => setNovoItem(prev => ({ ...prev, duracao: e.target.value }))} placeholder="30" />
-                          </div>
-                        )}
                       </div>
-                      <div className="flex gap-4">
-                         <button type="button" onClick={() => setNovoItem(prev => ({ ...prev, tipo: 'receita' }))} className={`flex-1 py-3 rounded-xl font-bold text-xs transition-all ${novoItem.tipo === 'receita' ? 'bg-emerald-500 text-white' : 'bg-slate-900 text-slate-500 border border-white/5'}`}>RECEITA</button>
-                         <button type="button" onClick={() => setNovoItem(prev => ({ ...prev, tipo: 'despesa' }))} className={`flex-1 py-3 rounded-xl font-bold text-xs transition-all ${novoItem.tipo === 'despesa' ? 'bg-rose-500 text-white' : 'bg-slate-900 text-slate-500 border border-white/5'}`}>DESPESA</button>
-                      </div>
-                      <button type="submit" disabled={itemSaving} className="w-full bg-emerald-500 py-4 rounded-xl font-bold shadow-lg shadow-emerald-500/20 active:scale-95 transition-all">
-                        {itemSaving ? 'Salvando...' : 'Cadastrar Item'}
-                      </button>
-                    </form>
-                  </div>
-                </div>
-             )}
-
-             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-                {itens.map(item => (
-                  <div key={item.id} className="glass-card p-4 border-white/5 flex justify-between items-center group">
-                    <div>
-                      <p className="font-bold text-sm">{item.nome}</p>
-                      <div className="flex items-center gap-2 mt-1">
-                        <span className={`text-[9px] font-black uppercase px-2 py-0.5 rounded-full ${item.tipo === 'receita' ? 'bg-emerald-500/10 text-emerald-400' : 'bg-rose-500/10 text-rose-400'}`}>{item.tipo}</span>
-                        {item.preco_sugerido && <span className="text-[10px] font-mono text-slate-400">{formatCurrency(item.preco_sugerido)}</span>}
-                      </div>
+                      {novoItem.tipo === 'receita' && (
+                        <div className="space-y-1">
+                          <label className="text-[10px] font-bold text-slate-500 uppercase px-1">Duração (Minutos)</label>
+                          <input type="number" className="w-full bg-slate-900 border border-white/5 rounded-xl p-4 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/50" value={novoItem.duracao} onChange={e => setNovoItem(prev => ({ ...prev, duracao: e.target.value }))} placeholder="30" />
+                        </div>
+                      )}
                     </div>
-                    <button onClick={() => handleDeleteItem(item.id)} className="p-2 text-slate-500 hover:text-rose-500 transition-all opacity-0 group-hover:opacity-100"><Trash2 size={14} /></button>
+                    <div className="flex gap-4">
+                      <button type="button" onClick={() => setNovoItem(prev => ({ ...prev, tipo: 'receita' }))} className={`flex-1 py-3 rounded-xl font-bold text-xs transition-all ${novoItem.tipo === 'receita' ? 'bg-emerald-500 text-white' : 'bg-slate-900 text-slate-500 border border-white/5'}`}>RECEITA</button>
+                      <button type="button" onClick={() => setNovoItem(prev => ({ ...prev, tipo: 'despesa' }))} className={`flex-1 py-3 rounded-xl font-bold text-xs transition-all ${novoItem.tipo === 'despesa' ? 'bg-rose-500 text-white' : 'bg-slate-900 text-slate-500 border border-white/5'}`}>DESPESA</button>
+                    </div>
+                    <button type="submit" disabled={itemSaving} className="w-full bg-emerald-500 py-4 rounded-xl font-bold shadow-lg shadow-emerald-500/20 active:scale-95 transition-all">
+                      {itemSaving ? 'Salvando...' : 'Cadastrar Item'}
+                    </button>
+                  </form>
+                </div>
+              </div>
+            )}
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+              {itens.map(item => (
+                <div key={item.id} className="glass-card p-4 border-white/5 flex justify-between items-center group">
+                  <div>
+                    <p className="font-bold text-sm">{item.nome}</p>
+                    <div className="flex items-center gap-2 mt-1">
+                      <span className={`text-[9px] font-black uppercase px-2 py-0.5 rounded-full ${item.tipo === 'receita' ? 'bg-emerald-500/10 text-emerald-400' : 'bg-rose-500/10 text-rose-400'}`}>{item.tipo}</span>
+                      {item.preco_sugerido && <span className="text-[10px] font-mono text-slate-400">{formatCurrency(item.preco_sugerido)}</span>}
+                    </div>
                   </div>
-                ))}
-             </div>
+                  <button onClick={() => handleDeleteItem(item.id)} className="p-2 text-slate-500 hover:text-rose-500 transition-all opacity-0 group-hover:opacity-100"><Trash2 size={14} /></button>
+                </div>
+              ))}
+            </div>
           </div>
         )}
 
@@ -1646,14 +1645,14 @@ export function AdminDashboard({ onBack, estabelecimentoId, membroId, cargo, isO
                 <h3 className="font-black text-lg uppercase tracking-widest text-emerald-500">Editar Agendamento</h3>
                 <button onClick={() => setIsAgendamentoModalOpen(false)} className="text-slate-500 hover:text-rose-500 transition-all"><X size={20} /></button>
               </div>
-              
+
               <form onSubmit={handleSaveAgendamento} className="p-8 space-y-5">
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
                   <div className="space-y-1">
                     <label className="text-[10px] font-bold text-slate-500 uppercase px-1">Nome do Cliente</label>
-                    <input 
-                      required 
-                      type="text" 
+                    <input
+                      required
+                      type="text"
                       className="w-full bg-slate-900 border border-white/5 rounded-2xl p-4 text-sm font-bold outline-none focus:border-emerald-500 transition-all"
                       value={novoAgendamento.cliente_nome}
                       onChange={e => setNovoAgendamento(prev => ({ ...prev, cliente_nome: e.target.value }))}
@@ -1661,9 +1660,9 @@ export function AdminDashboard({ onBack, estabelecimentoId, membroId, cargo, isO
                   </div>
                   <div className="space-y-1">
                     <label className="text-[10px] font-bold text-slate-500 uppercase px-1">WhatsApp</label>
-                    <input 
-                      required 
-                      type="text" 
+                    <input
+                      required
+                      type="text"
                       className="w-full bg-slate-900 border border-white/5 rounded-2xl p-4 text-sm font-bold outline-none focus:border-emerald-500 transition-all"
                       value={applyPhoneMask(novoAgendamento.cliente_whatsapp)}
                       onChange={e => setNovoAgendamento(prev => ({ ...prev, cliente_whatsapp: e.target.value.replace(/\D/g, '') }))}
@@ -1671,7 +1670,7 @@ export function AdminDashboard({ onBack, estabelecimentoId, membroId, cargo, isO
                   </div>
                   <div className="space-y-1">
                     <label className="text-[10px] font-bold text-slate-500 uppercase px-1">Serviço</label>
-                    <select 
+                    <select
                       className="w-full bg-slate-900 border border-white/5 rounded-2xl p-4 text-sm font-bold outline-none focus:border-emerald-500 transition-all appearance-none"
                       value={novoAgendamento.servico_id}
                       onChange={e => setNovoAgendamento(prev => ({ ...prev, servico_id: e.target.value }))}
@@ -1684,7 +1683,7 @@ export function AdminDashboard({ onBack, estabelecimentoId, membroId, cargo, isO
                   </div>
                   <div className="space-y-1">
                     <label className="text-[10px] font-bold text-slate-500 uppercase px-1">Profissional</label>
-                    <select 
+                    <select
                       className="w-full bg-slate-900 border border-white/5 rounded-2xl p-4 text-sm font-bold outline-none focus:border-emerald-500 transition-all appearance-none"
                       value={novoAgendamento.membro_id}
                       onChange={e => setNovoAgendamento(prev => ({ ...prev, membro_id: e.target.value }))}
@@ -1697,9 +1696,9 @@ export function AdminDashboard({ onBack, estabelecimentoId, membroId, cargo, isO
                   </div>
                   <div className="space-y-1">
                     <label className="text-[10px] font-bold text-slate-500 uppercase px-1">Data</label>
-                    <input 
-                      required 
-                      type="date" 
+                    <input
+                      required
+                      type="date"
                       className="w-full bg-slate-900 border border-white/5 rounded-2xl p-4 text-sm font-bold outline-none focus:border-emerald-500 transition-all color-scheme-dark"
                       value={novoAgendamento.data}
                       onChange={e => setNovoAgendamento(prev => ({ ...prev, data: e.target.value }))}
@@ -1707,9 +1706,9 @@ export function AdminDashboard({ onBack, estabelecimentoId, membroId, cargo, isO
                   </div>
                   <div className="space-y-1">
                     <label className="text-[10px] font-bold text-slate-500 uppercase px-1">Horário</label>
-                    <input 
-                      required 
-                      type="time" 
+                    <input
+                      required
+                      type="time"
                       className="w-full bg-slate-900 border border-white/5 rounded-2xl p-4 text-sm font-bold outline-none focus:border-emerald-500 transition-all color-scheme-dark"
                       value={novoAgendamento.hora}
                       onChange={e => setNovoAgendamento(prev => ({ ...prev, hora: e.target.value }))}
@@ -1717,7 +1716,7 @@ export function AdminDashboard({ onBack, estabelecimentoId, membroId, cargo, isO
                   </div>
                   <div className="space-y-1 sm:col-span-2">
                     <label className="text-[10px] font-bold text-slate-500 uppercase px-1">Status</label>
-                    <select 
+                    <select
                       className="w-full bg-slate-900 border border-white/5 rounded-2xl p-4 text-sm font-bold outline-none focus:border-emerald-500 transition-all appearance-none"
                       value={novoAgendamento.status}
                       onChange={e => setNovoAgendamento(prev => ({ ...prev, status: e.target.value }))}
@@ -1731,14 +1730,14 @@ export function AdminDashboard({ onBack, estabelecimentoId, membroId, cargo, isO
                 </div>
 
                 <div className="flex gap-3 pt-4">
-                  <button 
+                  <button
                     type="button"
                     onClick={() => setIsAgendamentoModalOpen(false)}
                     className="flex-1 bg-slate-900 py-4 rounded-2xl font-bold text-sm border border-white/5 active:scale-95 transition-all uppercase tracking-widest"
                   >
                     Cancelar
                   </button>
-                  <button 
+                  <button
                     type="submit"
                     disabled={agendamentoSaving}
                     className="flex-1 bg-emerald-500 py-4 rounded-2xl font-bold text-sm shadow-xl shadow-emerald-500/20 active:scale-95 transition-all uppercase tracking-widest disabled:opacity-50"
@@ -1850,7 +1849,7 @@ export function AdminDashboard({ onBack, estabelecimentoId, membroId, cargo, isO
                     <div key={idx} className="flex flex-col sm:flex-row sm:items-center gap-4 bg-slate-900/50 p-4 rounded-2xl border border-white/5">
                       <div className="flex-1 flex items-center justify-between">
                         <p className="text-sm font-bold text-slate-200">{dia}</p>
-                        <button 
+                        <button
                           onClick={() => updateHorario(idx, 'ativo', !h.ativo)}
                           className={`w-10 h-6 rounded-full relative transition-all sm:hidden ${h.ativo ? 'bg-emerald-500' : 'bg-slate-700'}`}
                         >
@@ -1858,23 +1857,23 @@ export function AdminDashboard({ onBack, estabelecimentoId, membroId, cargo, isO
                         </button>
                       </div>
                       <div className="flex items-center gap-2">
-                        <input 
-                          type="time" 
+                        <input
+                          type="time"
                           disabled={!h.ativo}
-                          className="flex-1 sm:flex-none bg-slate-900 border border-white/5 rounded-lg p-2 text-xs text-slate-300 disabled:opacity-30" 
+                          className="flex-1 sm:flex-none bg-slate-900 border border-white/5 rounded-lg p-2 text-xs text-slate-300 disabled:opacity-30"
                           value={h.hora_inicio}
                           onChange={(e) => updateHorario(idx, 'hora_inicio', e.target.value)}
                         />
                         <span className="text-slate-600 text-[10px]">até</span>
-                        <input 
-                          type="time" 
+                        <input
+                          type="time"
                           disabled={!h.ativo}
-                          className="flex-1 sm:flex-none bg-slate-900 border border-white/5 rounded-lg p-2 text-xs text-slate-300 disabled:opacity-30" 
+                          className="flex-1 sm:flex-none bg-slate-900 border border-white/5 rounded-lg p-2 text-xs text-slate-300 disabled:opacity-30"
                           value={h.hora_fim}
                           onChange={(e) => updateHorario(idx, 'hora_fim', e.target.value)}
                         />
                       </div>
-                      <button 
+                      <button
                         onClick={() => updateHorario(idx, 'ativo', !h.ativo)}
                         className={`w-10 h-6 rounded-full relative transition-all hidden sm:block ${h.ativo ? 'bg-emerald-500' : 'bg-slate-700'}`}
                       >
@@ -1888,51 +1887,51 @@ export function AdminDashboard({ onBack, estabelecimentoId, membroId, cargo, isO
 
             {isDevMode ? (
               <div className="glass-card p-6 border-amber-500/20 space-y-4">
-                 <div className="flex justify-between items-center">
-                   <h3 className="text-amber-400 font-bold text-sm uppercase tracking-widest flex items-center gap-2">
-                     <ShieldAlert size={16} /> Área de Testes (Dev Mode)
-                   </h3>
-                   <button onClick={() => { setIsDevMode(false); setDevPassword(''); }} className="text-slate-500 hover:text-amber-500 p-2 rounded-full hover:bg-amber-500/10 transition-all" title="Ocultar Área de Testes">
-                     <X size={16} />
-                   </button>
-                 </div>
-                 <p className="text-xs text-slate-500">Gere lançamentos fictícios para testar a interface, e remova-os facilmente depois. Eles terão a tag [DEMO].</p>
-                 <div className="flex flex-col sm:flex-row gap-4">
-                   <button 
-                     onClick={generateDemoData}
-                     disabled={configSaving}
-                     className="flex-1 py-3 bg-amber-500/10 text-amber-500 border border-amber-500/20 rounded-xl font-bold hover:bg-amber-500 hover:text-white transition-all active:scale-95"
-                   >
-                     Gerar Dados Demo
-                   </button>
-                   <button 
-                     onClick={removeDemoData}
-                     disabled={configSaving}
-                     className="flex-1 py-3 bg-rose-500/10 text-rose-500 border border-rose-500/20 rounded-xl font-bold hover:bg-rose-500 hover:text-white transition-all active:scale-95"
-                   >
-                     Limpar Dados Demo
-                   </button>
-                 </div>
+                <div className="flex justify-between items-center">
+                  <h3 className="text-amber-400 font-bold text-sm uppercase tracking-widest flex items-center gap-2">
+                    <ShieldAlert size={16} /> Área de Testes (Dev Mode)
+                  </h3>
+                  <button onClick={() => { setIsDevMode(false); setDevPassword(''); }} className="text-slate-500 hover:text-amber-500 p-2 rounded-full hover:bg-amber-500/10 transition-all" title="Ocultar Área de Testes">
+                    <X size={16} />
+                  </button>
+                </div>
+                <p className="text-xs text-slate-500">Gere lançamentos fictícios para testar a interface, e remova-os facilmente depois. Eles terão a tag [DEMO].</p>
+                <div className="flex flex-col sm:flex-row gap-4">
+                  <button
+                    onClick={generateDemoData}
+                    disabled={configSaving}
+                    className="flex-1 py-3 bg-amber-500/10 text-amber-500 border border-amber-500/20 rounded-xl font-bold hover:bg-amber-500 hover:text-white transition-all active:scale-95"
+                  >
+                    Gerar Dados Demo
+                  </button>
+                  <button
+                    onClick={removeDemoData}
+                    disabled={configSaving}
+                    className="flex-1 py-3 bg-rose-500/10 text-rose-500 border border-rose-500/20 rounded-xl font-bold hover:bg-rose-500 hover:text-white transition-all active:scale-95"
+                  >
+                    Limpar Dados Demo
+                  </button>
+                </div>
               </div>
             ) : (
               <div className="glass-card p-6 border-white/5 space-y-4">
-                 <h3 className="font-bold text-sm text-slate-400 uppercase tracking-widest">Modo Desenvolvedor</h3>
-                 <div className="flex flex-col sm:flex-row gap-2">
-                   <input 
-                     type="password" 
-                     placeholder="Senha de liberação" 
-                     className="w-full min-w-0 sm:flex-1 bg-slate-900 border border-white/5 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/50" 
-                     value={devPassword} 
-                     onChange={e => setDevPassword(e.target.value)} 
-                     onKeyDown={e => { if (e.key === 'Enter') { if (devPassword === import.meta.env.VITE_DEV_PASSWORD) setIsDevMode(true); else alert('Senha incorreta') } }}
-                   />
-                   <button 
-                     onClick={() => { if(devPassword === import.meta.env.VITE_DEV_PASSWORD) setIsDevMode(true); else alert('Senha incorreta') }} 
-                     className="w-full sm:w-auto sm:shrink-0 bg-slate-800 text-slate-300 px-4 py-2.5 rounded-xl text-sm font-bold hover:bg-slate-700 transition-all"
-                   >
-                     Desbloquear
-                   </button>
-                 </div>
+                <h3 className="font-bold text-sm text-slate-400 uppercase tracking-widest">Modo Desenvolvedor</h3>
+                <div className="flex flex-col sm:flex-row gap-2">
+                  <input
+                    type="password"
+                    placeholder="Senha de liberação"
+                    className="w-full min-w-0 sm:flex-1 bg-slate-900 border border-white/5 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/50"
+                    value={devPassword}
+                    onChange={e => setDevPassword(e.target.value)}
+                    onKeyDown={e => { if (e.key === 'Enter') { if (devPassword === import.meta.env.VITE_DEV_PASSWORD) setIsDevMode(true); else alert('Senha incorreta') } }}
+                  />
+                  <button
+                    onClick={() => { if (devPassword === import.meta.env.VITE_DEV_PASSWORD) setIsDevMode(true); else alert('Senha incorreta') }}
+                    className="w-full sm:w-auto sm:shrink-0 bg-slate-800 text-slate-300 px-4 py-2.5 rounded-xl text-sm font-bold hover:bg-slate-700 transition-all"
+                  >
+                    Desbloquear
+                  </button>
+                </div>
               </div>
             )}
           </div>
@@ -1941,407 +1940,403 @@ export function AdminDashboard({ onBack, estabelecimentoId, membroId, cargo, isO
         {activeTab === 'agenda' && (
           <div className="space-y-6 animate-in slide-in-from-right duration-300">
             <div className="flex justify-between items-center">
-               <h2 className="font-black text-lg uppercase tracking-widest text-slate-400">Agenda de Clientes</h2>
-               <button onClick={fetchAgendamentos} className="p-2 text-slate-500 hover:text-emerald-500 transition-all"><RefreshCw size={18} className={carregandoAgendamentos ? 'animate-spin' : ''} /></button>
+              <h2 className="font-black text-lg uppercase tracking-widest text-slate-400">Agenda de Clientes</h2>
+              <button onClick={fetchAgendamentos} className="p-2 text-slate-500 hover:text-emerald-500 transition-all"><RefreshCw size={18} className={carregandoAgendamentos ? 'animate-spin' : ''} /></button>
             </div>
 
             <div className="grid grid-cols-1 gap-4">
-               {agendamentos.length === 0 ? (
-                 <div className="text-center p-12 glass-card border-dashed border-white/5 text-slate-600 font-bold">
-                   Nenhum agendamento encontrado.
-                 </div>
-               ) : (
-                 agendamentos.map(ag => {
-                   const data = new Date(ag.data_hora_inicio);
-                   const servico = Array.isArray(ag.servicos_produtos) ? ag.servicos_produtos[0] : ag.servicos_produtos;
-                   const servicoNome = servico?.nome || '';
-                   const preco = servico?.preco_sugerido || 0;
-                   return (
-                     <div key={ag.id} className="glass-card p-5 border-white/5 flex flex-col sm:flex-row sm:items-center justify-between gap-4 group">
-                       <div className="flex items-center gap-4">
-                         <div className="w-12 h-12 rounded-2xl bg-slate-900 border border-white/5 flex flex-col items-center justify-center text-slate-400">
-                           <span className="text-[10px] font-black uppercase leading-none">{data.toLocaleDateString('pt-BR', { month: 'short' }).replace('.', '')}</span>
-                           <span className="text-lg font-black text-white leading-none mt-1">{data.getDate()}</span>
-                         </div>
-                         <div>
-                           <div className="flex items-center gap-2">
-                             <p className="font-bold text-sm text-white">{ag.cliente_nome}</p>
-                             <span className={`text-[8px] font-black uppercase px-2 py-0.5 rounded-full ${
-                               ag.status === 'pendente' ? 'bg-amber-500/10 text-amber-500' : 
-                               ag.status === 'confirmado' ? 'bg-emerald-500/10 text-emerald-500' : 
-                               ag.status === 'concluido' ? 'bg-indigo-500/10 text-indigo-400' : 'bg-slate-800 text-slate-500'
-                             }`}>
-                               {ag.status}
-                             </span>
-                           </div>
-                           <p className="text-[11px] text-slate-500 flex items-center gap-1 mt-1">
-                             <Clock size={10} /> {data.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })} • {servicoNome} • {formatCurrency(preco)}
-                           </p>
-                           <p className="text-[10px] text-emerald-500/60 font-bold uppercase tracking-widest mt-0.5">Profissional: {ag.membros_equipe?.nome || 'Qualquer'}</p>
-                         </div>
-                       </div>
-                       
-                        <div className="flex items-center gap-2 border-t border-white/5 sm:border-0 pt-3 sm:pt-0 flex-wrap">
-                          {/* 1. Confirmar */}
-                          {ag.status !== 'concluido' && ag.status !== 'cancelado' && (
-                            <button 
-                              onClick={() => handleAgendamentoAction(ag, 'confirmado')} 
-                              className={`px-4 py-2 rounded-xl text-[10px] font-black uppercase transition-all ${
-                                ag.status === 'confirmado' 
-                                  ? 'bg-emerald-500/20 text-emerald-500 cursor-default' 
-                                  : 'bg-emerald-500 text-white shadow-lg shadow-emerald-500/20 active:scale-95'
-                              }`}
-                              title="Confirmar"
-                            >
-                              {ag.status === 'confirmado' ? '✅ Confirmado' : '✅ Confirmar'}
-                            </button>
-                          )}
-
-                          {/* 2. Finalizar */}
-                          {ag.status !== 'concluido' && ag.status !== 'cancelado' && (
-                            <button 
-                              onClick={() => {
-                                const servico = Array.isArray(ag.servicos_produtos) ? ag.servicos_produtos[0] : ag.servicos_produtos;
-                                const preco = servico?.preco_sugerido || 0;
-                                if(confirm(`Deseja finalizar o serviço de ${ag.cliente_nome} e lançar o valor de ${formatCurrency(preco)} no caixa?`)) {
-                                  handleAgendamentoAction(ag, 'concluido')
-                                }
-                              }} 
-                              className="px-4 py-2 bg-indigo-500 text-white rounded-xl text-[10px] font-black uppercase shadow-lg shadow-indigo-500/20 active:scale-95 transition-all flex items-center gap-1.5"
-                              title="Finalizar e Cobrar"
-                            >
-                              <DollarSign size={14} /> Finalizar
-                            </button>
-                          )}
-
-                          {/* 3. Editar */}
-                          <button 
-                            onClick={() => {
-                              const d = new Date(ag.data_hora_inicio)
-                              const hh = d.getHours().toString().padStart(2, '0')
-                              const mm = d.getMinutes().toString().padStart(2, '0')
-                              
-                              setNovoAgendamento({
-                                id: ag.id,
-                                cliente_nome: ag.cliente_nome,
-                                cliente_whatsapp: ag.cliente_whatsapp,
-                                servico_id: ag.servico_id || '',
-                                membro_id: ag.membro_id || '',
-                                data: d.toISOString().split('T')[0],
-                                hora: `${hh}:${mm}`,
-                                status: ag.status
-                              })
-                              setIsAgendamentoModalOpen(true)
-                            }}
-                            className="p-2 bg-slate-900 text-slate-400 hover:text-emerald-500 rounded-xl border border-white/5 transition-all"
-                            title="Editar Agendamento"
-                          >
-                            <Edit2 size={16} />
-                          </button>
-
-                          {/* 4. Cancelar */}
-                          {ag.status !== 'concluido' && ag.status !== 'cancelado' && (
-                            <button 
-                              onClick={() => handleAgendamentoAction(ag, 'cancelado')} 
-                              className="p-2 rounded-xl border border-white/5 transition-all bg-slate-900 text-slate-400 hover:text-rose-500"
-                              title="Cancelar"
-                            >
-                              <X size={16} />
-                            </button>
-                          )}
-
-                          {/* 5. Excluir */}
-                          <button 
-                            onClick={() => deletarAgendamento(ag.id)} 
-                            className="p-2 bg-slate-900 text-slate-700 hover:text-rose-500 rounded-xl border border-white/5 transition-all"
-                            title="Excluir"
-                          >
-                            <Trash2 size={16} />
-                          </button>
+              {agendamentos.length === 0 ? (
+                <div className="text-center p-12 glass-card border-dashed border-white/5 text-slate-600 font-bold">
+                  Nenhum agendamento encontrado.
+                </div>
+              ) : (
+                agendamentos.map(ag => {
+                  const data = new Date(ag.data_hora_inicio);
+                  const servico = Array.isArray(ag.servicos_produtos) ? ag.servicos_produtos[0] : ag.servicos_produtos;
+                  const servicoNome = servico?.nome || '';
+                  const preco = servico?.preco_sugerido || 0;
+                  return (
+                    <div key={ag.id} className="glass-card p-5 border-white/5 flex flex-col sm:flex-row sm:items-center justify-between gap-4 group">
+                      <div className="flex items-center gap-4">
+                        <div className="w-12 h-12 rounded-2xl bg-slate-900 border border-white/5 flex flex-col items-center justify-center text-slate-400">
+                          <span className="text-[10px] font-black uppercase leading-none">{data.toLocaleDateString('pt-BR', { month: 'short' }).replace('.', '')}</span>
+                          <span className="text-lg font-black text-white leading-none mt-1">{data.getDate()}</span>
                         </div>
-                     </div>
-                   )
-                 })
-               )}
+                        <div>
+                          <div className="flex items-center gap-2">
+                            <p className="font-bold text-sm text-white">{ag.cliente_nome}</p>
+                            <span className={`text-[8px] font-black uppercase px-2 py-0.5 rounded-full ${ag.status === 'pendente' ? 'bg-amber-500/10 text-amber-500' :
+                                ag.status === 'confirmado' ? 'bg-emerald-500/10 text-emerald-500' :
+                                  ag.status === 'concluido' ? 'bg-indigo-500/10 text-indigo-400' : 'bg-slate-800 text-slate-500'
+                              }`}>
+                              {ag.status}
+                            </span>
+                          </div>
+                          <p className="text-[11px] text-slate-500 flex items-center gap-1 mt-1">
+                            <Clock size={10} /> {data.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })} • {servicoNome} • {formatCurrency(preco)}
+                          </p>
+                          <p className="text-[10px] text-emerald-500/60 font-bold uppercase tracking-widest mt-0.5">Profissional: {ag.membros_equipe?.nome || 'Qualquer'}</p>
+                        </div>
+                      </div>
+
+                      <div className="flex items-center gap-2 border-t border-white/5 sm:border-0 pt-3 sm:pt-0 flex-wrap">
+                        {/* 1. Confirmar */}
+                        {ag.status !== 'concluido' && ag.status !== 'cancelado' && (
+                          <button
+                            onClick={() => handleAgendamentoAction(ag, 'confirmado')}
+                            className={`px-4 py-2 rounded-xl text-[10px] font-black uppercase transition-all ${ag.status === 'confirmado'
+                                ? 'bg-emerald-500/20 text-emerald-500 cursor-default'
+                                : 'bg-emerald-500 text-white shadow-lg shadow-emerald-500/20 active:scale-95'
+                              }`}
+                            title="Confirmar"
+                          >
+                            {ag.status === 'confirmado' ? '✅ Confirmado' : '✅ Confirmar'}
+                          </button>
+                        )}
+
+                        {/* 2. Finalizar */}
+                        {ag.status !== 'concluido' && ag.status !== 'cancelado' && (
+                          <button
+                            onClick={() => {
+                              const servico = Array.isArray(ag.servicos_produtos) ? ag.servicos_produtos[0] : ag.servicos_produtos;
+                              const preco = servico?.preco_sugerido || 0;
+                              if (confirm(`Deseja finalizar o serviço de ${ag.cliente_nome} e lançar o valor de ${formatCurrency(preco)} no caixa?`)) {
+                                handleAgendamentoAction(ag, 'concluido')
+                              }
+                            }}
+                            className="px-4 py-2 bg-indigo-500 text-white rounded-xl text-[10px] font-black uppercase shadow-lg shadow-indigo-500/20 active:scale-95 transition-all flex items-center gap-1.5"
+                            title="Finalizar e Cobrar"
+                          >
+                            <DollarSign size={14} /> Finalizar
+                          </button>
+                        )}
+
+                        {/* 3. Editar */}
+                        <button
+                          onClick={() => {
+                            const d = new Date(ag.data_hora_inicio)
+                            const hh = d.getHours().toString().padStart(2, '0')
+                            const mm = d.getMinutes().toString().padStart(2, '0')
+
+                            setNovoAgendamento({
+                              id: ag.id,
+                              cliente_nome: ag.cliente_nome,
+                              cliente_whatsapp: ag.cliente_whatsapp,
+                              servico_id: ag.servico_id || '',
+                              membro_id: ag.membro_id || '',
+                              data: d.toISOString().split('T')[0],
+                              hora: `${hh}:${mm}`,
+                              status: ag.status
+                            })
+                            setIsAgendamentoModalOpen(true)
+                          }}
+                          className="p-2 bg-slate-900 text-slate-400 hover:text-emerald-500 rounded-xl border border-white/5 transition-all"
+                          title="Editar Agendamento"
+                        >
+                          <Edit2 size={16} />
+                        </button>
+
+                        {/* 4. Cancelar */}
+                        {ag.status !== 'concluido' && ag.status !== 'cancelado' && (
+                          <button
+                            onClick={() => handleAgendamentoAction(ag, 'cancelado')}
+                            className="p-2 rounded-xl border border-white/5 transition-all bg-slate-900 text-slate-400 hover:text-rose-500"
+                            title="Cancelar"
+                          >
+                            <X size={16} />
+                          </button>
+                        )}
+
+                        {/* 5. Excluir */}
+                        <button
+                          onClick={() => deletarAgendamento(ag.id)}
+                          className="p-2 bg-slate-900 text-slate-700 hover:text-rose-500 rounded-xl border border-white/5 transition-all"
+                          title="Excluir"
+                        >
+                          <Trash2 size={16} />
+                        </button>
+                      </div>
+                    </div>
+                  )
+                })
+              )}
             </div>
           </div>
         )}
 
         {activeTab === 'auditoria' && (
-           <section className="space-y-6 animate-in slide-in-from-right duration-300 flex flex-col h-full max-h-screen">
-              <div className="flex items-center gap-3 mb-2 flex-shrink-0">
-                <div className="w-12 h-12 rounded-2xl bg-amber-500/10 flex items-center justify-center text-amber-500 shadow-lg shadow-amber-500/5"><ShieldAlert size={24} /></div>
-                <div>
-                  <h2 className="font-black text-xl uppercase tracking-tighter">Auditoria de Segurança</h2>
-                  <p className="text-xs text-slate-500 font-bold uppercase tracking-widest">Rastreamento de alterações e exclusões</p>
-                </div>
+          <section className="space-y-6 animate-in slide-in-from-right duration-300 flex flex-col h-full max-h-screen">
+            <div className="flex items-center gap-3 mb-2 flex-shrink-0">
+              <div className="w-12 h-12 rounded-2xl bg-amber-500/10 flex items-center justify-center text-amber-500 shadow-lg shadow-amber-500/5"><ShieldAlert size={24} /></div>
+              <div>
+                <h2 className="font-black text-xl uppercase tracking-tighter">Auditoria de Segurança</h2>
+                <p className="text-xs text-slate-500 font-bold uppercase tracking-widest">Rastreamento de alterações e exclusões</p>
               </div>
+            </div>
 
-              {/* Barra de Filtros */}
-              <div className="glass-card p-4 border-white/5 flex flex-col sm:flex-row gap-4 flex-shrink-0">
-                <div className="flex-1 relative">
-                   <input type="text" placeholder="Buscar por motivo, item ou usuário..." value={auditSearch} onChange={e => setAuditSearch(e.target.value)} className="w-full bg-slate-900 border border-white/5 rounded-xl py-2.5 pl-10 pr-4 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500/50 transition-all placeholder:text-slate-600" />
-                   <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500" size={18} />
-                </div>
-                <div className="flex flex-col sm:flex-row gap-4">
-                  <select value={auditFilterAcao} onChange={e => setAuditFilterAcao(e.target.value)} className="bg-slate-900 border border-white/5 rounded-xl py-2.5 px-4 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500/50 text-slate-300 font-bold cursor-pointer">
-                     <option value="todos">Todas as Ações</option>
-                     <option value="edicao">Apenas Edições</option>
-                     <option value="exclusao">Apenas Exclusões</option>
-                     <option value="criacao_retroativa">Apenas Lanç. Retroativos</option>
-                  </select>
-                  <select value={auditFilterMembro} onChange={e => setAuditFilterMembro(e.target.value)} className="bg-slate-900 border border-white/5 rounded-xl py-2.5 px-4 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500/50 text-slate-300 font-bold cursor-pointer">
-                     <option value="todos">Todos os Usuários</option>
-                     {membros.map(m => <option key={m.id} value={m.id}>{m.nome}</option>)}
-                  </select>
-                </div>
+            {/* Barra de Filtros */}
+            <div className="glass-card p-4 border-white/5 flex flex-col sm:flex-row gap-4 flex-shrink-0">
+              <div className="flex-1 relative">
+                <input type="text" placeholder="Buscar por motivo, item ou usuário..." value={auditSearch} onChange={e => setAuditSearch(e.target.value)} className="w-full bg-slate-900 border border-white/5 rounded-xl py-2.5 pl-10 pr-4 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500/50 transition-all placeholder:text-slate-600" />
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500" size={18} />
               </div>
+              <div className="flex flex-col sm:flex-row gap-4">
+                <select value={auditFilterAcao} onChange={e => setAuditFilterAcao(e.target.value)} className="bg-slate-900 border border-white/5 rounded-xl py-2.5 px-4 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500/50 text-slate-300 font-bold cursor-pointer">
+                  <option value="todos">Todas as Ações</option>
+                  <option value="edicao">Apenas Edições</option>
+                  <option value="exclusao">Apenas Exclusões</option>
+                  <option value="criacao_retroativa">Apenas Lanç. Retroativos</option>
+                </select>
+                <select value={auditFilterMembro} onChange={e => setAuditFilterMembro(e.target.value)} className="bg-slate-900 border border-white/5 rounded-xl py-2.5 px-4 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500/50 text-slate-300 font-bold cursor-pointer">
+                  <option value="todos">Todos os Usuários</option>
+                  {membros.map(m => <option key={m.id} value={m.id}>{m.nome}</option>)}
+                </select>
+              </div>
+            </div>
 
-              {/* Visualização Híbrida: Tabela (Desktop) / Cards (Mobile) */}
-              <div className="glass-card border-white/5 flex-1 min-h-0 overflow-hidden flex flex-col">
-                <div className="overflow-x-auto overflow-y-auto custom-scrollbar flex-1">
-                  
-                  {/* MOBILE VIEW (Cards Compactos) */}
-                  <div className="md:hidden divide-y divide-white/5">
+            {/* Visualização Híbrida: Tabela (Desktop) / Cards (Mobile) */}
+            <div className="glass-card border-white/5 flex-1 min-h-0 overflow-hidden flex flex-col">
+              <div className="overflow-x-auto overflow-y-auto custom-scrollbar flex-1">
+
+                {/* MOBILE VIEW (Cards Compactos) */}
+                <div className="md:hidden divide-y divide-white/5">
+                  {filteredAuditData.length === 0 ? (
+                    <div className="text-center py-16">
+                      <History size={32} className="mx-auto text-slate-700 mb-3" />
+                      <p className="text-slate-500 font-bold uppercase tracking-widest text-xs">Nenhum registro</p>
+                    </div>
+                  ) : (
+                    filteredAuditData.map(log => {
+                      const diffs = [];
+                      if (log.dados_anteriores && log.dados_novos) {
+                        if (log.dados_anteriores.valor !== log.dados_novos.valor) diffs.push({ label: 'VAL', old: formatCurrency(log.dados_anteriores.valor), new: formatCurrency(log.dados_novos.valor) });
+                        if (log.dados_anteriores.descricao !== log.dados_novos.descricao) diffs.push({ label: 'DESC', old: log.dados_anteriores.descricao, new: log.dados_novos.descricao });
+                        if (log.dados_anteriores.data_competencia !== log.dados_novos.data_competencia) diffs.push({ label: 'DATA', old: log.dados_anteriores.data_competencia?.split('-').reverse().join('/') || '', new: log.dados_novos.data_competencia?.split('-').reverse().join('/') || '' });
+                      }
+
+                      const isExc = log.acao === 'exclusao';
+                      const isEdi = log.acao === 'edicao';
+
+                      return (
+                        <div key={log.id} className="p-4 space-y-3 hover:bg-white/[0.02] transition-colors">
+                          <div className="flex justify-between items-center">
+                            <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-md border font-black uppercase text-[8px] tracking-wider ${isExc ? 'bg-rose-500/10 text-rose-400 border-rose-500/20' :
+                                isEdi ? 'bg-blue-500/10 text-blue-400 border-blue-500/20' :
+                                  'bg-emerald-500/10 text-emerald-400 border-emerald-500/20'
+                              }`}>
+                              {isExc ? <Trash2 size={10} /> : isEdi ? <Edit2 size={10} /> : <Plus size={10} />}
+                              {isExc ? 'Exclusão' : isEdi ? 'Edição' : 'Retroativo'}
+                            </span>
+                            <span className="text-[10px] text-slate-500 font-mono tracking-tighter">{new Date(log.created_at).toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })}</span>
+                          </div>
+
+                          <p className="text-xs font-medium text-slate-300 leading-snug">
+                            <span className="font-black text-white">{log.membros_equipe?.nome}</span> alterou o item <span className="text-emerald-400 font-bold">"{log.transacoes?.descricao || log.dados_anteriores?.descricao || 'Item Removido'}"</span>
+                          </p>
+
+                          <div className="bg-white/5 border border-white/5 p-2 rounded-lg flex gap-2">
+                            <MessageCircle size={12} className="text-amber-500 shrink-0 mt-0.5" />
+                            <span className="text-[11px] text-amber-500/90 italic">{log.motivo || 'Sem justificativa'}</span>
+                          </div>
+
+                          {diffs.length > 0 && (
+                            <div className="space-y-1.5 pt-1">
+                              {diffs.map((d, i) => (
+                                <div key={i} className="flex items-center gap-2 text-[10px]">
+                                  <span className="text-slate-600 font-black uppercase tracking-widest w-8 shrink-0">{d.label}:</span>
+                                  <span className="text-rose-400/60 line-through truncate max-w-[80px]" title={d.old}>{d.old}</span>
+                                  <ArrowRight size={10} className="text-slate-600 shrink-0" />
+                                  <span className="text-emerald-400 font-bold truncate max-w-[80px]" title={d.new}>{d.new}</span>
+                                </div>
+                              ))}
+                            </div>
+                          )}
+                        </div>
+                      )
+                    })
+                  )}
+                </div>
+
+                {/* DESKTOP VIEW (Data Table) */}
+                <table className="hidden md:table w-full text-left border-collapse whitespace-nowrap">
+                  <thead className="sticky top-0 bg-slate-900/95 backdrop-blur-sm z-10">
+                    <tr className="border-b border-white/5">
+                      <th className="px-6 py-4 text-[10px] font-black text-slate-500 uppercase tracking-widest">Data / Hora</th>
+                      <th className="px-6 py-4 text-[10px] font-black text-slate-500 uppercase tracking-widest">Usuário</th>
+                      <th className="px-6 py-4 text-[10px] font-black text-slate-500 uppercase tracking-widest">Ação</th>
+                      <th className="px-6 py-4 text-[10px] font-black text-slate-500 uppercase tracking-widest">Item Afetado</th>
+                      <th className="px-6 py-4 text-[10px] font-black text-slate-500 uppercase tracking-widest w-1/4">Motivo / Justificativa</th>
+                      <th className="px-6 py-4 text-[10px] font-black text-slate-500 uppercase tracking-widest">Alterações (Antes ➔ Depois)</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-white/5">
                     {filteredAuditData.length === 0 ? (
-                         <div className="text-center py-16">
-                            <History size={32} className="mx-auto text-slate-700 mb-3" />
-                            <p className="text-slate-500 font-bold uppercase tracking-widest text-xs">Nenhum registro</p>
-                         </div>
+                      <tr>
+                        <td colSpan={6} className="text-center py-16">
+                          <History size={32} className="mx-auto text-slate-700 mb-3" />
+                          <p className="text-slate-500 font-bold uppercase tracking-widest text-xs">Nenhum registro encontrado</p>
+                        </td>
+                      </tr>
                     ) : (
                       filteredAuditData.map(log => {
-                          const diffs = [];
-                          if (log.dados_anteriores && log.dados_novos) {
-                            if (log.dados_anteriores.valor !== log.dados_novos.valor) diffs.push({ label: 'VAL', old: formatCurrency(log.dados_anteriores.valor), new: formatCurrency(log.dados_novos.valor) });
-                            if (log.dados_anteriores.descricao !== log.dados_novos.descricao) diffs.push({ label: 'DESC', old: log.dados_anteriores.descricao, new: log.dados_novos.descricao });
-                            if (log.dados_anteriores.data_competencia !== log.dados_novos.data_competencia) diffs.push({ label: 'DATA', old: log.dados_anteriores.data_competencia?.split('-').reverse().join('/') || '', new: log.dados_novos.data_competencia?.split('-').reverse().join('/') || '' });
-                          }
-                          
-                          const isExc = log.acao === 'exclusao';
-                          const isEdi = log.acao === 'edicao';
+                        const diffs = [];
+                        if (log.dados_anteriores && log.dados_novos) {
+                          if (log.dados_anteriores.valor !== log.dados_novos.valor) diffs.push({ label: 'VAL', old: formatCurrency(log.dados_anteriores.valor), new: formatCurrency(log.dados_novos.valor) });
+                          if (log.dados_anteriores.descricao !== log.dados_novos.descricao) diffs.push({ label: 'DESC', old: log.dados_anteriores.descricao, new: log.dados_novos.descricao });
+                          if (log.dados_anteriores.data_competencia !== log.dados_novos.data_competencia) diffs.push({ label: 'DATA', old: log.dados_anteriores.data_competencia?.split('-').reverse().join('/') || '', new: log.dados_novos.data_competencia?.split('-').reverse().join('/') || '' });
+                        }
 
-                          return (
-                            <div key={log.id} className="p-4 space-y-3 hover:bg-white/[0.02] transition-colors">
-                              <div className="flex justify-between items-center">
-                                <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-md border font-black uppercase text-[8px] tracking-wider ${
-                                   isExc ? 'bg-rose-500/10 text-rose-400 border-rose-500/20' : 
-                                   isEdi ? 'bg-blue-500/10 text-blue-400 border-blue-500/20' : 
-                                   'bg-emerald-500/10 text-emerald-400 border-emerald-500/20'
-                                 }`}>
-                                   {isExc ? <Trash2 size={10} /> : isEdi ? <Edit2 size={10} /> : <Plus size={10} />}
-                                   {isExc ? 'Exclusão' : isEdi ? 'Edição' : 'Retroativo'}
-                                </span>
-                                <span className="text-[10px] text-slate-500 font-mono tracking-tighter">{new Date(log.created_at).toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })}</span>
-                              </div>
-                              
-                              <p className="text-xs font-medium text-slate-300 leading-snug">
-                                <span className="font-black text-white">{log.membros_equipe?.nome}</span> alterou o item <span className="text-emerald-400 font-bold">"{log.transacoes?.descricao || log.dados_anteriores?.descricao || 'Item Removido'}"</span>
-                              </p>
+                        const isExc = log.acao === 'exclusao';
+                        const isEdi = log.acao === 'edicao';
 
-                              <div className="bg-white/5 border border-white/5 p-2 rounded-lg flex gap-2">
-                                <MessageCircle size={12} className="text-amber-500 shrink-0 mt-0.5" />
-                                <span className="text-[11px] text-amber-500/90 italic">{log.motivo || 'Sem justificativa'}</span>
-                              </div>
-
-                              {diffs.length > 0 && (
-                                <div className="space-y-1.5 pt-1">
-                                  {diffs.map((d, i) => (
-                                    <div key={i} className="flex items-center gap-2 text-[10px]">
-                                        <span className="text-slate-600 font-black uppercase tracking-widest w-8 shrink-0">{d.label}:</span>
-                                        <span className="text-rose-400/60 line-through truncate max-w-[80px]" title={d.old}>{d.old}</span>
-                                        <ArrowRight size={10} className="text-slate-600 shrink-0" />
-                                        <span className="text-emerald-400 font-bold truncate max-w-[80px]" title={d.new}>{d.new}</span>
-                                    </div>
-                                  ))}
+                        return (
+                          <tr key={log.id} className="hover:bg-white/[0.02] transition-colors group">
+                            <td className="px-6 py-4 text-xs text-slate-400 font-mono tracking-tight">{new Date(log.created_at).toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', year: '2-digit', hour: '2-digit', minute: '2-digit' })}</td>
+                            <td className="px-6 py-4 text-xs font-black text-slate-200">{log.membros_equipe?.nome}</td>
+                            <td className="px-6 py-4 text-xs">
+                              <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md border font-bold uppercase text-[9px] tracking-wider ${isExc ? 'bg-rose-500/10 text-rose-400 border-rose-500/20' :
+                                  isEdi ? 'bg-blue-500/10 text-blue-400 border-blue-500/20' :
+                                    'bg-emerald-500/10 text-emerald-400 border-emerald-500/20'
+                                }`}>
+                                {isExc ? <Trash2 size={10} /> : isEdi ? <Edit2 size={10} /> : <Plus size={10} />}
+                                {isExc ? 'Exclusão' : isEdi ? 'Edição' : 'Retroativo'}
+                              </span>
+                            </td>
+                            <td className="px-6 py-4 text-xs font-bold text-slate-300 max-w-[200px] truncate" title={log.transacoes?.descricao || log.dados_anteriores?.descricao}>
+                              {log.transacoes?.descricao || log.dados_anteriores?.descricao || 'Item Removido'}
+                            </td>
+                            <td className="px-6 py-4 text-xs text-amber-500/90 italic max-w-[250px] truncate" title={log.motivo}>
+                              {log.motivo || '-'}
+                            </td>
+                            <td className="px-6 py-4 text-[11px] space-y-1.5">
+                              {diffs.length > 0 ? diffs.map((d, i) => (
+                                <div key={i} className="flex items-center gap-2">
+                                  <span className="text-slate-600 font-black uppercase text-[9px] tracking-widest w-8 shrink-0">{d.label}:</span>
+                                  <span className="text-rose-400/60 line-through truncate max-w-[100px]" title={d.old}>{d.old}</span>
+                                  <ArrowRight size={10} className="text-slate-600 shrink-0" />
+                                  <span className="text-emerald-400 font-bold truncate max-w-[100px]" title={d.new}>{d.new}</span>
                                 </div>
+                              )) : (
+                                <span className="text-slate-600 italic text-[10px]">Sem alterações numéricas</span>
                               )}
-                            </div>
-                          )
+                            </td>
+                          </tr>
+                        )
                       })
                     )}
-                  </div>
-
-                  {/* DESKTOP VIEW (Data Table) */}
-                  <table className="hidden md:table w-full text-left border-collapse whitespace-nowrap">
-                    <thead className="sticky top-0 bg-slate-900/95 backdrop-blur-sm z-10">
-                      <tr className="border-b border-white/5">
-                        <th className="px-6 py-4 text-[10px] font-black text-slate-500 uppercase tracking-widest">Data / Hora</th>
-                        <th className="px-6 py-4 text-[10px] font-black text-slate-500 uppercase tracking-widest">Usuário</th>
-                        <th className="px-6 py-4 text-[10px] font-black text-slate-500 uppercase tracking-widest">Ação</th>
-                        <th className="px-6 py-4 text-[10px] font-black text-slate-500 uppercase tracking-widest">Item Afetado</th>
-                        <th className="px-6 py-4 text-[10px] font-black text-slate-500 uppercase tracking-widest w-1/4">Motivo / Justificativa</th>
-                        <th className="px-6 py-4 text-[10px] font-black text-slate-500 uppercase tracking-widest">Alterações (Antes ➔ Depois)</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-white/5">
-                      {filteredAuditData.length === 0 ? (
-                         <tr>
-                           <td colSpan={6} className="text-center py-16">
-                              <History size={32} className="mx-auto text-slate-700 mb-3" />
-                              <p className="text-slate-500 font-bold uppercase tracking-widest text-xs">Nenhum registro encontrado</p>
-                           </td>
-                         </tr>
-                      ) : (
-                         filteredAuditData.map(log => {
-                            const diffs = [];
-                            if (log.dados_anteriores && log.dados_novos) {
-                              if (log.dados_anteriores.valor !== log.dados_novos.valor) diffs.push({ label: 'VAL', old: formatCurrency(log.dados_anteriores.valor), new: formatCurrency(log.dados_novos.valor) });
-                              if (log.dados_anteriores.descricao !== log.dados_novos.descricao) diffs.push({ label: 'DESC', old: log.dados_anteriores.descricao, new: log.dados_novos.descricao });
-                              if (log.dados_anteriores.data_competencia !== log.dados_novos.data_competencia) diffs.push({ label: 'DATA', old: log.dados_anteriores.data_competencia?.split('-').reverse().join('/') || '', new: log.dados_novos.data_competencia?.split('-').reverse().join('/') || '' });
-                            }
-                            
-                            const isExc = log.acao === 'exclusao';
-                            const isEdi = log.acao === 'edicao';
-                            
-                            return (
-                               <tr key={log.id} className="hover:bg-white/[0.02] transition-colors group">
-                                 <td className="px-6 py-4 text-xs text-slate-400 font-mono tracking-tight">{new Date(log.created_at).toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', year: '2-digit', hour: '2-digit', minute: '2-digit' })}</td>
-                                 <td className="px-6 py-4 text-xs font-black text-slate-200">{log.membros_equipe?.nome}</td>
-                                 <td className="px-6 py-4 text-xs">
-                                   <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md border font-bold uppercase text-[9px] tracking-wider ${
-                                     isExc ? 'bg-rose-500/10 text-rose-400 border-rose-500/20' : 
-                                     isEdi ? 'bg-blue-500/10 text-blue-400 border-blue-500/20' : 
-                                     'bg-emerald-500/10 text-emerald-400 border-emerald-500/20'
-                                   }`}>
-                                     {isExc ? <Trash2 size={10} /> : isEdi ? <Edit2 size={10} /> : <Plus size={10} />}
-                                     {isExc ? 'Exclusão' : isEdi ? 'Edição' : 'Retroativo'}
-                                   </span>
-                                 </td>
-                                 <td className="px-6 py-4 text-xs font-bold text-slate-300 max-w-[200px] truncate" title={log.transacoes?.descricao || log.dados_anteriores?.descricao}>
-                                   {log.transacoes?.descricao || log.dados_anteriores?.descricao || 'Item Removido'}
-                                 </td>
-                                 <td className="px-6 py-4 text-xs text-amber-500/90 italic max-w-[250px] truncate" title={log.motivo}>
-                                   {log.motivo || '-'}
-                                 </td>
-                                 <td className="px-6 py-4 text-[11px] space-y-1.5">
-                                    {diffs.length > 0 ? diffs.map((d, i) => (
-                                       <div key={i} className="flex items-center gap-2">
-                                          <span className="text-slate-600 font-black uppercase text-[9px] tracking-widest w-8 shrink-0">{d.label}:</span>
-                                          <span className="text-rose-400/60 line-through truncate max-w-[100px]" title={d.old}>{d.old}</span>
-                                          <ArrowRight size={10} className="text-slate-600 shrink-0" />
-                                          <span className="text-emerald-400 font-bold truncate max-w-[100px]" title={d.new}>{d.new}</span>
-                                       </div>
-                                    )) : (
-                                       <span className="text-slate-600 italic text-[10px]">Sem alterações numéricas</span>
-                                    )}
-                                 </td>
-                               </tr>
-                            )
-                         })
-                      )}
-                    </tbody>
-                  </table>
-                </div>
+                  </tbody>
+                </table>
               </div>
-           </section>
+            </div>
+          </section>
         )}
 
         {activeTab === 'relatorios' && (
           <div className="space-y-6 animate-in fade-in duration-300 print:space-y-0">
-             <div className="flex items-center justify-between mb-6 print:hidden">
-                <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-xl bg-indigo-500/10 flex items-center justify-center text-indigo-500"><PieChart size={20} /></div>
-                  <div>
-                    <h2 className="font-bold text-lg text-white">Relatórios de Produção</h2>
-                    <p className="text-xs text-slate-400">Emissão de comissões e fechamento</p>
-                  </div>
+            <div className="flex items-center justify-between mb-6 print:hidden">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl bg-indigo-500/10 flex items-center justify-center text-indigo-500"><PieChart size={20} /></div>
+                <div>
+                  <h2 className="font-bold text-lg text-white">Relatórios de Produção</h2>
+                  <p className="text-xs text-slate-400">Emissão de comissões e fechamento</p>
                 </div>
-             </div>
-             
-             {/* Print Header */}
-             <div className="hidden print:block text-center mb-8">
-                <h1 className="text-2xl font-black text-black">{estab?.nome || 'GFin'}</h1>
-                <p className="text-sm text-gray-500">Relatório de Produção e Comissões</p>
-                <p className="text-xs text-gray-400">Período: {relatorioFiltro.dataInicio.split('-').reverse().join('/')} a {relatorioFiltro.dataFim.split('-').reverse().join('/')}</p>
-             </div>
+              </div>
+            </div>
 
-             <div className="glass-card p-6 border-white/5 space-y-6 print:hidden">
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  <div className="space-y-1">
-                    <label className="text-[10px] font-bold text-slate-500 uppercase px-1">Data Inicial</label>
-                    <input type="date" className="w-full bg-slate-900 border border-white/5 rounded-xl p-3 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/50" value={relatorioFiltro.dataInicio} onChange={e => setRelatorioFiltro(prev => ({ ...prev, dataInicio: e.target.value }))} />
-                  </div>
-                  <div className="space-y-1">
-                    <label className="text-[10px] font-bold text-slate-500 uppercase px-1">Data Final</label>
-                    <input type="date" className="w-full bg-slate-900 border border-white/5 rounded-xl p-3 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/50" value={relatorioFiltro.dataFim} onChange={e => setRelatorioFiltro(prev => ({ ...prev, dataFim: e.target.value }))} />
-                  </div>
+            {/* Print Header */}
+            <div className="hidden print:block text-center mb-8">
+              <h1 className="text-2xl font-black text-black">{estab?.nome || 'GFin'}</h1>
+              <p className="text-sm text-gray-500">Relatório de Produção e Comissões</p>
+              <p className="text-xs text-gray-400">Período: {relatorioFiltro.dataInicio.split('-').reverse().join('/')} a {relatorioFiltro.dataFim.split('-').reverse().join('/')}</p>
+            </div>
+
+            <div className="glass-card p-6 border-white/5 space-y-6 print:hidden">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div className="space-y-1">
+                  <label className="text-[10px] font-bold text-slate-500 uppercase px-1">Data Inicial</label>
+                  <input type="date" className="w-full bg-slate-900 border border-white/5 rounded-xl p-3 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/50" value={relatorioFiltro.dataInicio} onChange={e => setRelatorioFiltro(prev => ({ ...prev, dataInicio: e.target.value }))} />
+                </div>
+                <div className="space-y-1">
+                  <label className="text-[10px] font-bold text-slate-500 uppercase px-1">Data Final</label>
+                  <input type="date" className="w-full bg-slate-900 border border-white/5 rounded-xl p-3 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/50" value={relatorioFiltro.dataFim} onChange={e => setRelatorioFiltro(prev => ({ ...prev, dataFim: e.target.value }))} />
+                </div>
+              </div>
+
+              <div className="space-y-2">
+                <label className="text-[10px] font-bold text-slate-500 uppercase px-1">Profissionais (Deixe vazio para todos)</label>
+                <div className="flex flex-wrap gap-2">
+                  {membros.map(m => {
+                    const isSelected = relatorioFiltro.membrosIds.includes(m.id)
+                    return (
+                      <button
+                        key={m.id}
+                        onClick={() => {
+                          setRelatorioFiltro(prev => ({
+                            ...prev,
+                            membrosIds: isSelected ? prev.membrosIds.filter(id => id !== m.id) : [...prev.membrosIds, m.id]
+                          }))
+                        }}
+                        className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-bold transition-all border ${isSelected ? 'bg-indigo-500/20 text-indigo-400 border-indigo-500/30' : 'bg-slate-900 text-slate-400 border-white/5 hover:border-white/20'}`}
+                      >
+                        {isSelected ? <CheckSquare size={14} /> : <Square size={14} />}
+                        {m.nome}
+                      </button>
+                    )
+                  })}
+                </div>
+              </div>
+
+              <button
+                onClick={gerarRelatorio}
+                disabled={gerandoRelatorio}
+                className="w-full py-3 bg-indigo-500 text-white rounded-xl font-bold shadow-lg shadow-indigo-500/20 active:scale-95 transition-all flex justify-center items-center gap-2"
+              >
+                {gerandoRelatorio ? 'Processando...' : <><PieChart size={18} /> Gerar Relatório</>}
+              </button>
+            </div>
+
+            {relatorioDados.length > 0 && (
+              <div className="glass-card overflow-hidden border-white/5 print:border-none print:shadow-none print:bg-white print:text-black">
+                <div className="overflow-x-auto">
+                  <table className="w-full text-left border-collapse">
+                    <thead>
+                      <tr className="bg-slate-900/50 text-[10px] uppercase tracking-widest text-slate-500 print:bg-gray-100 print:text-gray-700 border-b border-white/5 print:border-gray-200">
+                        <th className="p-4 font-bold">Profissional</th>
+                        <th className="p-4 font-bold text-center">Serviços</th>
+                        <th className="p-4 font-bold text-right">Total Produzido</th>
+                        <th className="p-4 font-bold text-center">Comissão (%)</th>
+                        <th className="p-4 font-bold text-right text-emerald-500 print:text-emerald-700">Comissão Devida</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-white/5 print:divide-gray-200 text-sm">
+                      {relatorioDados.map((row, i) => (
+                        <tr key={i} className="hover:bg-white/5 print:hover:bg-transparent transition-colors">
+                          <td className="p-4 font-bold text-white print:text-black">{row.nome}</td>
+                          <td className="p-4 text-center text-slate-400 print:text-gray-600">{row.qtd_servicos}</td>
+                          <td className="p-4 text-right text-slate-300 print:text-gray-800">{formatCurrency(row.total_receita)}</td>
+                          <td className="p-4 text-center text-slate-500 print:text-gray-500">{row.comissao_pct}%</td>
+                          <td className="p-4 text-right font-black text-emerald-400 print:text-emerald-600">{formatCurrency(row.total_comissao)}</td>
+                        </tr>
+                      ))}
+                      {/* Linha de Totais */}
+                      <tr className="bg-slate-900/30 print:bg-gray-50 border-t-2 border-white/10 print:border-gray-300">
+                        <td className="p-4 font-black text-indigo-400 print:text-indigo-700">TOTAL</td>
+                        <td className="p-4 text-center font-bold text-slate-300 print:text-gray-700">{relatorioDados.reduce((a, b) => a + b.qtd_servicos, 0)}</td>
+                        <td className="p-4 text-right font-bold text-slate-300 print:text-gray-700">{formatCurrency(relatorioDados.reduce((a, b) => a + b.total_receita, 0))}</td>
+                        <td className="p-4 text-center font-bold text-slate-500 print:text-gray-500">-</td>
+                        <td className="p-4 text-right font-black text-emerald-400 print:text-emerald-700">{formatCurrency(relatorioDados.reduce((a, b) => a + b.total_comissao, 0))}</td>
+                      </tr>
+                    </tbody>
+                  </table>
                 </div>
 
-                <div className="space-y-2">
-                   <label className="text-[10px] font-bold text-slate-500 uppercase px-1">Profissionais (Deixe vazio para todos)</label>
-                   <div className="flex flex-wrap gap-2">
-                     {membros.map(m => {
-                       const isSelected = relatorioFiltro.membrosIds.includes(m.id)
-                       return (
-                         <button 
-                           key={m.id}
-                           onClick={() => {
-                             setRelatorioFiltro(prev => ({
-                               ...prev,
-                               membrosIds: isSelected ? prev.membrosIds.filter(id => id !== m.id) : [...prev.membrosIds, m.id]
-                             }))
-                           }}
-                           className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-bold transition-all border ${isSelected ? 'bg-indigo-500/20 text-indigo-400 border-indigo-500/30' : 'bg-slate-900 text-slate-400 border-white/5 hover:border-white/20'}`}
-                         >
-                           {isSelected ? <CheckSquare size={14} /> : <Square size={14} />}
-                           {m.nome}
-                         </button>
-                       )
-                     })}
-                   </div>
+                <div className="p-4 bg-slate-900/50 border-t border-white/5 print:hidden">
+                  <button onClick={() => window.print()} className="w-full py-3 bg-indigo-500 text-white rounded-xl font-bold hover:bg-indigo-600 shadow-lg shadow-indigo-500/20 active:scale-95 transition-all flex justify-center items-center gap-2">
+                    <Printer size={16} /> Salvar como PDF
+                  </button>
                 </div>
-
-                <button 
-                  onClick={gerarRelatorio} 
-                  disabled={gerandoRelatorio}
-                  className="w-full py-3 bg-indigo-500 text-white rounded-xl font-bold shadow-lg shadow-indigo-500/20 active:scale-95 transition-all flex justify-center items-center gap-2"
-                >
-                  {gerandoRelatorio ? 'Processando...' : <><PieChart size={18} /> Gerar Relatório</>}
-                </button>
-             </div>
-
-             {relatorioDados.length > 0 && (
-               <div className="glass-card overflow-hidden border-white/5 print:border-none print:shadow-none print:bg-white print:text-black">
-                 <div className="overflow-x-auto">
-                   <table className="w-full text-left border-collapse">
-                     <thead>
-                       <tr className="bg-slate-900/50 text-[10px] uppercase tracking-widest text-slate-500 print:bg-gray-100 print:text-gray-700 border-b border-white/5 print:border-gray-200">
-                         <th className="p-4 font-bold">Profissional</th>
-                         <th className="p-4 font-bold text-center">Serviços</th>
-                         <th className="p-4 font-bold text-right">Total Produzido</th>
-                         <th className="p-4 font-bold text-center">Comissão (%)</th>
-                         <th className="p-4 font-bold text-right text-emerald-500 print:text-emerald-700">Comissão Devida</th>
-                       </tr>
-                     </thead>
-                     <tbody className="divide-y divide-white/5 print:divide-gray-200 text-sm">
-                       {relatorioDados.map((row, i) => (
-                         <tr key={i} className="hover:bg-white/5 print:hover:bg-transparent transition-colors">
-                           <td className="p-4 font-bold text-white print:text-black">{row.nome}</td>
-                           <td className="p-4 text-center text-slate-400 print:text-gray-600">{row.qtd_servicos}</td>
-                           <td className="p-4 text-right text-slate-300 print:text-gray-800">{formatCurrency(row.total_receita)}</td>
-                           <td className="p-4 text-center text-slate-500 print:text-gray-500">{row.comissao_pct}%</td>
-                           <td className="p-4 text-right font-black text-emerald-400 print:text-emerald-600">{formatCurrency(row.total_comissao)}</td>
-                         </tr>
-                       ))}
-                       {/* Linha de Totais */}
-                       <tr className="bg-slate-900/30 print:bg-gray-50 border-t-2 border-white/10 print:border-gray-300">
-                         <td className="p-4 font-black text-indigo-400 print:text-indigo-700">TOTAL</td>
-                         <td className="p-4 text-center font-bold text-slate-300 print:text-gray-700">{relatorioDados.reduce((a, b) => a + b.qtd_servicos, 0)}</td>
-                         <td className="p-4 text-right font-bold text-slate-300 print:text-gray-700">{formatCurrency(relatorioDados.reduce((a, b) => a + b.total_receita, 0))}</td>
-                         <td className="p-4 text-center font-bold text-slate-500 print:text-gray-500">-</td>
-                         <td className="p-4 text-right font-black text-emerald-400 print:text-emerald-700">{formatCurrency(relatorioDados.reduce((a, b) => a + b.total_comissao, 0))}</td>
-                       </tr>
-                     </tbody>
-                   </table>
-                 </div>
-                 
-                 <div className="p-4 bg-slate-900/50 border-t border-white/5 print:hidden">
-                    <button onClick={() => window.print()} className="w-full py-3 bg-indigo-500 text-white rounded-xl font-bold hover:bg-indigo-600 shadow-lg shadow-indigo-500/20 active:scale-95 transition-all flex justify-center items-center gap-2">
-                      <Printer size={16} /> Salvar como PDF
-                    </button>
-                 </div>
-               </div>
-             )}
+              </div>
+            )}
           </div>
         )}
       </main>
@@ -2355,7 +2350,7 @@ export function AdminDashboard({ onBack, estabelecimentoId, membroId, cargo, isO
           <List size={20} />
           <span className="text-[9px] font-bold uppercase">Lista</span>
         </button>
-        
+
         <button onClick={() => { setActiveTab('agenda'); setIsMoreMenuOpen(false); }} className={`flex flex-col items-center gap-1 transition-all flex-1 ${activeTab === 'agenda' && !isMoreMenuOpen ? 'text-emerald-500 scale-110' : 'text-slate-500'}`}>
           <Calendar size={20} />
           <span className="text-[9px] font-bold uppercase">Agenda</span>
@@ -2379,7 +2374,7 @@ export function AdminDashboard({ onBack, estabelecimentoId, membroId, cargo, isO
           <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={() => setIsMoreMenuOpen(false)} />
           <div className="bg-slate-900 border-t border-white/10 rounded-t-3xl p-6 pb-28 animate-in slide-in-from-bottom-8 duration-300 relative z-40 space-y-2 shadow-2xl">
             <h3 className="text-xs font-bold text-slate-500 uppercase tracking-widest mb-4 px-2">Gerenciamento</h3>
-            
+
             <button onClick={() => { setActiveTab('agenda'); setIsMoreMenuOpen(false); }} className="w-full flex items-center gap-4 bg-white/5 hover:bg-white/10 p-4 rounded-2xl transition-all">
               <div className="bg-slate-800 p-2 rounded-xl text-emerald-400"><Calendar size={20} /></div>
               <span className="font-bold text-sm">Agenda de Clientes</span>
@@ -2408,13 +2403,13 @@ export function AdminDashboard({ onBack, estabelecimentoId, membroId, cargo, isO
         </div>
       )}
 
-      <TransactionModal 
-        isOpen={isModalOpen} 
-        onClose={() => { setIsModalOpen(false); setTransactionToEdit(null) }} 
-        tipo={modalType} 
+      <TransactionModal
+        isOpen={isModalOpen}
+        onClose={() => { setIsModalOpen(false); setTransactionToEdit(null) }}
+        tipo={modalType}
         membroId={membroId}
         membros={membros}
-        estabelecimentoId={estabelecimentoId} 
+        estabelecimentoId={estabelecimentoId}
         onSuccess={fetchAdminData}
         canSelectMember={true}
         editingTransaction={transactionToEdit}
@@ -2423,32 +2418,29 @@ export function AdminDashboard({ onBack, estabelecimentoId, membroId, cargo, isO
       {/* MODAL DE FEEDBACK (sucesso, erro, confirmação) */}
       {feedbackModal && feedbackModal.isOpen && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-in fade-in duration-200">
-          <div className={`w-full max-w-md rounded-3xl p-6 sm:p-8 shadow-2xl animate-in zoom-in-95 duration-200 text-center relative overflow-hidden border backdrop-blur-xl ${
-            feedbackModal.variant === 'success'
+          <div className={`w-full max-w-md rounded-3xl p-6 sm:p-8 shadow-2xl animate-in zoom-in-95 duration-200 text-center relative overflow-hidden border backdrop-blur-xl ${feedbackModal.variant === 'success'
               ? 'bg-emerald-500/10 border-emerald-500/20'
               : feedbackModal.variant === 'error'
                 ? 'bg-rose-500/10 border-rose-500/20'
                 : 'bg-amber-500/10 border-amber-500/20'
-          }`}>
-            <div className={`w-14 h-14 rounded-2xl flex items-center justify-center mx-auto mb-5 border shadow-lg ${
-              feedbackModal.variant === 'success'
+            }`}>
+            <div className={`w-14 h-14 rounded-2xl flex items-center justify-center mx-auto mb-5 border shadow-lg ${feedbackModal.variant === 'success'
                 ? 'bg-emerald-500/20 text-emerald-400 border-emerald-500/30 shadow-emerald-500/5'
                 : feedbackModal.variant === 'error'
                   ? 'bg-rose-500/20 text-rose-400 border-rose-500/30 shadow-rose-500/5'
                   : 'bg-amber-500/20 text-amber-400 border-amber-500/30 shadow-amber-500/5'
-            }`}>
+              }`}>
               {feedbackModal.variant === 'success' && <CheckCircle size={26} />}
               {feedbackModal.variant === 'error' && <XCircle size={26} />}
               {feedbackModal.variant === 'confirm' && <ShieldAlert size={26} />}
             </div>
 
-            <h4 className={`font-black text-base uppercase tracking-widest mb-2 ${
-              feedbackModal.variant === 'success'
+            <h4 className={`font-black text-base uppercase tracking-widest mb-2 ${feedbackModal.variant === 'success'
                 ? 'text-emerald-400'
                 : feedbackModal.variant === 'error'
                   ? 'text-rose-400'
                   : 'text-amber-400'
-            }`}>
+              }`}>
               {feedbackModal.title}
             </h4>
             <p className="text-sm text-slate-300 mb-6 leading-relaxed font-semibold">
@@ -2474,11 +2466,10 @@ export function AdminDashboard({ onBack, estabelecimentoId, membroId, cargo, isO
             ) : (
               <button
                 onClick={feedbackModal.onConfirm}
-                className={`w-full font-black py-3.5 rounded-2xl shadow-xl transition-all active:scale-95 text-xs uppercase tracking-widest ${
-                  feedbackModal.variant === 'success'
+                className={`w-full font-black py-3.5 rounded-2xl shadow-xl transition-all active:scale-95 text-xs uppercase tracking-widest ${feedbackModal.variant === 'success'
                     ? 'bg-emerald-500 hover:bg-emerald-400 text-white shadow-emerald-500/20'
                     : 'bg-rose-500 hover:bg-rose-400 text-white shadow-rose-500/20'
-                }`}
+                  }`}
               >
                 Entendi
               </button>
@@ -2493,24 +2484,24 @@ export function AdminDashboard({ onBack, estabelecimentoId, membroId, cargo, isO
           <div className="bg-amber-500/10 border border-amber-500/20 backdrop-blur-xl w-full max-w-md rounded-3xl p-6 sm:p-8 shadow-2xl animate-in zoom-in-95 duration-200 text-center relative overflow-hidden">
             {/* Elemento de iluminação decorativa para a sofisticação do design */}
             <div className="absolute -top-12 -left-12 w-24 h-24 bg-amber-500/20 rounded-full blur-2xl pointer-events-none" />
-            
+
             <div className="w-14 h-14 bg-amber-500/20 text-amber-400 rounded-2xl flex items-center justify-center mx-auto mb-5 border border-amber-500/30 shadow-lg shadow-amber-500/5">
               <MessageCircle size={26} />
             </div>
-            
+
             <h4 className="font-black text-amber-400 text-base uppercase tracking-widest mb-2">Enviar WhatsApp</h4>
             <p className="text-sm text-slate-300 mb-6 leading-relaxed font-semibold">
               {whatsappPrompt.mensagem}
             </p>
-            
+
             <div className="flex gap-3 justify-center">
-              <button 
+              <button
                 onClick={whatsappPrompt.onCancel}
                 className="flex-1 bg-slate-900 border border-white/5 hover:bg-slate-800 hover:text-white text-slate-400 font-bold py-3.5 rounded-2xl transition-all active:scale-95 text-xs uppercase tracking-widest"
               >
                 Não
               </button>
-              <button 
+              <button
                 onClick={whatsappPrompt.onConfirm}
                 className="flex-1 bg-amber-500 hover:bg-amber-400 text-slate-950 font-black py-3.5 rounded-2xl shadow-xl shadow-amber-500/20 transition-all active:scale-95 text-xs uppercase tracking-widest"
               >
