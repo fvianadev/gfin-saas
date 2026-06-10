@@ -361,6 +361,202 @@ export function AdminDashboard({ onBack, estabelecimentoId, membroId, cargo, isO
     setGerandoRelatorio(false)
   }
 
+  const abrirRelatorioPDF = () => {
+    if (relatorioDados.length === 0) return
+    const nomeEstab = estab?.nome || 'GFin'
+    const dataIni = relatorioFiltro.dataInicio.split('-').reverse().join('/')
+    const dataFim = relatorioFiltro.dataFim.split('-').reverse().join('/')
+    const dataEmissao = new Date().toLocaleDateString('pt-BR')
+
+    const linhas = relatorioDados.map(row => `
+      <tr>
+        <td>${row.nome}</td>
+        <td style="text-align:center">${row.qtd_servicos}</td>
+        <td style="text-align:right">${formatCurrency(row.total_receita)}</td>
+        <td style="text-align:center">${row.comissao_pct}%</td>
+        <td style="text-align:right">${formatCurrency(row.total_comissao)}</td>
+      </tr>
+    `).join('')
+
+    const totalServicos = relatorioDados.reduce((a, b) => a + b.qtd_servicos, 0)
+    const totalReceita = relatorioDados.reduce((a, b) => a + b.total_receita, 0)
+    const totalComissao = relatorioDados.reduce((a, b) => a + b.total_comissao, 0)
+
+    const html = `<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Relatório - ${nomeEstab}</title>
+<style>
+  @page { margin: 1.5cm 1.8cm; size: A4 portrait; }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    font-family: 'Outfit', Arial, Helvetica, sans-serif;
+    font-size: 10pt;
+    line-height: 1.5;
+    color: #111827;
+    background: white;
+    padding: 0 1.8cm;
+  }
+  .header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    margin: 1.2cm 0 0.6cm;
+    padding-bottom: 0.5cm;
+    border-bottom: 3px solid #059669;
+  }
+  .header h1 { font-size: 20pt; font-weight: 900; color: #065f46; letter-spacing: -0.02em; }
+  .header .sub { font-size: 10pt; color: #6b7280; margin-top: 2px; }
+  .header .meta { text-align: right; font-size: 8pt; color: #6b7280; line-height: 1.6; }
+  .header .meta strong { color: #374151; }
+  .periodo {
+    text-align: center;
+    margin: 0 0 0.6cm;
+    padding: 8pt 16pt;
+    background: #f0fdf4;
+    border: 1px solid #bbf7d0;
+    border-radius: 4pt;
+    font-weight: 700;
+    font-size: 10pt;
+    color: #166534;
+  }
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-bottom: 0.5cm;
+  }
+  thead th {
+    background: #ecfdf5;
+    color: #065f46;
+    font-weight: 800;
+    font-size: 8pt;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    padding: 10pt 12pt;
+    text-align: left;
+    border-bottom: 2px solid #059669;
+  }
+  thead th:nth-child(2) { text-align: center; }
+  thead th:nth-child(3) { text-align: right; }
+  thead th:nth-child(4) { text-align: center; }
+  thead th:nth-child(5) { text-align: right; }
+  tbody td {
+    padding: 8pt 12pt;
+    border-bottom: 1px solid #e5e7eb;
+    font-size: 9.5pt;
+    color: #1f2937;
+  }
+  tbody tr:nth-child(even) { background: #f9fafb; }
+  .total-row td {
+    font-weight: 800;
+    font-size: 10pt;
+    border-top: 2px solid #059669;
+    border-bottom: 2px solid #059669;
+    background: #ecfdf5;
+    color: #065f46;
+  }
+  .footer {
+    margin-top: 0.8cm;
+    padding-top: 0.4cm;
+    border-top: 1px solid #d1d5db;
+    display: flex;
+    justify-content: space-between;
+    font-size: 7.5pt;
+    color: #9ca3af;
+  }
+  .assinatura {
+    margin-top: 1cm;
+    padding-top: 4pt;
+    border-top: 1px solid #9ca3af;
+    display: inline-block;
+    min-width: 180pt;
+    text-align: center;
+    font-size: 8pt;
+    color: #6b7280;
+  }
+  .btn-group {
+    display: flex;
+    gap: 8pt;
+    margin: 0.5cm 0;
+  }
+  .btn {
+    flex: 1;
+    padding: 12pt;
+    border: none;
+    border-radius: 8pt;
+    font-size: 11pt;
+    font-weight: 700;
+    cursor: pointer;
+    text-align: center;
+    text-decoration: none;
+  }
+  .btn-print { background: #059669; color: white; }
+  .btn-print:hover { background: #047857; }
+  .btn-close { background: #e5e7eb; color: #374151; }
+  .btn-close:hover { background: #d1d5db; }
+  @media print {
+    .btn-group { display: none; }
+    body { padding: 0; }
+  }
+</style>
+</head>
+<body>
+  <div class="header">
+    <div>
+      <h1>${nomeEstab}</h1>
+      <p class="sub">Relatório de Produção e Comissões</p>
+    </div>
+    <div class="meta">
+      <div><strong>Emissão:</strong> ${dataEmissao}</div>
+      <div><strong>Período:</strong> ${dataIni} a ${dataFim}</div>
+    </div>
+  </div>
+
+  <div class="periodo">Período: ${dataIni} — ${dataFim}</div>
+
+  <table>
+    <thead>
+      <tr>
+        <th>Profissional</th>
+        <th>Serviços</th>
+        <th>Total Produzido</th>
+        <th>Comissão (%)</th>
+        <th>Comissão Devida</th>
+      </tr>
+    </thead>
+    <tbody>
+      ${linhas}
+      <tr class="total-row">
+        <td>TOTAL</td>
+        <td style="text-align:center">${totalServicos}</td>
+        <td style="text-align:right">${formatCurrency(totalReceita)}</td>
+        <td style="text-align:center">-</td>
+        <td style="text-align:right">${formatCurrency(totalComissao)}</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <div class="footer">
+    <div>GFin — Sistema de Gestão Financeira</div>
+    <div class="assinatura">Assinatura do Responsável</div>
+  </div>
+
+  <div class="btn-group">
+    <button class="btn btn-print" onclick="window.print()">Imprimir / Salvar PDF</button>
+    <button class="btn btn-close" onclick="window.close()">Fechar</button>
+  </div>
+</body>
+</html>`
+
+    const win = window.open('', '_blank')
+    if (win) {
+      win.document.write(html)
+      win.document.close()
+    }
+  }
+
 
   const fetchEstab = async () => {
     const { data } = await supabase.from('estabelecimentos').select('*').eq('id', estabelecimentoId).single()
@@ -2331,14 +2527,15 @@ export function AdminDashboard({ onBack, estabelecimentoId, membroId, cargo, isO
                 </div>
 
                 <div className="p-4 bg-slate-900/50 border-t border-white/5 print:hidden">
-                  <button onClick={() => window.print()} className="w-full py-3 bg-indigo-500 text-white rounded-xl font-bold hover:bg-indigo-600 shadow-lg shadow-indigo-500/20 active:scale-95 transition-all flex justify-center items-center gap-2">
-                    <Printer size={16} /> Salvar como PDF
+                  <button onClick={abrirRelatorioPDF} className="w-full py-3 bg-indigo-500 text-white rounded-xl font-bold hover:bg-indigo-600 shadow-lg shadow-indigo-500/20 active:scale-95 transition-all flex justify-center items-center gap-2">
+                    <Printer size={16} /> Imprimir / Salvar PDF
                   </button>
                 </div>
               </div>
             )}
           </div>
         )}
+
       </main>
 
       <nav className="lg:hidden fixed bottom-0 left-0 right-0 h-20 bg-slate-950/80 backdrop-blur-xl border-t border-white/5 flex items-center justify-around px-2 z-40">
