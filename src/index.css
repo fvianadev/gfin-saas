@@ -39,6 +39,16 @@ body {
   transition: all 0.3s ease;
 }
 
+.scrollbar-none::-webkit-scrollbar,
+.scrollbar-hide::-webkit-scrollbar {
+  display: none;
+}
+.scrollbar-none,
+.scrollbar-hide {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
 .btn-primary:hover {
   transform: translateY(-2px);
   box-shadow: 0 10px 20px -10px rgba(236, 72, 153, 0.5);
