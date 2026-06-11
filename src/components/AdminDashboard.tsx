@@ -75,7 +75,7 @@ export function AdminDashboard({ onBack, estabelecimentoId, membroId, cargo, isO
   const dashboardMetrics = useMemo(() => {
     let filteredTxs = transactions;
 
-    if (cargo !== 'usuario' && filtroMembro !== 'todos') {
+    if (isOwner && filtroMembro !== 'todos') {
       filteredTxs = transactions.filter(t => t.membro_id === filtroMembro);
     }
 
@@ -1179,24 +1179,20 @@ export function AdminDashboard({ onBack, estabelecimentoId, membroId, cargo, isO
           <button onClick={() => setActiveTab('itens')} className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all ${activeTab === 'itens' ? 'bg-emerald-500 text-white shadow-lg' : 'text-slate-500 hover:bg-white/5'}`}><Scissors size={18} /> Serviços/Produtos</button>
           <button onClick={() => setActiveTab('agenda')} className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all ${activeTab === 'agenda' ? 'bg-emerald-500 text-white shadow-lg' : 'text-slate-500 hover:bg-white/5'}`}><Calendar size={18} /> Agenda</button>
 
-          {cargo === 'administrador' && (
+          {isOwner && cargo === 'administrador' && (
             <>
               <button onClick={() => setActiveTab('equipe')} className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all ${activeTab === 'equipe' ? 'bg-emerald-500 text-white shadow-lg' : 'text-slate-500 hover:bg-white/5'}`}>
                 <Users size={18} /> Equipe
               </button>
-              {isOwner && (
-                <>
-                  <button onClick={() => setActiveTab('auditoria')} className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all ${activeTab === 'auditoria' ? 'bg-emerald-500 text-white shadow-lg' : 'text-slate-500 hover:bg-white/5'}`}>
-                    <ShieldAlert size={18} /> Auditoria
-                  </button>
-                  <button onClick={() => setActiveTab('relatorios')} className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all ${activeTab === 'relatorios' ? 'bg-emerald-500 text-white shadow-lg' : 'text-slate-500 hover:bg-white/5'}`}>
-                    <PieChart size={18} /> Relatórios
-                  </button>
-                  <button onClick={() => setActiveTab('config')} className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all ${activeTab === 'config' ? 'bg-emerald-500 text-white shadow-lg' : 'text-slate-500 hover:bg-white/5'}`}>
-                    <Settings size={18} /> Configurações
-                  </button>
-                </>
-              )}
+              <button onClick={() => setActiveTab('auditoria')} className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all ${activeTab === 'auditoria' ? 'bg-emerald-500 text-white shadow-lg' : 'text-slate-500 hover:bg-white/5'}`}>
+                <ShieldAlert size={18} /> Auditoria
+              </button>
+              <button onClick={() => setActiveTab('relatorios')} className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all ${activeTab === 'relatorios' ? 'bg-emerald-500 text-white shadow-lg' : 'text-slate-500 hover:bg-white/5'}`}>
+                <PieChart size={18} /> Relatórios
+              </button>
+              <button onClick={() => setActiveTab('config')} className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all ${activeTab === 'config' ? 'bg-emerald-500 text-white shadow-lg' : 'text-slate-500 hover:bg-white/5'}`}>
+                <Settings size={18} /> Configurações
+              </button>
             </>
           )}
 
@@ -1271,8 +1267,8 @@ export function AdminDashboard({ onBack, estabelecimentoId, membroId, cargo, isO
                   ))}
                 </div>
 
-                {/* Filtro por Profissional (Útil para Dono/Admin na aba Resumo) */}
-                {((isOwner || cargo === 'administrador') && activeTab === 'resumo') && (
+                {/* Filtro por Profissional (Apenas Dono) */}
+                {(isOwner && activeTab === 'resumo') && (
                   <div className="flex items-center gap-2 bg-slate-900/50 border border-white/5 rounded-full px-4 py-1.5 h-[34px]">
                     <User size={12} className="text-emerald-500" />
                     <select
@@ -1305,7 +1301,7 @@ export function AdminDashboard({ onBack, estabelecimentoId, membroId, cargo, isO
                     </button>
                   ))}
                 </div>
-                {cargo === 'administrador' && (
+                {isOwner && (
                   <div className="relative flex-1 group">
                     <input type="text" placeholder="Buscar por usuário, descrição ou categoria..." value={searchTx} onChange={e => setSearchTx(e.target.value)} className="w-full bg-slate-900 border border-white/5 rounded-xl py-2 pl-10 pr-4 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/50 transition-all" />
                     <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500 group-focus-within:text-emerald-500 transition-colors" size={16} />
@@ -1320,20 +1316,13 @@ export function AdminDashboard({ onBack, estabelecimentoId, membroId, cargo, isO
           <div className="space-y-6 animate-in fade-in duration-500">
             {/* ROW 1: CARDS PRINCIPAIS */}
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4 sm:gap-6">
-              {/* Card 1: Lucro Líquido (Dono) ou Faturamento (PIN Admin) ou Comissão (PIN Usuário) */}
+              {/* Card 1: Lucro Líquido (Dono) ou Comissão (PIN) */}
               {isOwner ? (
                 <div className="glass-card p-6 bg-gradient-to-br from-emerald-500/10 to-teal-500/5 border-emerald-500/20 relative overflow-hidden group">
                   <div className="absolute -right-4 -top-4 w-24 h-24 bg-emerald-500/10 rounded-full blur-2xl group-hover:scale-150 transition-all" />
                   <p className="text-slate-400 text-[10px] font-bold uppercase tracking-widest mb-1">Lucro Líquido Global</p>
                   <h3 className="text-3xl sm:text-4xl font-black text-white">{formatCurrency(dashboardMetrics.lucroLiquido)}</h3>
                   <div className="flex items-center gap-2 text-emerald-400 text-[9px] font-bold mt-2 bg-emerald-400/10 w-fit px-2 py-0.5 rounded-full"><TrendingUp size={10} /> Saudável</div>
-                </div>
-              ) : cargo === 'administrador' ? (
-                <div className="glass-card p-6 bg-gradient-to-br from-emerald-500/10 to-teal-500/5 border-emerald-500/20 relative overflow-hidden group">
-                  <div className="absolute -right-4 -top-4 w-24 h-24 bg-emerald-500/10 rounded-full blur-2xl group-hover:scale-150 transition-all" />
-                  <p className="text-slate-400 text-[10px] font-bold uppercase tracking-widest mb-1">Faturamento Geral</p>
-                  <h3 className="text-3xl sm:text-4xl font-black text-emerald-400">{formatCurrency(dashboardMetrics.totalReceitas)}</h3>
-                  <div className="flex items-center gap-2 text-slate-400 text-[9px] font-bold mt-2 bg-slate-400/10 w-fit px-2 py-0.5 rounded-full"><TrendingUp size={10} /> Operação Ativa</div>
                 </div>
               ) : (
                 <div className="glass-card p-6 bg-gradient-to-br from-emerald-500/10 to-teal-500/5 border-emerald-500/20 relative overflow-hidden group">
@@ -1344,8 +1333,8 @@ export function AdminDashboard({ onBack, estabelecimentoId, membroId, cargo, isO
                 </div>
               )}
 
-              {/* Card 2: Receitas (Dono/PIN Admin) ou Ticket Médio Pessoal (PIN Usuário) */}
-              {cargo !== 'usuario' ? (
+              {/* Card 2: Receitas (Dono) ou Ticket Médio Pessoal (PIN) */}
+              {isOwner ? (
                 <div className="glass-card p-6 border-white/5 relative overflow-hidden group">
                   <p className="text-slate-500 text-[10px] font-bold uppercase mb-1">Receitas Operacionais</p>
                   <h3 className="text-2xl font-black text-emerald-400">{formatCurrency(dashboardMetrics.totalReceitas)}</h3>
@@ -1359,8 +1348,8 @@ export function AdminDashboard({ onBack, estabelecimentoId, membroId, cargo, isO
                 </div>
               )}
 
-              {/* Card 3: Despesas (Dono/PIN Admin) ou Total de Atendimentos (PIN Usuário) */}
-              {cargo !== 'usuario' ? (
+              {/* Card 3: Despesas (Dono) ou Total de Atendimentos (PIN) */}
+              {isOwner ? (
                 <div className="glass-card p-6 border-white/5 relative overflow-hidden group">
                   <p className="text-slate-500 text-[10px] font-bold uppercase mb-1">Despesas Operacionais</p>
                   <h3 className="text-2xl font-black text-rose-500">{formatCurrency(dashboardMetrics.totalDespesas)}</h3>
@@ -1377,8 +1366,8 @@ export function AdminDashboard({ onBack, estabelecimentoId, membroId, cargo, isO
               )}
             </div>
 
-            {/* ROW 2: DETALHES DE AGENDAMENTOS OPERACIONAIS (Apenas Dono/PIN Admin) */}
-            {cargo !== 'usuario' && (
+            {/* ROW 2: DETALHES DE AGENDAMENTOS OPERACIONAIS (Apenas Dono) */}
+            {isOwner && (
               <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4">
                 <div className="glass-card p-4 border-white/5 text-center">
                   <p className="text-slate-500 text-[9px] font-bold uppercase">Total Agendados</p>
@@ -1400,7 +1389,7 @@ export function AdminDashboard({ onBack, estabelecimentoId, membroId, cargo, isO
             )}
 
             {/* ROW 3: GRÁFICO DE FLUXO DE CAIXA (Ocultado para PIN Usuário comum) */}
-            {cargo !== 'usuario' && (
+            {isOwner && (
               <section className="glass-card p-4 sm:p-8 border-white/5 overflow-hidden">
                 <h3 className="font-bold mb-8 text-sm flex items-center gap-2 uppercase tracking-widest"><TrendingUp size={16} className="text-emerald-500" /> Fluxo de Caixa</h3>
                 <div className="h-64 sm:h-80 w-full">
@@ -1424,8 +1413,8 @@ export function AdminDashboard({ onBack, estabelecimentoId, membroId, cargo, isO
 
             {/* ROW 4: RANKINGS E TABELAS (CONFORME NÍVEL DE ACESSO) */}
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-              {/* Coluna A: Desempenho da Equipe (Dono/PIN Admin) ou Meus Serviços Campeões (PIN Usuário) */}
-              {cargo !== 'usuario' ? (
+              {/* Coluna A: Desempenho da Equipe (Dono) ou Meus Serviços Campeões (PIN) */}
+              {isOwner ? (
                 <section className="glass-card p-6 border-white/5">
                   <h3 className="font-bold mb-4 text-xs flex items-center gap-2 uppercase tracking-widest text-slate-300">
                     <Award size={16} className="text-emerald-500" /> Desempenho da Equipe
@@ -1483,8 +1472,8 @@ export function AdminDashboard({ onBack, estabelecimentoId, membroId, cargo, isO
                 </section>
               )}
 
-              {/* Coluna B: Serviços Mais Agendados (Dono/PIN Admin) ou Detalhamento de Comissões Pessoais */}
-              {cargo !== 'usuario' ? (
+              {/* Coluna B: Serviços Mais Agendados (Dono) ou Detalhamento de Comissões Pessoais (PIN) */}
+              {isOwner ? (
                 <section className="glass-card p-6 border-white/5">
                   <h3 className="font-bold mb-4 text-xs flex items-center gap-2 uppercase tracking-widest text-slate-300">
                     <ShoppingBag size={16} className="text-emerald-500" /> Serviços Mais Procurados
@@ -2552,7 +2541,7 @@ export function AdminDashboard({ onBack, estabelecimentoId, membroId, cargo, isO
           <Calendar size={20} />
           <span className="text-[9px] font-bold uppercase">Agenda</span>
         </button>
-        {cargo === 'administrador' ? (
+        {isOwner && cargo === 'administrador' ? (
           <button onClick={() => setIsMoreMenuOpen(!isMoreMenuOpen)} className={`flex flex-col items-center gap-1 transition-all flex-1 ${isMoreMenuOpen || ['equipe', 'itens', 'relatorios', 'auditoria', 'config'].includes(activeTab) ? 'text-emerald-500 scale-110' : 'text-slate-500'}`}>
             <MoreVertical size={20} />
             <span className="text-[9px] font-bold uppercase">Mais</span>
@@ -2572,30 +2561,30 @@ export function AdminDashboard({ onBack, estabelecimentoId, membroId, cargo, isO
           <div className="bg-slate-900 border-t border-white/10 rounded-t-3xl p-6 pb-28 animate-in slide-in-from-bottom-8 duration-300 relative z-40 space-y-2 shadow-2xl">
             <h3 className="text-xs font-bold text-slate-500 uppercase tracking-widest mb-4 px-2">Gerenciamento</h3>
 
-            <button onClick={() => { setActiveTab('agenda'); setIsMoreMenuOpen(false); }} className="w-full flex items-center gap-4 bg-white/5 hover:bg-white/10 p-4 rounded-2xl transition-all">
-              <div className="bg-slate-800 p-2 rounded-xl text-emerald-400"><Calendar size={20} /></div>
-              <span className="font-bold text-sm">Agenda de Clientes</span>
-            </button>
             <button onClick={() => { setActiveTab('itens'); setIsMoreMenuOpen(false); }} className="w-full flex items-center gap-4 bg-white/5 hover:bg-white/10 p-4 rounded-2xl transition-all">
               <div className="bg-slate-800 p-2 rounded-xl text-emerald-500"><Scissors size={20} /></div>
               <span className="font-bold text-sm">Serviços e Produtos</span>
             </button>
-            <button onClick={() => { setActiveTab('equipe'); setIsMoreMenuOpen(false); }} className="w-full flex items-center gap-4 bg-white/5 hover:bg-white/10 p-4 rounded-2xl transition-all">
-              <div className="bg-slate-800 p-2 rounded-xl text-emerald-400"><Users size={20} /></div>
-              <span className="font-bold text-sm">Equipe</span>
-            </button>
-            <button onClick={() => { setActiveTab('relatorios'); setIsMoreMenuOpen(false); }} className="w-full flex items-center gap-4 bg-white/5 hover:bg-white/10 p-4 rounded-2xl transition-all">
-              <div className="bg-slate-800 p-2 rounded-xl text-indigo-500"><PieChart size={20} /></div>
-              <span className="font-bold text-sm">Relatórios de Produção</span>
-            </button>
-            <button onClick={() => { setActiveTab('auditoria'); setIsMoreMenuOpen(false); }} className="w-full flex items-center gap-4 bg-white/5 hover:bg-white/10 p-4 rounded-2xl transition-all">
-              <div className="bg-slate-800 p-2 rounded-xl text-amber-500"><ShieldAlert size={20} /></div>
-              <span className="font-bold text-sm">Auditoria</span>
-            </button>
-            <button onClick={() => { setActiveTab('config'); setIsMoreMenuOpen(false); }} className="w-full flex items-center gap-4 bg-white/5 hover:bg-white/10 p-4 rounded-2xl transition-all">
-              <div className="bg-slate-800 p-2 rounded-xl text-slate-400"><Settings size={20} /></div>
-              <span className="font-bold text-sm">Configurações do App</span>
-            </button>
+            {isOwner && cargo === 'administrador' && (
+              <>
+                <button onClick={() => { setActiveTab('equipe'); setIsMoreMenuOpen(false); }} className="w-full flex items-center gap-4 bg-white/5 hover:bg-white/10 p-4 rounded-2xl transition-all">
+                  <div className="bg-slate-800 p-2 rounded-xl text-emerald-400"><Users size={20} /></div>
+                  <span className="font-bold text-sm">Equipe</span>
+                </button>
+                <button onClick={() => { setActiveTab('relatorios'); setIsMoreMenuOpen(false); }} className="w-full flex items-center gap-4 bg-white/5 hover:bg-white/10 p-4 rounded-2xl transition-all">
+                  <div className="bg-slate-800 p-2 rounded-xl text-indigo-500"><PieChart size={20} /></div>
+                  <span className="font-bold text-sm">Relatórios de Produção</span>
+                </button>
+                <button onClick={() => { setActiveTab('auditoria'); setIsMoreMenuOpen(false); }} className="w-full flex items-center gap-4 bg-white/5 hover:bg-white/10 p-4 rounded-2xl transition-all">
+                  <div className="bg-slate-800 p-2 rounded-xl text-amber-500"><ShieldAlert size={20} /></div>
+                  <span className="font-bold text-sm">Auditoria</span>
+                </button>
+                <button onClick={() => { setActiveTab('config'); setIsMoreMenuOpen(false); }} className="w-full flex items-center gap-4 bg-white/5 hover:bg-white/10 p-4 rounded-2xl transition-all">
+                  <div className="bg-slate-800 p-2 rounded-xl text-slate-400"><Settings size={20} /></div>
+                  <span className="font-bold text-sm">Configurações do App</span>
+                </button>
+              </>
+            )}
           </div>
         </div>
       )}
