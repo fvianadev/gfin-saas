@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
-import { Calendar, Clock, User, Users, Scissors, CheckCircle, ArrowLeft, MessageCircle, ChevronRight } from 'lucide-react'
+import { Calendar, Clock, User, Scissors, CheckCircle, ArrowLeft, MessageCircle, ChevronRight } from 'lucide-react'
 import { formatCurrency } from '../lib/format'
 
 export function PublicBooking() {
@@ -9,7 +9,7 @@ export function PublicBooking() {
   const navigate = useNavigate()
   const [estab, setEstab] = useState<any>(null)
   const [loading, setLoading] = useState(true)
-  const [step, setStep] = useState(1) // 1: Servico, 2: Profissional, 3: Data/Hora, 4: Cadastro, 5: Sucesso
+  const [step, setStep] = useState(1)
 
   const applyPhoneMask = (value: string) => {
     const rawValue = value.replace(/\D/g, '')
@@ -24,8 +24,8 @@ export function PublicBooking() {
   }
 
   const [categorias, setCategorias] = useState<any[]>([])
+  const [categoriaAtiva, setCategoriaAtiva] = useState('')
   const [profissionais, setProfissionais] = useState<any[]>([])
-  const [horariosFunc, setHorariosFunc] = useState<any[]>([])
   const [agendamentosExistentes, setAgendamentosExistentes] = useState<any[]>([])
   const [carregandoHorarios, setCarregandoHorarios] = useState(false)
 
@@ -55,7 +55,6 @@ export function PublicBooking() {
       setCarregandoHorarios(true)
       setError(null)
 
-      // Criar range de data local para evitar problemas de timezone
       const startOfDay = `${selecionado.data}T00:00:00`
       const endOfDay = `${selecionado.data}T23:59:59`
 
@@ -69,7 +68,6 @@ export function PublicBooking() {
 
       if (fetchError) throw fetchError
 
-      // Extrair apenas o HH:mm das strings ISO para facilitar a comparação
       const formatados = (data || []).map(a => ({
         hora: new Date(a.hora).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }),
         membro_id: a.membro_id
@@ -78,7 +76,6 @@ export function PublicBooking() {
       setAgendamentosExistentes(formatados)
     } catch (err: any) {
       console.error('Erro ao buscar agendamentos:', err)
-      // Não bloqueia o usuário, mas avisa no console
     } finally {
       setCarregandoHorarios(false)
     }
@@ -100,7 +97,6 @@ export function PublicBooking() {
       setEstab(data)
       await fetchDados(data.id)
 
-      // --- PWA Dinâmico para Clientes ---
       const manifest = {
         short_name: data.nome.split(' ')[0],
         name: data.nome,
@@ -128,7 +124,6 @@ export function PublicBooking() {
       if (appleIcon && data.configuracoes?.logo_url) {
         appleIcon.setAttribute('href', data.configuracoes.logo_url);
       }
-      // ----------------------------------
     } catch (err: any) {
       console.error('Erro ao carregar estabelecimento:', err)
       setError(err.message || 'Erro ao carregar dados do salão.')
@@ -139,10 +134,9 @@ export function PublicBooking() {
 
   const fetchDados = async (id: string) => {
     try {
-      const [servRes, profRes, horRes] = await Promise.all([
+      const [servRes, profRes] = await Promise.all([
         supabase.from('servicos_produtos').select('*').eq('estabelecimento_id', id).eq('tipo', 'receita').order('categoria'),
-        supabase.from('membros_equipe').select('*').eq('estabelecimento_id', id).eq('ativo', true),
-        supabase.from('horarios_funcionamento').select('*').eq('estabelecimento_id', id).eq('ativo', true)
+        supabase.from('membros_equipe').select('*').eq('estabelecimento_id', id).eq('ativo', true)
       ])
 
       if (servRes.error) throw servRes.error
@@ -155,10 +149,11 @@ export function PublicBooking() {
           acc[cat].push(item)
           return acc
         }, {})
-        setCategorias(Object.entries(grouped))
+        const entries = Object.entries(grouped) as any[]
+        setCategorias(entries)
+        setCategoriaAtiva('')
       }
       setProfissionais(profRes.data || [])
-      setHorariosFunc(horRes.data || [])
     } catch (err: any) {
       console.error('Erro ao buscar dados complementares:', err)
       setError('Erro ao carregar serviços ou profissionais.')
@@ -170,30 +165,14 @@ export function PublicBooking() {
 
     try {
       setIsFinishing(true)
-      const pad = (n: number) => n.toString().padStart(2, '0')
       const [ano, mes, dia] = selecionado.data.split('-').map(Number)
       const [h, m] = selecionado.hora.split(':').map(Number)
 
-      // Criar data local e converter para ISO
       const dataInicio = new Date(ano, mes - 1, dia, h, m)
-
       const dataFim = new Date(dataInicio)
       dataFim.setMinutes(dataFim.getMinutes() + (selecionado.servico.duracao_minutos || 30))
 
-      let profissionalId = selecionado.profissional?.id || null;
-
-      // Se escolheu "Qualquer", vamos atribuir automaticamente a um que esteja livre
-      if (!profissionalId && profissionais.length > 0) {
-        const ocupadosNesseHorario = agendamentosExistentes.filter(a => a.hora === selecionado.hora);
-        const idsOcupados = ocupadosNesseHorario.map(a => a.membro_id);
-        const disponiveis = profissionais.filter(p => !idsOcupados.includes(p.id));
-
-        if (disponiveis.length > 0) {
-          profissionalId = disponiveis[0].id;
-        } else {
-          profissionalId = profissionais[0].id; // Fallback se algo deu errado na filtragem
-        }
-      }
+      const profissionalId = selecionado.profissional?.id;
 
       const { error: insertError } = await supabase.from('agendamentos').insert({
         estabelecimento_id: estab.id,
@@ -215,6 +194,22 @@ export function PublicBooking() {
       setIsFinishing(false)
     }
   }
+
+  const todosServicos = categorias
+    .flatMap(([_, items]) => items as any[])
+    .sort((a, b) => a.nome?.localeCompare(b.nome) || 0)
+
+  const servicosDaCategoria = categoriaAtiva
+    ? (categorias.find(([cat]) => cat === categoriaAtiva)?.[1] || [])
+    : todosServicos
+
+  const resumoItems = []
+  if (selecionado.servico) resumoItems.push({ icon: Scissors, label: selecionado.servico.nome })
+  if (selecionado.profissional) resumoItems.push({ icon: User, label: selecionado.profissional.nome })
+  if (selecionado.data) resumoItems.push({
+    icon: Calendar,
+    label: `${new Date(selecionado.data).toLocaleDateString('pt-BR')}${selecionado.hora ? ` às ${selecionado.hora}` : ''}`
+  })
 
   if (loading) return (
     <div className="min-h-screen bg-slate-950 flex items-center justify-center">
@@ -238,7 +233,7 @@ export function PublicBooking() {
       {/* HEADER */}
       <header className="p-6 bg-slate-900/50 border-b border-white/5 flex items-center gap-4 sticky top-0 z-10 backdrop-blur-md">
         {step > 1 && step < 5 && (
-          <button onClick={() => setStep(step - 1)} className="p-2 bg-white/5 rounded-xl text-slate-400">
+          <button onClick={() => setStep(step - 1)} className="p-2 bg-white/5 rounded-xl text-slate-400 hover:bg-white/10 transition-all">
             <ArrowLeft size={20} />
           </button>
         )}
@@ -255,61 +250,88 @@ export function PublicBooking() {
         </div>
       </header>
 
-      <main className="p-6 max-w-md mx-auto">
-        {/* STEP 1: SERVIÇOS */}
-        {step === 1 && (
-          <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
-            <h2 className="text-xl font-black text-white leading-tight">O que vamos <span className="text-emerald-500">fazer hoje?</span></h2>
-            {categorias.map(([cat, items]) => (
-              <div key={cat} className="space-y-3">
-                <h3 className="text-[10px] font-black text-slate-500 uppercase tracking-widest px-1">{cat}</h3>
-                <div className="grid grid-cols-1 gap-3">
-                  {items.map((item: any) => (
-                    <button
-                      key={item.id}
-                      onClick={() => { setSelecionado(prev => ({ ...prev, servico: item })); setStep(2); }}
-                      className="glass-card p-5 border-white/5 text-left flex justify-between items-center group active:scale-95 transition-all"
-                    >
-                      <div>
-                        <p className="font-bold text-sm text-slate-200 group-hover:text-emerald-400 transition-colors">{item.nome}</p>
-                        <div className="flex items-center gap-3 mt-1 text-[10px] font-bold text-slate-500 uppercase">
-                          <span className="flex items-center gap-1"><Clock size={10} /> {item.duracao_minutos || 30} min</span>
-                          <span className="text-emerald-500/80">{formatCurrency(item.preco_sugerido || 0)}</span>
-                        </div>
-                      </div>
-                      <ChevronRight size={18} className="text-slate-700 group-hover:text-emerald-500 transition-all" />
-                    </button>
-                  ))}
-                </div>
+      {/* RESUMO DINÂMICO */}
+      {step < 5 && resumoItems.length > 0 && (
+        <div className="sticky top-[76px] z-10 px-6 py-3 bg-slate-900/80 backdrop-blur-md border-b border-white/5">
+          <div className="max-w-md lg:max-w-3xl mx-auto flex items-center gap-4 flex-wrap">
+            {resumoItems.map((item, i) => (
+              <div key={i} className="flex items-center gap-2">
+                {i > 0 && <div className="w-1 h-1 rounded-full bg-emerald-500/60" />}
+                <item.icon size={12} className="text-emerald-500" />
+                <span className="text-[10px] font-bold text-slate-300 whitespace-nowrap">{item.label}</span>
               </div>
             ))}
+          </div>
+        </div>
+      )}
+
+      <main className="p-6 max-w-md lg:max-w-3xl mx-auto">
+        {/* STEP 1: SERVIÇOS */}
+        {step === 1 && (
+          <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
+            <h2 className="text-xl font-black text-white leading-tight">O que vamos <span className="text-emerald-500">fazer hoje?</span></h2>
+
+            {/* Barra de Categorias */}
+            <div className="flex gap-2 overflow-x-auto scrollbar-none">
+              <button
+                onClick={() => setCategoriaAtiva('')}
+                className={`shrink-0 px-5 py-2.5 rounded-xl text-xs font-black uppercase tracking-widest transition-all ${
+                  !categoriaAtiva
+                    ? 'bg-emerald-500 text-white shadow-lg shadow-emerald-500/20'
+                    : 'bg-slate-800 text-slate-400 hover:bg-slate-700'
+                }`}
+              >
+                Todos
+              </button>
+              {categorias.map(([cat]) => (
+                <button
+                  key={cat}
+                  onClick={() => setCategoriaAtiva(cat)}
+                  className={`shrink-0 px-5 py-2.5 rounded-xl text-xs font-black uppercase tracking-widest transition-all ${
+                    categoriaAtiva === cat
+                      ? 'bg-emerald-500 text-white shadow-lg shadow-emerald-500/20'
+                      : 'bg-slate-800 text-slate-400 hover:bg-slate-700'
+                  }`}
+                >
+                  {cat}
+                </button>
+              ))}
+            </div>
+
+            {/* Cards de Serviços */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+              {servicosDaCategoria.map((item: any) => (
+                <button
+                  key={item.id}
+                  onClick={() => { setSelecionado(prev => ({ ...prev, servico: item })); setStep(2); }}
+                  className="glass-card p-5 border-white/5 text-left flex justify-between items-center group active:scale-95 transition-all hover:border-emerald-500/30"
+                >
+                  <div>
+                    <p className="font-bold text-sm text-slate-200 group-hover:text-emerald-400 transition-colors">{item.nome}</p>
+                    <div className="flex items-center gap-3 mt-1.5 text-[10px] font-bold text-slate-500 uppercase">
+                      <span className="flex items-center gap-1"><Clock size={10} /> {item.duracao_minutos || 30} min</span>
+                      <span className="text-emerald-500/90">{formatCurrency(item.preco_sugerido || 0)}</span>
+                    </div>
+                  </div>
+                  <ChevronRight size={18} className="text-slate-700 group-hover:text-emerald-500 transition-all" />
+                </button>
+              ))}
+            </div>
           </div>
         )}
 
         {/* STEP 2: PROFISSIONAL */}
         {step === 2 && (
-          <div className="space-y-8 animate-in fade-in slide-in-from-right-4 duration-500">
+          <div className="space-y-6 animate-in fade-in slide-in-from-right-4 duration-500">
             <h2 className="text-xl font-black text-white leading-tight">Com <span className="text-emerald-500">quem?</span></h2>
             <div className="grid grid-cols-1 gap-3">
-              <button
-                onClick={() => { setSelecionado(prev => ({ ...prev, profissional: null })); setStep(3); }}
-                className="glass-card p-5 border-white/5 text-left flex items-center gap-4 active:scale-95 transition-all"
-              >
-                <div className="w-12 h-12 rounded-2xl bg-slate-800 flex items-center justify-center text-emerald-500">
-                  <Users size={24} />
-                </div>
-                <div>
-                  <p className="font-bold text-sm">Qualquer um</p>
-                  <p className="text-[10px] text-slate-500 font-bold uppercase">O que estiver disponível mais cedo</p>
-                </div>
-              </button>
               {profissionais.map(p => (
                 <button
                   key={p.id}
                   onClick={() => { setSelecionado(prev => ({ ...prev, profissional: p })); setStep(3); }}
-                  className="glass-card p-5 border-white/5 text-left flex items-center gap-4 active:scale-95 transition-all"
+                  className="glass-card p-5 border-white/5 text-left flex items-center gap-4 active:scale-95 transition-all hover:border-emerald-500/30"
                 >
-                  <div className="w-12 h-12 rounded-2xl bg-slate-800 flex items-center justify-center text-emerald-500 font-black uppercase text-xl">
+                  <div className="w-12 h-12 rounded-2xl bg-emerald-500/10 flex items-center justify-center text-emerald-500 font-black uppercase text-xl">
                     {p.nome.charAt(0)}
                   </div>
                   <div>
@@ -324,11 +346,11 @@ export function PublicBooking() {
 
         {/* STEP 3: DATA E HORA */}
         {step === 3 && (
-          <div className="space-y-8 animate-in fade-in slide-in-from-right-4 duration-500">
+          <div className="space-y-6 animate-in fade-in slide-in-from-right-4 duration-500">
             <h2 className="text-xl font-black text-white leading-tight">Escolha o <span className="text-emerald-500">horário</span></h2>
 
-            <div className="space-y-4">
-              <label className="text-[10px] font-bold text-slate-500 uppercase px-1">Selecione o Dia</label>
+            <div className="space-y-3">
+              <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Selecione o Dia</label>
               <input
                 type="date"
                 min={new Date().toISOString().split('T')[0]}
@@ -339,24 +361,15 @@ export function PublicBooking() {
             </div>
 
             {selecionado.data && (
-              <div className="space-y-4">
-                <label className="text-[10px] font-bold text-slate-500 uppercase px-1">
+              <div className="space-y-3">
+                <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">
                   {carregandoHorarios ? 'Verificando disponibilidade...' : 'Horários Disponíveis'}
                 </label>
                 <div className="grid grid-cols-3 gap-2">
                   {['08:00', '08:30', '09:00', '09:30', '10:00', '10:30', '11:00', '11:30', '13:00', '13:30', '14:00', '14:30', '15:00', '15:30', '16:00', '16:30', '17:00', '17:30'].map(h => {
-                    // Lógica de Bloqueio
                     const ocupadosNesseHorario = agendamentosExistentes.filter(a => a.hora === h)
-                    let disponivel = true
-
-                    if (selecionado.profissional) {
-                      // Se escolheu um barbeiro, ele está livre?
-                      const jaTemAgendamentoComEle = ocupadosNesseHorario.some(a => a.membro_id === selecionado.profissional.id)
-                      if (jaTemAgendamentoComEle) disponivel = false
-                    } else {
-                      // Se "Qualquer", ainda tem barbeiro livre?
-                      if (ocupadosNesseHorario.length >= profissionais.length) disponivel = false
-                    }
+                    const jaTemAgendamento = selecionado.profissional && ocupadosNesseHorario.some(a => a.membro_id === selecionado.profissional.id)
+                    const disponivel = !jaTemAgendamento
 
                     if (!disponivel) return null
 
@@ -364,7 +377,11 @@ export function PublicBooking() {
                       <button
                         key={h}
                         onClick={() => { setSelecionado(prev => ({ ...prev, hora: h })); setStep(4); }}
-                        className={`py-3 rounded-xl text-xs font-black transition-all ${selecionado.hora === h ? 'bg-emerald-500 text-white shadow-lg shadow-emerald-500/20' : 'bg-slate-900 text-slate-400 border border-white/5'}`}
+                        className={`py-3.5 rounded-xl text-xs font-black transition-all ${
+                          selecionado.hora === h
+                            ? 'bg-emerald-500 text-white shadow-lg shadow-emerald-500/20 scale-105'
+                            : 'bg-slate-900 text-slate-400 border border-white/5 hover:border-emerald-500/40 hover:text-emerald-400'
+                        }`}
                       >
                         {h}
                       </button>
@@ -372,7 +389,7 @@ export function PublicBooking() {
                   })}
                 </div>
                 {agendamentosExistentes.length > 0 && (
-                  <p className="text-[10px] text-slate-600 italic mt-2">* Horários ocupados não são exibidos.</p>
+                  <p className="text-[10px] text-slate-600 italic">* Horários ocupados não são exibidos.</p>
                 )}
               </div>
             )}
@@ -381,36 +398,41 @@ export function PublicBooking() {
 
         {/* STEP 4: DADOS FINAIS */}
         {step === 4 && (
-          <div className="space-y-8 animate-in fade-in slide-in-from-right-4 duration-500">
+          <div className="space-y-6 animate-in fade-in slide-in-from-right-4 duration-500">
             <h2 className="text-xl font-black text-white leading-tight">Para <span className="text-emerald-500">finalizar...</span></h2>
 
-            <div className="glass-card p-6 border-emerald-500/20 bg-emerald-500/5 mb-6">
-              <p className="text-[10px] text-emerald-500 font-bold uppercase mb-3">Resumo do Agendamento</p>
+            {/* Card Resumo Compacto */}
+            <div className="bg-emerald-500/5 border border-emerald-500/20 rounded-2xl p-5 space-y-3">
+              <p className="text-[10px] font-bold uppercase tracking-widest text-emerald-500">Resumo do Agendamento</p>
               <div className="space-y-2">
-                <p className="text-sm font-bold flex items-center gap-2"><Scissors size={14} className="text-emerald-500" /> {selecionado.servico.nome} ({formatCurrency(selecionado.servico.preco_sugerido || 0)})</p>
-                <p className="text-sm font-bold flex items-center gap-2"><User size={14} className="text-emerald-500" /> {selecionado.profissional?.nome || 'Qualquer Profissional'}</p>
-                <p className="text-sm font-bold flex items-center gap-2"><Calendar size={14} className="text-emerald-500" /> {new Date(selecionado.data).toLocaleDateString('pt-BR')} às {selecionado.hora}</p>
+                <p className="text-sm font-bold flex items-center gap-2"><Scissors size={14} className="text-emerald-500 shrink-0" /> {selecionado.servico.nome} <span className="text-emerald-400 font-black">{formatCurrency(selecionado.servico.preco_sugerido || 0)}</span></p>
+                <p className="text-sm font-bold flex items-center gap-2"><User size={14} className="text-emerald-500 shrink-0" /> {selecionado.profissional?.nome}</p>
+                <p className="text-sm font-bold flex items-center gap-2"><Calendar size={14} className="text-emerald-500 shrink-0" /> {new Date(selecionado.data).toLocaleDateString('pt-BR')} às {selecionado.hora}</p>
               </div>
             </div>
 
+            {/* Formulário */}
             <div className="space-y-4">
               <div className="space-y-1">
-                <label className="text-[10px] font-bold text-slate-500 uppercase px-1">Seu Nome</label>
-                <input required className="w-full bg-slate-900 border border-white/5 rounded-2xl p-5 text-sm font-bold outline-none focus:border-emerald-500 transition-all" value={selecionado.clienteNome} onChange={e => setSelecionado(prev => ({ ...prev, clienteNome: e.target.value }))} placeholder="Como quer ser chamado?" />
+                <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest px-1">Seu Nome</label>
+                <input className="w-full bg-slate-900 border border-white/5 rounded-2xl p-5 text-sm font-bold outline-none focus:border-emerald-500 transition-all placeholder:text-slate-700" value={selecionado.clienteNome} onChange={e => setSelecionado(prev => ({ ...prev, clienteNome: e.target.value }))} placeholder="Como quer ser chamado?" />
               </div>
               <div className="space-y-1">
-                <label className="text-[10px] font-bold text-slate-500 uppercase px-1">Seu WhatsApp</label>
+                <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest px-1">Seu WhatsApp</label>
                 <input
-                  required
                   type="tel"
-                  className="w-full bg-slate-900 border border-white/5 rounded-2xl p-5 text-sm font-bold outline-none focus:border-emerald-500 transition-all"
+                  className="w-full bg-slate-900 border border-white/5 rounded-2xl p-5 text-sm font-bold outline-none focus:border-emerald-500 transition-all placeholder:text-slate-700"
                   value={applyPhoneMask(selecionado.clienteWhatsapp)}
                   onChange={e => setSelecionado(prev => ({ ...prev, clienteWhatsapp: e.target.value.replace(/\D/g, '') }))}
                   placeholder="(99) 9 9999-9999"
                 />
               </div>
-              <button onClick={handleFinish} className="w-full bg-emerald-500 py-5 rounded-2xl font-black text-sm shadow-xl shadow-emerald-500/20 active:scale-95 transition-all mt-6 uppercase tracking-widest">
-                Confirmar Agendamento
+              <button
+                onClick={handleFinish}
+                disabled={isFinishing || !selecionado.clienteNome || !selecionado.clienteWhatsapp}
+                className="w-full bg-emerald-500 py-5 rounded-2xl font-black text-sm shadow-xl shadow-emerald-500/20 active:scale-95 transition-all uppercase tracking-widest disabled:opacity-40 disabled:cursor-not-allowed"
+              >
+                {isFinishing ? 'Agendando...' : 'Confirmar Agendamento'}
               </button>
             </div>
           </div>
@@ -432,22 +454,21 @@ export function PublicBooking() {
                 const diaSemana = dataObj.toLocaleDateString('pt-BR', { weekday: 'long' });
                 const dataFormatada = dataObj.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' });
 
-                // WhatsApp Dinâmico: Se tiver profissional, manda pra ele. Senão, manda pro estabelecimento.
                 const whatsappDestino = selecionado.profissional?.whatsapp || estab.configuracoes?.whatsapp || '';
 
                 const msg = encodeURIComponent(
                   `Olá! Gostaria de confirmar minha reserva\n` +
-                  `\uD83D\uDC88 ${estab.nome.toUpperCase()} \uD83D\uDC88\n` +
-                  `\uD83D\uDC64 CLIENTE: ${selecionado.clienteNome}\n` +
-                  `\u2702\uFE0F SERVIÇO: ${selecionado.servico.nome}\n` +
-                  `\uD83D\uDDD3\uFE0F DATA: ${dataFormatada} (${diaSemana.charAt(0).toUpperCase() + diaSemana.slice(1)})\n` +
-                  `\u23F0 HORA: ${selecionado.hora}\n` +
-                  `\u2705 Status: Aguardando confirmação\n\n` +
-                  `Pode confirmar para mim? \uD83D\uDE4F`
+                  `💈 ${estab.nome.toUpperCase()} 💈\n` +
+                  `👤 CLIENTE: ${selecionado.clienteNome}\n` +
+                  `✂️ SERVIÇO: ${selecionado.servico.nome}\n` +
+                  `🗓️ DATA: ${dataFormatada} (${diaSemana.charAt(0).toUpperCase() + diaSemana.slice(1)})\n` +
+                  `⏰ HORA: ${selecionado.hora}\n` +
+                  `✅ Status: Aguardando confirmação\n\n` +
+                  `Pode confirmar para mim? 🙏`
                 );
                 window.open(`https://wa.me/${whatsappDestino.replace(/\D/g, '')}?text=${msg}`, '_blank');
               }}
-              className="w-full bg-slate-900 border border-white/10 py-5 rounded-2xl font-black text-sm flex items-center justify-center gap-3 active:scale-95 transition-all"
+              className="w-full bg-slate-900 border border-white/10 py-5 rounded-2xl font-black text-sm flex items-center justify-center gap-3 active:scale-95 transition-all hover:bg-slate-800"
             >
               <MessageCircle size={20} className="text-emerald-500" /> Avisar via WhatsApp
             </button>

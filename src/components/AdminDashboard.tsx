@@ -51,7 +51,7 @@ export function AdminDashboard({ onBack, estabelecimentoId, membroId, cargo, isO
       filtered = filtered.filter(t => t.tipo === tipoFiltro);
     }
 
-    if (cargo === 'administrador' && searchTx.trim()) {
+    if (searchTx.trim()) {
       const term = searchTx.toLowerCase().trim();
       filtered = filtered.filter(t => {
         const desc = (t.descricao || '').toLowerCase();
@@ -173,6 +173,11 @@ export function AdminDashboard({ onBack, estabelecimentoId, membroId, cargo, isO
   const [auditFilterAcao, setAuditFilterAcao] = useState<string>('todos')
   const [auditFilterMembro, setAuditFilterMembro] = useState<string>('todos')
   const [auditSearch, setAuditSearch] = useState<string>('')
+  const [agendaFilterProf, setAgendaFilterProf] = useState<string>(cargo === 'usuario' ? membroId : 'todos')
+  const [agendaFilterStatus, setAgendaFilterStatus] = useState<string>('todos')
+  const [agendaFilterDataIni, setAgendaFilterDataIni] = useState<string>('')
+  const [agendaFilterDataFim, setAgendaFilterDataFim] = useState<string>('')
+  const [agendaSearch, setAgendaSearch] = useState('')
 
   const filteredAuditData = useMemo(() => {
     return auditData.filter(log => {
@@ -188,6 +193,26 @@ export function AdminDashboard({ onBack, estabelecimentoId, membroId, cargo, isO
       return matchAcao && matchMembro && matchSearch;
     });
   }, [auditData, auditFilterAcao, auditFilterMembro, auditSearch]);
+
+  const filteredAgendamentos = useMemo(() => {
+    const term = agendaSearch.toLowerCase().trim()
+    return agendamentos.filter(ag => {
+      const matchProf = agendaFilterProf === 'todos' || ag.membro_id === agendaFilterProf;
+      const matchStatus = agendaFilterStatus === 'todos' || ag.status === agendaFilterStatus;
+      const dataAg = new Date(ag.data_hora_inicio).toISOString().split('T')[0];
+      const matchDataIni = !agendaFilterDataIni || dataAg >= agendaFilterDataIni;
+      const matchDataFim = !agendaFilterDataFim || dataAg <= agendaFilterDataFim;
+      const servico = Array.isArray(ag.servicos_produtos) ? ag.servicos_produtos[0] : ag.servicos_produtos;
+      const servicoNome = servico?.nome || '';
+      const matchSearch = !term ||
+        ag.cliente_nome.toLowerCase().includes(term) ||
+        ag.cliente_whatsapp?.toLowerCase().includes(term) ||
+        servicoNome.toLowerCase().includes(term) ||
+        (ag.membros_equipe?.nome || '').toLowerCase().includes(term) ||
+        ag.status.toLowerCase().includes(term);
+      return matchProf && matchStatus && matchDataIni && matchDataFim && matchSearch;
+    });
+  }, [agendamentos, agendaFilterProf, agendaFilterStatus, agendaFilterDataIni, agendaFilterDataFim, agendaSearch]);
 
   const [transactionToEdit, setTransactionToEdit] = useState<any>(null)
 
@@ -207,9 +232,17 @@ export function AdminDashboard({ onBack, estabelecimentoId, membroId, cargo, isO
   const [urlCopied, setUrlCopied] = useState<string | null>(null)
 
   const [itens, setItens] = useState<any[]>([])
+  const [servicoSearch, setServicoSearch] = useState('')
   const [novoItem, setNovoItem] = useState({ nome: '', preco: '', tipo: 'receita' as 'receita' | 'despesa', categoria: 'Geral', duracao: '30' })
   const [itemParaEditar, setItemParaEditar] = useState<string | null>(null)
   const [itemSaving, setItemSaving] = useState(false)
+  const filteredItens = useMemo(() => {
+    const term = servicoSearch.toLowerCase()
+    return itens.filter(item =>
+      item.nome.toLowerCase().includes(term) ||
+      item.categoria?.toLowerCase().includes(term)
+    )
+  }, [itens, servicoSearch])
 
   const [isAgendamentoModalOpen, setIsAgendamentoModalOpen] = useState(false)
   const [agendamentoParaEditar, setAgendamentoParaEditar] = useState<any>(null)
@@ -1301,12 +1334,10 @@ export function AdminDashboard({ onBack, estabelecimentoId, membroId, cargo, isO
                     </button>
                   ))}
                 </div>
-                {isOwner && (
-                  <div className="relative flex-1 group">
-                    <input type="text" placeholder="Buscar por usuário, descrição ou categoria..." value={searchTx} onChange={e => setSearchTx(e.target.value)} className="w-full bg-slate-900 border border-white/5 rounded-xl py-2 pl-10 pr-4 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/50 transition-all" />
-                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500 group-focus-within:text-emerald-500 transition-colors" size={16} />
-                  </div>
-                )}
+                <div className="relative flex-1 group">
+                  <input type="text" placeholder="Buscar por usuário, descrição ou categoria..." value={searchTx} onChange={e => setSearchTx(e.target.value)} className="w-full bg-slate-900 border border-white/5 rounded-xl py-2 pl-10 pr-4 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/50 transition-all" />
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500 group-focus-within:text-emerald-500 transition-colors" size={16} />
+                </div>
               </div>
             )}
           </div>
@@ -1805,8 +1836,19 @@ export function AdminDashboard({ onBack, estabelecimentoId, membroId, cargo, isO
               </div>
             )}
 
+            <div className="relative">
+              <Search size={16} className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-500" />
+              <input
+                type="text"
+                value={servicoSearch}
+                onChange={e => setServicoSearch(e.target.value)}
+                placeholder="Buscar serviço ou categoria..."
+                className="w-full bg-slate-900 border border-white/5 rounded-xl pl-11 pr-4 py-3 text-sm font-bold outline-none focus:border-emerald-500 transition-all"
+              />
+            </div>
+
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-              {itens.map(item => (
+              {filteredItens.map(item => (
                 <div key={item.id} className="glass-card p-4 border-white/5 flex justify-between items-center group">
                   <div>
                     <p className="font-bold text-sm">{item.nome}</p>
@@ -1815,7 +1857,25 @@ export function AdminDashboard({ onBack, estabelecimentoId, membroId, cargo, isO
                       {item.preco_sugerido && <span className="text-[10px] font-mono text-slate-400">{formatCurrency(item.preco_sugerido)}</span>}
                     </div>
                   </div>
-                  <button onClick={() => handleDeleteItem(item.id)} className="p-2 text-slate-500 hover:text-rose-500 transition-all opacity-0 group-hover:opacity-100"><Trash2 size={14} /></button>
+                  <div className="flex gap-1">
+                    <button
+                      onClick={() => {
+                        setItemParaEditar(item.id)
+                        setNovoItem({
+                          nome: item.nome || '',
+                          preco: item.preco_sugerido ? item.preco_sugerido.toString().replace('.', ',') : '',
+                          tipo: item.tipo || 'receita',
+                          categoria: item.categoria || 'Geral',
+                          duracao: item.duracao_minutos?.toString() || '30'
+                        })
+                        setIsItemModalOpen(true)
+                      }}
+                      className="p-2 text-slate-500 hover:text-emerald-500 transition-all opacity-0 group-hover:opacity-100"
+                    >
+                      <Edit2 size={14} />
+                    </button>
+                    <button onClick={() => handleDeleteItem(item.id)} className="p-2 text-slate-500 hover:text-rose-500 transition-all opacity-0 group-hover:opacity-100"><Trash2 size={14} /></button>
+                  </div>
                 </div>
               ))}
             </div>
@@ -2129,13 +2189,54 @@ export function AdminDashboard({ onBack, estabelecimentoId, membroId, cargo, isO
               <button onClick={fetchAgendamentos} className="p-2 text-slate-500 hover:text-emerald-500 transition-all"><RefreshCw size={18} className={carregandoAgendamentos ? 'animate-spin' : ''} /></button>
             </div>
 
+            <div className="glass-card p-4 border-white/5 space-y-3">
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+                <div className="space-y-1">
+                  <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Profissional</label>
+                  <select value={agendaFilterProf} onChange={e => setAgendaFilterProf(e.target.value)} className="w-full bg-slate-900 border border-white/5 rounded-xl p-3 text-sm font-bold outline-none focus:border-emerald-500 transition-all">
+                    <option value="todos">Todos</option>
+                    {membros.map(m => <option key={m.id} value={m.id}>{m.nome}</option>)}
+                  </select>
+                </div>
+                <div className="space-y-1">
+                  <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Status</label>
+                  <select value={agendaFilterStatus} onChange={e => setAgendaFilterStatus(e.target.value)} className="w-full bg-slate-900 border border-white/5 rounded-xl p-3 text-sm font-bold outline-none focus:border-emerald-500 transition-all">
+                    <option value="todos">Todos</option>
+                    <option value="pendente">Pendente</option>
+                    <option value="confirmado">Confirmado</option>
+                    <option value="concluido">Concluído</option>
+                    <option value="cancelado">Cancelado</option>
+                  </select>
+                </div>
+                <div className="space-y-1">
+                  <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">De</label>
+                  <input type="date" value={agendaFilterDataIni} onChange={e => setAgendaFilterDataIni(e.target.value)} className="w-full bg-slate-900 border border-white/5 rounded-xl p-3 text-sm font-bold outline-none focus:border-emerald-500 transition-all" />
+                </div>
+                <div className="space-y-1">
+                  <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Até</label>
+                  <input type="date" value={agendaFilterDataFim} onChange={e => setAgendaFilterDataFim(e.target.value)} className="w-full bg-slate-900 border border-white/5 rounded-xl p-3 text-sm font-bold outline-none focus:border-emerald-500 transition-all" />
+                </div>
+              </div>
+            </div>
+
+            <div className="relative">
+              <Search size={16} className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-500" />
+              <input
+                type="text"
+                value={agendaSearch}
+                onChange={e => setAgendaSearch(e.target.value)}
+                placeholder="Buscar por cliente, profissional, serviço, status..."
+                className="w-full bg-slate-900 border border-white/5 rounded-xl pl-11 pr-4 py-3 text-sm font-bold outline-none focus:border-emerald-500 transition-all"
+              />
+            </div>
+
             <div className="grid grid-cols-1 gap-4">
               {agendamentos.length === 0 ? (
                 <div className="text-center p-12 glass-card border-dashed border-white/5 text-slate-600 font-bold">
                   Nenhum agendamento encontrado.
                 </div>
               ) : (
-                agendamentos.map(ag => {
+                filteredAgendamentos.map(ag => {
                   const data = new Date(ag.data_hora_inicio);
                   const servico = Array.isArray(ag.servicos_produtos) ? ag.servicos_produtos[0] : ag.servicos_produtos;
                   const servicoNome = servico?.nome || '';
