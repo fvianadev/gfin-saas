@@ -253,7 +253,7 @@ export function PublicBooking() {
       {/* RESUMO DINÂMICO */}
       {step < 5 && resumoItems.length > 0 && (
         <div className="sticky top-[76px] z-10 px-6 py-3 bg-slate-900/80 backdrop-blur-md border-b border-white/5">
-          <div className="max-w-md lg:max-w-3xl mx-auto flex items-center gap-4 flex-wrap">
+          <div className="max-w-full sm:max-w-3xl mx-auto flex items-center gap-4 sm:gap-6 flex-wrap">
             {resumoItems.map((item, i) => (
               <div key={i} className="flex items-center gap-2">
                 {i > 0 && <div className="w-1 h-1 rounded-full bg-emerald-500/60" />}
@@ -265,7 +265,7 @@ export function PublicBooking() {
         </div>
       )}
 
-      <main className="p-6 max-w-md lg:max-w-3xl mx-auto">
+       <main className="p-6 max-w-full sm:max-w-3xl mx-auto">
         {/* STEP 1: SERVIÇOS */}
         {step === 1 && (
           <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
@@ -299,21 +299,30 @@ export function PublicBooking() {
             </div>
 
             {/* Cards de Serviços */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-6">
               {servicosDaCategoria.map((item: any) => (
                 <button
                   key={item.id}
                   onClick={() => { setSelecionado(prev => ({ ...prev, servico: item })); setStep(2); }}
-                  className="glass-card p-5 border-white/5 text-left flex justify-between items-center group active:scale-95 transition-all hover:border-emerald-500/30"
+                  className="glass-card p-4 border-white/5 text-left flex items-center gap-4 group active:scale-95 transition-all hover:border-emerald-500/30"
                 >
-                  <div>
-                    <p className="font-bold text-sm text-slate-200 group-hover:text-emerald-400 transition-colors">{item.nome}</p>
+                  <div className="relative shrink-0 w-16 h-16 sm:w-20 sm:h-20 rounded-[inherit] overflow-hidden bg-slate-900 border border-white/5 flex items-center justify-center">
+                    {item.imagem_url ? (
+                      <img src={item.imagem_url} alt={item.nome} className="w-full h-full object-cover" />
+                    ) : (
+                      <div className="w-full h-full flex items-center justify-center text-slate-600 bg-slate-950">
+                        <Scissors size={20} />
+                      </div>
+                    )}
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="font-bold text-sm text-slate-200 group-hover:text-emerald-400 transition-colors whitespace-normal break-words">{item.nome}</p>
                     <div className="flex items-center gap-3 mt-1.5 text-[10px] font-bold text-slate-500 uppercase">
                       <span className="flex items-center gap-1"><Clock size={10} /> {item.duracao_minutos || 30} min</span>
                       <span className="text-emerald-500/90">{formatCurrency(item.preco_sugerido || 0)}</span>
                     </div>
                   </div>
-                  <ChevronRight size={18} className="text-slate-700 group-hover:text-emerald-500 transition-all" />
+                  <ChevronRight size={18} className="text-slate-700 group-hover:text-emerald-500 transition-all shrink-0" />
                 </button>
               ))}
             </div>
@@ -402,12 +411,24 @@ export function PublicBooking() {
             <h2 className="text-xl font-black text-white leading-tight">Para <span className="text-emerald-500">finalizar...</span></h2>
 
             {/* Card Resumo Compacto */}
-            <div className="bg-emerald-500/5 border border-emerald-500/20 rounded-2xl p-5 space-y-3">
-              <p className="text-[10px] font-bold uppercase tracking-widest text-emerald-500">Resumo do Agendamento</p>
-              <div className="space-y-2">
-                <p className="text-sm font-bold flex items-center gap-2"><Scissors size={14} className="text-emerald-500 shrink-0" /> {selecionado.servico.nome} <span className="text-emerald-400 font-black">{formatCurrency(selecionado.servico.preco_sugerido || 0)}</span></p>
-                <p className="text-sm font-bold flex items-center gap-2"><User size={14} className="text-emerald-500 shrink-0" /> {selecionado.profissional?.nome}</p>
-                <p className="text-sm font-bold flex items-center gap-2"><Calendar size={14} className="text-emerald-500 shrink-0" /> {new Date(selecionado.data).toLocaleDateString('pt-BR')} às {selecionado.hora}</p>
+            <div className="bg-emerald-500/5 border border-emerald-500/20 rounded-2xl p-4">
+              <p className="text-[10px] font-bold uppercase tracking-widest text-emerald-500 px-1">Resumo do Agendamento</p>
+              <div className="flex items-center gap-4 mt-3">
+                <div className="shrink-0 w-16 h-16 rounded-xl overflow-hidden bg-slate-900 border border-white/5 flex items-center justify-center">
+                  {selecionado.servico?.imagem_url ? (
+                    <img src={selecionado.servico.imagem_url} alt={selecionado.servico.nome} className="w-full h-full object-cover" />
+                  ) : (
+                    <div className="w-full h-full flex items-center justify-center text-slate-600 bg-slate-950">
+                      <Scissors size={20} />
+                    </div>
+                  )}
+                </div>
+
+                <div className="flex-1 min-w-0 space-y-1">
+                  <p className="text-sm font-bold text-slate-200 truncate">{selecionado.servico.nome} <span className="text-emerald-400 font-black ml-2">{formatCurrency(selecionado.servico.preco_sugerido || 0)}</span></p>
+                  <p className="text-sm font-bold text-slate-300 flex items-center gap-2"><User size={14} className="text-emerald-500 shrink-0" /> {selecionado.profissional?.nome || '—'}</p>
+                  <p className="text-sm font-bold text-slate-300 flex items-center gap-2"><Calendar size={14} className="text-emerald-500 shrink-0" /> {new Date(selecionado.data).toLocaleDateString('pt-BR')} às {selecionado.hora}</p>
+                </div>
               </div>
             </div>
 

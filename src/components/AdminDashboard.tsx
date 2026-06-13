@@ -5,6 +5,7 @@ import { ArrowLeft, ArrowRight, TrendingUp, TrendingDown, Lock, Shield, Calendar
 import { supabase } from '../lib/supabase'
 import { TransactionModal } from './TransactionModal'
 import { formatCurrency, formatDateTime } from '../lib/format'
+import { extractPathFromSupabaseUrl } from '../lib/storage'
 
 interface AdminDashboardProps {
   onBack: () => void
@@ -233,7 +234,8 @@ export function AdminDashboard({ onBack, estabelecimentoId, membroId, cargo, isO
 
   const [itens, setItens] = useState<any[]>([])
   const [servicoSearch, setServicoSearch] = useState('')
-  const [novoItem, setNovoItem] = useState({ nome: '', preco: '', tipo: 'receita' as 'receita' | 'despesa', categoria: 'Geral', duracao: '30' })
+  const [novoItem, setNovoItem] = useState({ nome: '', preco: '', tipo: 'receita' as 'receita' | 'despesa', categoria: 'Geral', duracao: '30', imagem_url: '' })
+  const [imageFile, setImageFile] = useState<File | null>(null)
   const [itemParaEditar, setItemParaEditar] = useState<string | null>(null)
   const [itemSaving, setItemSaving] = useState(false)
   const filteredItens = useMemo(() => {
@@ -973,18 +975,77 @@ export function AdminDashboard({ onBack, estabelecimentoId, membroId, cargo, isO
     setItens(data || [])
   }
 
+  // Lista de categorias únicas (case-insensitive) derivada dos itens
+  const availableCategories = useMemo<string[]>(() => {
+    const map = new Map<string, string>();
+    (itens || []).forEach((it: any) => {
+      const c = (it.categoria || '').toString().trim()
+      if (!c) return
+      const key = c.toLowerCase()
+      if (!map.has(key)) map.set(key, c.toUpperCase())
+    })
+    return Array.from(map.values())
+  }, [itens])
+
   const handleSaveItem = async (e: React.FormEvent) => {
     e.preventDefault()
     if (!novoItem.nome.trim()) return
     setItemSaving(true)
 
+    let finalImageUrl = itemParaEditar ? novoItem.imagem_url : ''
+
+    if (imageFile) {
+      try {
+        const fileExt = imageFile.name.split('.').pop()
+        const randomId = typeof crypto !== 'undefined' && crypto.randomUUID 
+          ? crypto.randomUUID() 
+          : Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15)
+        const fileName = `${estabelecimentoId}/${randomId}.${fileExt}`
+        
+        const { error: uploadError } = await supabase.storage
+          .from('servicos')
+          .upload(fileName, imageFile, {
+            cacheControl: '3600',
+            upsert: true
+          })
+
+        if (uploadError) throw uploadError
+
+        const { data: { publicUrl } } = supabase.storage
+          .from('servicos')
+          .getPublicUrl(fileName)
+
+        finalImageUrl = publicUrl
+
+      } catch (err: any) {
+        console.error('Erro no upload da imagem:', err)
+        alert('Erro ao subir imagem (salvaremos os outros dados): ' + err.message)
+      }
+    }
+
+    // Se estiver editando, deleta a imagem antiga se foi alterada ou removida por completo
+    if (itemParaEditar) {
+      const itemAntigo = itens.find(it => it.id === itemParaEditar)
+      const urlAntiga = itemAntigo?.imagem_url
+      const urlNova = finalImageUrl || ''
+      if (urlAntiga && urlAntiga !== urlNova) {
+        const pathAntigo = extractPathFromSupabaseUrl(urlAntiga, 'servicos')
+        if (pathAntigo) {
+          supabase.storage.from('servicos').remove([pathAntigo]).then(({ error }) => {
+            if (error) console.error('Erro ao deletar imagem antiga do Storage:', error)
+          })
+        }
+      }
+    }
+
     const payload = {
       estabelecimento_id: estabelecimentoId,
-      nome: novoItem.nome.trim(),
+      nome: (novoItem.nome || '').toString().trim().toUpperCase(),
       preco_sugerido: novoItem.preco ? parseFloat(novoItem.preco.toString().replace(',', '.')) : null,
       tipo: novoItem.tipo,
-      categoria: novoItem.categoria,
-      duracao_minutos: parseInt(novoItem.duracao) || 30
+      categoria: (novoItem.categoria || '').toString().trim().toUpperCase(),
+      duracao_minutos: parseInt(novoItem.duracao) || 30,
+      imagem_url: finalImageUrl || null
     }
 
     let error = null
@@ -998,7 +1059,8 @@ export function AdminDashboard({ onBack, estabelecimentoId, membroId, cargo, isO
 
     setItemSaving(false)
     if (!error) {
-      setNovoItem({ nome: '', preco: '', tipo: 'receita', categoria: 'Geral', duracao: '30' })
+      setNovoItem({ nome: '', preco: '', tipo: 'receita', categoria: 'Geral', duracao: '30', imagem_url: '' })
+      setImageFile(null)
       setItemParaEditar(null)
       setIsItemModalOpen(false)
       fetchItens()
@@ -1007,8 +1069,42 @@ export function AdminDashboard({ onBack, estabelecimentoId, membroId, cargo, isO
 
   const handleDeleteItem = async (id: string) => {
     if (!confirm('Tem certeza que deseja excluir este item?')) return
+    
+    const itemDeletado = itens.find(it => it.id === id)
+    const urlImagemAntiga = itemDeletado?.imagem_url
+
     const { error } = await supabase.from('servicos_produtos').delete().eq('id', id)
-    if (!error) fetchItens()
+    if (!error) {
+      fetchItens()
+
+      if (urlImagemAntiga) {
+        const pathAntigo = extractPathFromSupabaseUrl(urlImagemAntiga, 'servicos')
+        if (pathAntigo) {
+          supabase.storage.from('servicos').remove([pathAntigo]).then(({ error: deleteErr }) => {
+            if (deleteErr) console.error('Erro ao deletar imagem do serviço removido:', deleteErr)
+          })
+        }
+      }
+    } else {
+      // Tratamento amigável quando há dependências (ex.: agendamentos usando o serviço)
+      const msg = (error && error.message) || ''
+      const isForeignKey = typeof msg === 'string' && (msg.toLowerCase().includes('violates foreign key') || msg.toLowerCase().includes('foreign key'))
+
+      if (isForeignKey) {
+        // Mostrar modal amigável para o usuário final
+        setFeedbackModal({
+          isOpen: true,
+          variant: 'error',
+          title: 'Não foi possível excluir este serviço',
+          message: `${itemDeletado?.nome || 'Este serviço'} não pode ser excluído porque já foi usado em agendamentos. Cancele ou reatribua os agendamentos que usam este serviço e tente novamente. Precisa de ajuda? Fale com o suporte pelo canal habitual.`,
+          onConfirm: closeFeedbackModal
+        })
+        // Log para depuração
+        console.error('Erro ao excluir serviço - dependências existentes:', error)
+      } else {
+        alert('Erro ao excluir item: ' + error.message)
+      }
+    }
   }
 
   const fetchAuditData = async () => {
@@ -1787,7 +1883,8 @@ export function AdminDashboard({ onBack, estabelecimentoId, membroId, cargo, isO
               <h2 className="font-black text-lg uppercase tracking-widest text-slate-400">Serviços e Produtos</h2>
               <button onClick={() => {
                 setItemParaEditar(null)
-                setNovoItem({ nome: '', preco: '', tipo: 'receita', categoria: 'Geral', duracao: '30' })
+                setNovoItem({ nome: '', preco: '', tipo: 'receita', categoria: 'Geral', duracao: '30', imagem_url: '' })
+                setImageFile(null)
                 setIsItemModalOpen(true)
               }} className="bg-emerald-500 text-white px-4 py-2 rounded-xl font-bold text-xs shadow-lg shadow-emerald-500/20 active:scale-95 transition-all flex items-center gap-2">
                 <Plus size={14} /> Novo Item
@@ -1803,14 +1900,58 @@ export function AdminDashboard({ onBack, estabelecimentoId, membroId, cargo, isO
                   </div>
                   <form onSubmit={handleSaveItem} className="p-6 space-y-4">
                     <div className="grid grid-cols-1 gap-4">
-                      <div className="space-y-1">
-                        <label className="text-[10px] font-bold text-slate-500 uppercase px-1">Nome do Serviço/Produto</label>
-                        <input required className="w-full bg-slate-900 border border-white/5 rounded-xl p-4 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/50" value={novoItem.nome} onChange={e => setNovoItem(prev => ({ ...prev, nome: e.target.value }))} placeholder="Ex: Corte Degrade" />
+                        <div className="space-y-1">
+                          <label className="text-[10px] font-bold text-slate-500 uppercase px-1">Nome do Serviço/Produto</label>
+                          <input required className="w-full bg-slate-900 border border-white/5 rounded-xl p-4 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/50" value={novoItem.nome} onChange={e => setNovoItem(prev => ({ ...prev, nome: e.target.value.toUpperCase() }))} onBlur={() => setNovoItem(prev => ({ ...prev, nome: (prev.nome || '').toString().trim().toUpperCase() }))} placeholder="Ex: CORTE DEGRADE" />
+                        </div>
+                      <div className="space-y-2">
+                        <label className="text-[10px] font-bold text-slate-500 uppercase px-1">Imagem do Serviço</label>
+                        <div className="flex items-center gap-4">
+                          <label className="flex-1 flex flex-col items-center justify-center h-24 border border-dashed border-white/10 rounded-xl bg-slate-900/50 hover:bg-slate-900 hover:border-emerald-500/50 transition-all cursor-pointer">
+                            <Plus size={20} className="text-slate-500 mb-1" />
+                            <span className="text-xs text-slate-400 font-bold">Upload de Imagem</span>
+                            <span className="text-[9px] text-slate-600 uppercase mt-0.5">JPG, PNG ou WebP</span>
+                            <input 
+                              type="file" 
+                              accept="image/*" 
+                              className="hidden" 
+                              onChange={e => {
+                                const file = e.target.files?.[0]
+                                if (file) setImageFile(file)
+                              }} 
+                            />
+                          </label>
+                          
+                          {(imageFile || novoItem.imagem_url) && (
+                            <div className="relative w-24 h-24 rounded-xl overflow-hidden border border-white/10 bg-slate-900 flex-shrink-0">
+                              <img 
+                                src={imageFile ? URL.createObjectURL(imageFile) : novoItem.imagem_url} 
+                                alt="Preview" 
+                                className="w-full h-full object-cover" 
+                              />
+                              <button 
+                                type="button" 
+                                onClick={() => {
+                                  setImageFile(null)
+                                  setNovoItem(prev => ({ ...prev, imagem_url: '' }))
+                                }}
+                                className="absolute top-1 right-1 p-1 bg-black/60 rounded-full hover:bg-rose-600 transition-all"
+                              >
+                                <X size={12} className="text-white" />
+                              </button>
+                            </div>
+                          )}
+                        </div>
                       </div>
                       <div className="grid grid-cols-2 gap-4">
                         <div className="space-y-1">
                           <label className="text-[10px] font-bold text-slate-500 uppercase px-1">Categoria</label>
-                          <input className="w-full bg-slate-900 border border-white/5 rounded-xl p-4 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/50" value={novoItem.categoria} onChange={e => setNovoItem(prev => ({ ...prev, categoria: e.target.value }))} placeholder="Ex: Cabelo" />
+                          <input list="categoria-list" className="w-full bg-slate-900 border border-white/5 rounded-xl p-4 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/50" value={novoItem.categoria} onChange={e => setNovoItem(prev => ({ ...prev, categoria: e.target.value.toUpperCase() }))} onBlur={() => setNovoItem(prev => ({ ...prev, categoria: (prev.categoria || '').toString().trim().toUpperCase() }))} placeholder="Ex: CABELO" />
+                          <datalist id="categoria-list">
+                            {(availableCategories || []).map((c: string) => (
+                              <option key={c} value={c} />
+                            ))}
+                          </datalist>
                         </div>
                         <div className="space-y-1">
                           <label className="text-[10px] font-bold text-slate-500 uppercase px-1">Preço Sugerido</label>
@@ -1850,24 +1991,35 @@ export function AdminDashboard({ onBack, estabelecimentoId, membroId, cargo, isO
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
               {filteredItens.map(item => (
                 <div key={item.id} className="glass-card p-4 border-white/5 flex justify-between items-center group">
-                  <div>
-                    <p className="font-bold text-sm">{item.nome}</p>
-                    <div className="flex items-center gap-2 mt-1">
-                      <span className={`text-[9px] font-black uppercase px-2 py-0.5 rounded-full ${item.tipo === 'receita' ? 'bg-emerald-500/10 text-emerald-400' : 'bg-rose-500/10 text-rose-400'}`}>{item.tipo}</span>
-                      {item.preco_sugerido && <span className="text-[10px] font-mono text-slate-400">{formatCurrency(item.preco_sugerido)}</span>}
+                  <div className="flex items-center gap-3 min-w-0">
+                    {item.imagem_url ? (
+                      <img src={item.imagem_url} alt={item.nome} className="w-12 h-12 rounded-xl object-cover border border-white/10 shrink-0" />
+                    ) : (
+                      <div className="w-12 h-12 rounded-xl bg-slate-900 border border-white/5 flex items-center justify-center text-slate-500 shrink-0">
+                        <Scissors size={18} />
+                      </div>
+                    )}
+                    <div className="min-w-0">
+                      <p className="font-bold text-sm truncate">{item.nome}</p>
+                      <div className="flex items-center gap-2 mt-1">
+                        <span className={`text-[9px] font-black uppercase px-2 py-0.5 rounded-full ${item.tipo === 'receita' ? 'bg-emerald-500/10 text-emerald-400' : 'bg-rose-500/10 text-rose-400'}`}>{item.tipo}</span>
+                        {item.preco_sugerido && <span className="text-[10px] font-mono text-slate-400">{formatCurrency(item.preco_sugerido)}</span>}
+                      </div>
                     </div>
                   </div>
-                  <div className="flex gap-1">
+                  <div className="flex gap-1 shrink-0">
                     <button
                       onClick={() => {
                         setItemParaEditar(item.id)
                         setNovoItem({
-                          nome: item.nome || '',
+                          nome: (item.nome || '').toString().trim().toUpperCase(),
                           preco: item.preco_sugerido ? item.preco_sugerido.toString().replace('.', ',') : '',
                           tipo: item.tipo || 'receita',
-                          categoria: item.categoria || 'Geral',
-                          duracao: item.duracao_minutos?.toString() || '30'
+                          categoria: (item.categoria || 'Geral').toString().trim().toUpperCase(),
+                          duracao: item.duracao_minutos?.toString() || '30',
+                          imagem_url: item.imagem_url || ''
                         })
+                        setImageFile(null)
                         setIsItemModalOpen(true)
                       }}
                       className="p-2 text-slate-500 hover:text-emerald-500 transition-all opacity-0 group-hover:opacity-100"

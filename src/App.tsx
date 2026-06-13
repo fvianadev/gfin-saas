@@ -324,7 +324,8 @@ export default function App() {
   }
 
   return (
-    <Routes>
+    <ErrorBoundary>
+      <Routes>
       <Route path="/" element={<LandingPage />} />
       <Route path="/login" element={<LoginPage onLogin={handleLoginState} />} />
       <Route path="/register" element={<RegisterPage onLogin={handleLoginState} />} />
@@ -333,13 +334,14 @@ export default function App() {
       <Route path="/reset-password" element={<ResetPasswordPage />} />
       <Route path="/signup" element={<Navigate to="/register" replace />} />
       <Route path="/create-account" element={<Navigate to="/register" replace />} />
-      <Route path="/admin" element={admin && admin.role !== 'super_admin' ? <AdminDashboard onBack={logoutAdmin} estabelecimentoId={admin.estabelecimento_id} membroId={admin.membro_id || ''} cargo={admin.role} isOwner={true} /> : <Navigate to="/login" />} />
+      <Route path="/admin" element={admin && admin.role !== 'super_admin' ? <ErrorBoundary><AdminDashboard onBack={logoutAdmin} estabelecimentoId={admin.estabelecimento_id} membroId={admin.membro_id || ''} cargo={admin.role} isOwner={true} /></ErrorBoundary> : <Navigate to="/login" />} />
       <Route path="/super-admin" element={admin?.role === 'super_admin' ? <ErrorBoundary><SuperAdminDashboard onLogout={logoutAdmin} /></ErrorBoundary> : <Navigate to="/login" />} />
       <Route path="/:slug" element={<Navigate to="login" replace />} />
       <Route path="/:slug/login" element={<StaffLogin />} />
       <Route path="/:slug/dashboard" element={<StaffDashboard />} />
       <Route path="/:slug/agendar" element={<PublicBooking />} />
       <Route path="/auth/callback" element={<AuthCallback />} />
-    </Routes>
+      </Routes>
+    </ErrorBoundary>
   )
 }
