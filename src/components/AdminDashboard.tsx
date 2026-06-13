@@ -227,9 +227,11 @@ export function AdminDashboard({ onBack, estabelecimentoId, membroId, cargo, isO
 
   const [estab, setEstab] = useState<any>(null)
   const [saasConfig, setSaasConfig] = useState<any>(null)
-  const [configForm, setConfigForm] = useState({ nome: '', logo_url: '', whatsapp: '' })
+  const [configForm, setConfigForm] = useState({ nome: '', logo_url: '', whatsapp: '', instagram: '', facebook: '' })
   const [configSaving, setConfigSaving] = useState(false)
   const [configSaved, setConfigSaved] = useState(false)
+  const [logoFile, setLogoFile] = useState<File | null>(null)
+  const [logoPreviewUrl, setLogoPreviewUrl] = useState<string | null>(null)
   const [urlCopied, setUrlCopied] = useState<string | null>(null)
 
   const [itens, setItens] = useState<any[]>([])
@@ -262,6 +264,7 @@ export function AdminDashboard({ onBack, estabelecimentoId, membroId, cargo, isO
   const [horarios, setHorarios] = useState<any[]>([])
   const [salvandoHorario, setSalvandoHorario] = useState<string | null>(null)
 
+  const [configSubTab, setConfigSubTab] = useState<'dados' | 'horarios' | 'outros'>('dados')
   const [devPassword, setDevPassword] = useState('')
 
   const [whatsappPrompt, setWhatsappPrompt] = useState<{
@@ -600,7 +603,9 @@ export function AdminDashboard({ onBack, estabelecimentoId, membroId, cargo, isO
       setConfigForm({
         nome: data.nome,
         logo_url: data.configuracoes?.logo_url || '',
-        whatsapp: data.configuracoes?.whatsapp || ''
+        whatsapp: data.configuracoes?.whatsapp || '',
+        instagram: data.configuracoes?.instagram || '',
+        facebook: data.configuracoes?.facebook || ''
       })
     }
   }
@@ -615,17 +620,85 @@ export function AdminDashboard({ onBack, estabelecimentoId, membroId, cargo, isO
   const handleSaveConfig = async (e: React.FormEvent) => {
     e.preventDefault()
     setConfigSaving(true)
+
+    let finalLogoUrl = configForm.logo_url
+
+    // Upload da nova logo (se selecionada)
+    if (logoFile) {
+      try {
+        const fileExt = logoFile.name.split('.').pop()
+        const randomId = typeof crypto !== 'undefined' && crypto.randomUUID
+          ? crypto.randomUUID()
+          : Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15)
+        const fileName = `${estabelecimentoId}/${randomId}.${fileExt}`
+
+        // Compressão da imagem (max 800px, qualidade 0.8)
+        const compressedBlob = await new Promise<Blob>((resolve, reject) => {
+          const img = new Image()
+          img.onload = () => {
+            const MAX = 800
+            let { width, height } = img
+            if (width > MAX || height > MAX) {
+              if (width > height) { height = Math.round(height * MAX / width); width = MAX }
+              else { width = Math.round(width * MAX / height); height = MAX }
+            }
+            const canvas = document.createElement('canvas')
+            canvas.width = width
+            canvas.height = height
+            canvas.getContext('2d')!.drawImage(img, 0, 0, width, height)
+            canvas.toBlob(b => b ? resolve(b) : reject(new Error('Falha na compressão')), 'image/jpeg', 0.8)
+          }
+          img.onerror = reject
+          img.src = URL.createObjectURL(logoFile)
+        })
+
+        const { error: uploadError } = await supabase.storage
+          .from('logos')
+          .upload(fileName, compressedBlob, { contentType: 'image/jpeg', cacheControl: '3600', upsert: true })
+
+        if (uploadError) throw uploadError
+
+        const { data: { publicUrl } } = supabase.storage.from('logos').getPublicUrl(fileName)
+        finalLogoUrl = publicUrl
+
+        // Garbage collection: remove logo antiga do storage
+        const urlAntiga = estab?.configuracoes?.logo_url
+        if (urlAntiga && urlAntiga !== finalLogoUrl) {
+          const pathAntigo = extractPathFromSupabaseUrl(urlAntiga, 'logos')
+          if (pathAntigo) {
+            supabase.storage.from('logos').remove([pathAntigo]).then(({ error: delErr }) => {
+              if (delErr) console.error('Erro ao remover logo antiga:', delErr)
+            })
+          }
+        }
+      } catch (err: any) {
+        console.error('Erro no upload da logo:', err)
+        alert('Erro ao enviar logo. Os outros dados serão salvos normalmente.')
+      }
+    }
+
     const { error } = await supabase.from('estabelecimentos').update({
       nome: configForm.nome,
       configuracoes: {
         ...estab?.configuracoes,
-        logo_url: configForm.logo_url,
-        whatsapp: configForm.whatsapp
+        logo_url: finalLogoUrl,
+        whatsapp: configForm.whatsapp,
+        instagram: configForm.instagram,
+        facebook: configForm.facebook
       }
     }).eq('id', estabelecimentoId)
+
     setConfigSaving(false)
-    if (!error) { setConfigSaved(true); fetchEstab(); setTimeout(() => setConfigSaved(false), 2500) }
-    else alert('Erro ao salvar: ' + error.message)
+    if (!error) {
+      setLogoFile(null)
+      setLogoPreviewUrl(null)
+      setConfigForm(prev => ({ ...prev, logo_url: finalLogoUrl }))
+      setConfigSaved(true)
+      fetchEstab()
+      setTimeout(() => setConfigSaved(false), 2500)
+    } else {
+      alert('Erro ao salvar: ' + error.message)
+    }
   }
 
   const generateDemoData = async () => {
@@ -1707,8 +1780,8 @@ export function AdminDashboard({ onBack, estabelecimentoId, membroId, cargo, isO
               <div className="fixed inset-0 z-[60] flex items-end sm:items-center justify-center bg-black/60 backdrop-blur-sm p-4 sm:p-0">
                 <div className="bg-slate-950 w-full max-w-md rounded-3xl border border-white/10 shadow-2xl overflow-hidden animate-in slide-in-from-bottom-4 duration-300">
                   <div className="p-6 border-b border-white/5 flex justify-between items-center bg-slate-900/50">
-                    <h3 className="font-bold text-lg">{membroParaEditar ? 'Editar Membro' : 'Novo Membro'}</h3>
-                    <button onClick={() => setIsMembroModalOpen(false)} className="text-slate-500 hover:text-rose-500 p-2 rounded-full hover:bg-white/5 transition-all"><X size={20} /></button>
+                    <h3 className="font-bold text-lg truncate">{membroParaEditar ? 'Editar Membro' : 'Novo Membro'}</h3>
+                    <button onClick={() => setIsMembroModalOpen(false)} className="text-slate-500 hover:text-rose-500 p-2 rounded-full hover:bg-white/5 transition-all flex-shrink-0"><X size={20} /></button>
                   </div>
                   <form
                     onSubmit={async (e) => {
@@ -1755,10 +1828,10 @@ export function AdminDashboard({ onBack, estabelecimentoId, membroId, cargo, isO
                       setIsMembroModalOpen(false)
                       fetchMembros()
                     }}
-                    className="p-6 space-y-4"
+                    className="p-6 space-y-4 max-h-[80vh] overflow-y-auto"
                   >
                     <input
-                      className="w-full bg-slate-900 border border-white/5 rounded-xl p-4 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/50"
+                      className="w-full bg-slate-900 border border-white/5 rounded-xl p-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/50"
                       placeholder="Nome"
                       value={novoMembro.nome}
                       onChange={e => setNovoMembro(prev => ({ ...prev, nome: e.target.value }))}
@@ -1766,14 +1839,14 @@ export function AdminDashboard({ onBack, estabelecimentoId, membroId, cargo, isO
                     <input
                       maxLength={4}
                       inputMode="numeric"
-                      className="w-full bg-slate-900 border border-white/5 rounded-xl p-4 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/50"
+                      className="w-full bg-slate-900 border border-white/5 rounded-xl p-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/50"
                       placeholder="PIN (4 dígitos)"
                       value={novoMembro.pin}
                       onChange={e => setNovoMembro(prev => ({ ...prev, pin: e.target.value.replace(/\D/g, '').slice(0, 4) }))}
                     />
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                       <select
-                        className="w-full bg-slate-900 border border-white/5 rounded-xl p-4 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/50"
+                        className="w-full bg-slate-900 border border-white/5 rounded-xl p-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/50"
                         value={novoMembro.cargo}
                         onChange={e => setNovoMembro(prev => ({ ...prev, cargo: e.target.value }))}
                       >
@@ -1781,7 +1854,7 @@ export function AdminDashboard({ onBack, estabelecimentoId, membroId, cargo, isO
                         <option value="administrador">Administrador</option>
                       </select>
                       <input
-                        className="w-full bg-slate-900 border border-white/5 rounded-xl p-4 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/50"
+                        className="w-full bg-slate-900 border border-white/5 rounded-xl p-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/50"
                         placeholder="WhatsApp (ex: 5511999999999)"
                         value={applyPhoneMask(novoMembro.whatsapp)}
                         onChange={e => setNovoMembro(prev => ({ ...prev, whatsapp: e.target.value.replace(/\D/g, '') }))}
@@ -1793,7 +1866,7 @@ export function AdminDashboard({ onBack, estabelecimentoId, membroId, cargo, isO
                         type="number"
                         min="0"
                         max="100"
-                        className="w-full bg-slate-900 border border-white/5 rounded-xl p-4 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/50"
+                        className="w-full bg-slate-900 border border-white/5 rounded-xl p-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/50"
                         placeholder="Ex: 50"
                         value={novoMembro.percentual_comissao === 0 ? '' : novoMembro.percentual_comissao}
                         onChange={e => setNovoMembro(prev => ({ ...prev, percentual_comissao: Number(e.target.value) }))}
@@ -1895,14 +1968,14 @@ export function AdminDashboard({ onBack, estabelecimentoId, membroId, cargo, isO
               <div className="fixed inset-0 z-[60] flex items-end sm:items-center justify-center bg-black/60 backdrop-blur-sm p-4 sm:p-0">
                 <div className="bg-slate-950 w-full max-w-md rounded-3xl border border-white/10 shadow-2xl overflow-hidden animate-in slide-in-from-bottom-4 duration-300">
                   <div className="p-6 border-b border-white/5 flex justify-between items-center bg-slate-900/50">
-                    <h3 className="font-bold text-lg">{itemParaEditar ? 'Editar Item' : 'Novo Item'}</h3>
-                    <button onClick={() => { setIsItemModalOpen(false); setItemParaEditar(null); }} className="text-slate-500 hover:text-rose-500 p-2 rounded-full hover:bg-white/5 transition-all"><X size={20} /></button>
+                    <h3 className="font-bold text-lg truncate">{itemParaEditar ? 'Editar Item' : 'Novo Item'}</h3>
+                    <button onClick={() => { setIsItemModalOpen(false); setItemParaEditar(null); }} className="text-slate-500 hover:text-rose-500 p-2 rounded-full hover:bg-white/5 transition-all flex-shrink-0"><X size={20} /></button>
                   </div>
-                  <form onSubmit={handleSaveItem} className="p-6 space-y-4">
+                  <form onSubmit={handleSaveItem} className="p-6 space-y-4 max-h-[80vh] overflow-y-auto">
                     <div className="grid grid-cols-1 gap-4">
                         <div className="space-y-1">
                           <label className="text-[10px] font-bold text-slate-500 uppercase px-1">Nome do Serviço/Produto</label>
-                          <input required className="w-full bg-slate-900 border border-white/5 rounded-xl p-4 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/50" value={novoItem.nome} onChange={e => setNovoItem(prev => ({ ...prev, nome: e.target.value.toUpperCase() }))} onBlur={() => setNovoItem(prev => ({ ...prev, nome: (prev.nome || '').toString().trim().toUpperCase() }))} placeholder="Ex: CORTE DEGRADE" />
+                          <input required className="w-full bg-slate-900 border border-white/5 rounded-xl p-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/50" value={novoItem.nome} onChange={e => setNovoItem(prev => ({ ...prev, nome: e.target.value.toUpperCase() }))} onBlur={() => setNovoItem(prev => ({ ...prev, nome: (prev.nome || '').toString().trim().toUpperCase() }))} placeholder="Ex: CORTE DEGRADE" />
                         </div>
                       <div className="space-y-2">
                         <label className="text-[10px] font-bold text-slate-500 uppercase px-1">Imagem do Serviço</label>
@@ -1943,10 +2016,10 @@ export function AdminDashboard({ onBack, estabelecimentoId, membroId, cargo, isO
                           )}
                         </div>
                       </div>
-                      <div className="grid grid-cols-2 gap-4">
-                        <div className="space-y-1">
+                      <div className="grid grid-cols-4 gap-4">
+                        <div className="col-span-2 space-y-1">
                           <label className="text-[10px] font-bold text-slate-500 uppercase px-1">Categoria</label>
-                          <input list="categoria-list" className="w-full bg-slate-900 border border-white/5 rounded-xl p-4 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/50" value={novoItem.categoria} onChange={e => setNovoItem(prev => ({ ...prev, categoria: e.target.value.toUpperCase() }))} onBlur={() => setNovoItem(prev => ({ ...prev, categoria: (prev.categoria || '').toString().trim().toUpperCase() }))} placeholder="Ex: CABELO" />
+                          <input list="categoria-list" className="w-full bg-slate-900 border border-white/5 rounded-xl p-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/50" value={novoItem.categoria} onChange={e => setNovoItem(prev => ({ ...prev, categoria: e.target.value.toUpperCase() }))} onBlur={() => setNovoItem(prev => ({ ...prev, categoria: (prev.categoria || '').toString().trim().toUpperCase() }))} placeholder="Ex: CABELO" />
                           <datalist id="categoria-list">
                             {(availableCategories || []).map((c: string) => (
                               <option key={c} value={c} />
@@ -1954,23 +2027,21 @@ export function AdminDashboard({ onBack, estabelecimentoId, membroId, cargo, isO
                           </datalist>
                         </div>
                         <div className="space-y-1">
-                          <label className="text-[10px] font-bold text-slate-500 uppercase px-1">Preço Sugerido</label>
-                          <input className="w-full bg-slate-900 border border-white/5 rounded-xl p-4 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/50" value={novoItem.preco} onChange={e => setNovoItem(prev => ({ ...prev, preco: e.target.value }))} placeholder="0,00" />
+                          <label className="text-[10px] font-bold text-slate-500 uppercase px-1">Preço</label>
+                          <input className="w-full bg-slate-900 border border-white/5 rounded-xl p-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/50" value={novoItem.preco} onChange={e => setNovoItem(prev => ({ ...prev, preco: e.target.value }))} placeholder="0,00" />
+                        </div>
+                        <div className="space-y-1">
+                          <label className="text-[10px] font-bold text-slate-500 uppercase px-1">Duração</label>
+                          <input type="number" className="w-full bg-slate-900 border border-white/5 rounded-xl p-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/50" value={novoItem.duracao} onChange={e => setNovoItem(prev => ({ ...prev, duracao: e.target.value }))} placeholder="30" />
                         </div>
                       </div>
-                      {novoItem.tipo === 'receita' && (
-                        <div className="space-y-1">
-                          <label className="text-[10px] font-bold text-slate-500 uppercase px-1">Duração (Minutos)</label>
-                          <input type="number" className="w-full bg-slate-900 border border-white/5 rounded-xl p-4 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/50" value={novoItem.duracao} onChange={e => setNovoItem(prev => ({ ...prev, duracao: e.target.value }))} placeholder="30" />
-                        </div>
-                      )}
                     </div>
                     <div className="flex gap-4">
                       <button type="button" onClick={() => setNovoItem(prev => ({ ...prev, tipo: 'receita' }))} className={`flex-1 py-3 rounded-xl font-bold text-xs transition-all ${novoItem.tipo === 'receita' ? 'bg-emerald-500 text-white' : 'bg-slate-900 text-slate-500 border border-white/5'}`}>RECEITA</button>
                       <button type="button" onClick={() => setNovoItem(prev => ({ ...prev, tipo: 'despesa' }))} className={`flex-1 py-3 rounded-xl font-bold text-xs transition-all ${novoItem.tipo === 'despesa' ? 'bg-rose-500 text-white' : 'bg-slate-900 text-slate-500 border border-white/5'}`}>DESPESA</button>
                     </div>
                     <button type="submit" disabled={itemSaving} className="w-full bg-emerald-500 py-4 rounded-xl font-bold shadow-lg shadow-emerald-500/20 active:scale-95 transition-all">
-                      {itemSaving ? 'Salvando...' : 'Cadastrar Item'}
+                      {itemSaving ? 'Salvando...' : itemParaEditar ? 'Salvar Alterações' : 'Salvar'}
                     </button>
                   </form>
                 </div>
@@ -2039,18 +2110,18 @@ export function AdminDashboard({ onBack, estabelecimentoId, membroId, cargo, isO
           <div className="fixed inset-0 z-[70] flex items-center justify-center bg-black/80 backdrop-blur-md p-4 sm:p-0">
             <div className="bg-slate-950 w-full max-w-lg rounded-3xl border border-white/10 shadow-2xl overflow-hidden animate-in zoom-in duration-300">
               <div className="p-6 border-b border-white/5 flex justify-between items-center bg-slate-900/50">
-                <h3 className="font-black text-lg uppercase tracking-widest text-emerald-500">Editar Agendamento</h3>
-                <button onClick={() => setIsAgendamentoModalOpen(false)} className="text-slate-500 hover:text-rose-500 transition-all"><X size={20} /></button>
+                <h3 className="font-black text-lg uppercase tracking-widest text-emerald-500 truncate">Editar Agendamento</h3>
+                <button onClick={() => setIsAgendamentoModalOpen(false)} className="text-slate-500 hover:text-rose-500 transition-all flex-shrink-0"><X size={20} /></button>
               </div>
 
-              <form onSubmit={handleSaveAgendamento} className="p-8 space-y-5">
+              <form onSubmit={handleSaveAgendamento} className="p-6 space-y-5 max-h-[80vh] overflow-y-auto">
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
                   <div className="space-y-1">
                     <label className="text-[10px] font-bold text-slate-500 uppercase px-1">Nome do Cliente</label>
                     <input
                       required
                       type="text"
-                      className="w-full bg-slate-900 border border-white/5 rounded-2xl p-4 text-sm font-bold outline-none focus:border-emerald-500 transition-all"
+                      className="w-full bg-slate-900 border border-white/5 rounded-2xl p-2.5 text-sm font-bold outline-none focus:border-emerald-500 transition-all"
                       value={novoAgendamento.cliente_nome}
                       onChange={e => setNovoAgendamento(prev => ({ ...prev, cliente_nome: e.target.value }))}
                     />
@@ -2060,7 +2131,7 @@ export function AdminDashboard({ onBack, estabelecimentoId, membroId, cargo, isO
                     <input
                       required
                       type="text"
-                      className="w-full bg-slate-900 border border-white/5 rounded-2xl p-4 text-sm font-bold outline-none focus:border-emerald-500 transition-all"
+                      className="w-full bg-slate-900 border border-white/5 rounded-2xl p-2.5 text-sm font-bold outline-none focus:border-emerald-500 transition-all"
                       value={applyPhoneMask(novoAgendamento.cliente_whatsapp)}
                       onChange={e => setNovoAgendamento(prev => ({ ...prev, cliente_whatsapp: e.target.value.replace(/\D/g, '') }))}
                     />
@@ -2068,7 +2139,7 @@ export function AdminDashboard({ onBack, estabelecimentoId, membroId, cargo, isO
                   <div className="space-y-1">
                     <label className="text-[10px] font-bold text-slate-500 uppercase px-1">Serviço</label>
                     <select
-                      className="w-full bg-slate-900 border border-white/5 rounded-2xl p-4 text-sm font-bold outline-none focus:border-emerald-500 transition-all appearance-none"
+                      className="w-full bg-slate-900 border border-white/5 rounded-2xl p-2.5 text-sm font-bold outline-none focus:border-emerald-500 transition-all appearance-none"
                       value={novoAgendamento.servico_id}
                       onChange={e => setNovoAgendamento(prev => ({ ...prev, servico_id: e.target.value }))}
                     >
@@ -2081,7 +2152,7 @@ export function AdminDashboard({ onBack, estabelecimentoId, membroId, cargo, isO
                   <div className="space-y-1">
                     <label className="text-[10px] font-bold text-slate-500 uppercase px-1">Profissional</label>
                     <select
-                      className="w-full bg-slate-900 border border-white/5 rounded-2xl p-4 text-sm font-bold outline-none focus:border-emerald-500 transition-all appearance-none"
+                      className="w-full bg-slate-900 border border-white/5 rounded-2xl p-2.5 text-sm font-bold outline-none focus:border-emerald-500 transition-all appearance-none"
                       value={novoAgendamento.membro_id}
                       onChange={e => setNovoAgendamento(prev => ({ ...prev, membro_id: e.target.value }))}
                     >
@@ -2096,7 +2167,7 @@ export function AdminDashboard({ onBack, estabelecimentoId, membroId, cargo, isO
                     <input
                       required
                       type="date"
-                      className="w-full bg-slate-900 border border-white/5 rounded-2xl p-4 text-sm font-bold outline-none focus:border-emerald-500 transition-all color-scheme-dark"
+                      className="w-full bg-slate-900 border border-white/5 rounded-2xl p-2.5 text-sm font-bold outline-none focus:border-emerald-500 transition-all color-scheme-dark"
                       value={novoAgendamento.data}
                       onChange={e => setNovoAgendamento(prev => ({ ...prev, data: e.target.value }))}
                     />
@@ -2106,7 +2177,7 @@ export function AdminDashboard({ onBack, estabelecimentoId, membroId, cargo, isO
                     <input
                       required
                       type="time"
-                      className="w-full bg-slate-900 border border-white/5 rounded-2xl p-4 text-sm font-bold outline-none focus:border-emerald-500 transition-all color-scheme-dark"
+                      className="w-full bg-slate-900 border border-white/5 rounded-2xl p-2.5 text-sm font-bold outline-none focus:border-emerald-500 transition-all color-scheme-dark"
                       value={novoAgendamento.hora}
                       onChange={e => setNovoAgendamento(prev => ({ ...prev, hora: e.target.value }))}
                     />
@@ -2114,7 +2185,7 @@ export function AdminDashboard({ onBack, estabelecimentoId, membroId, cargo, isO
                   <div className="space-y-1 sm:col-span-2">
                     <label className="text-[10px] font-bold text-slate-500 uppercase px-1">Status</label>
                     <select
-                      className="w-full bg-slate-900 border border-white/5 rounded-2xl p-4 text-sm font-bold outline-none focus:border-emerald-500 transition-all appearance-none"
+                      className="w-full bg-slate-900 border border-white/5 rounded-2xl p-2.5 text-sm font-bold outline-none focus:border-emerald-500 transition-all appearance-none"
                       value={novoAgendamento.status}
                       onChange={e => setNovoAgendamento(prev => ({ ...prev, status: e.target.value }))}
                     >
@@ -2130,16 +2201,15 @@ export function AdminDashboard({ onBack, estabelecimentoId, membroId, cargo, isO
                   <button
                     type="button"
                     onClick={() => setIsAgendamentoModalOpen(false)}
-                    className="flex-1 bg-slate-900 py-4 rounded-2xl font-bold text-sm border border-white/5 active:scale-95 transition-all uppercase tracking-widest"
+                    className="flex-1 bg-slate-900 py-4 rounded-2xl font-bold text-sm border border-white/5 active:scale-95 transition-all"
                   >
                     Cancelar
                   </button>
                   <button
                     type="submit"
-                    disabled={agendamentoSaving}
-                    className="flex-1 bg-emerald-500 py-4 rounded-2xl font-bold text-sm shadow-xl shadow-emerald-500/20 active:scale-95 transition-all uppercase tracking-widest disabled:opacity-50"
+                    className="flex-1 bg-emerald-500 py-4 rounded-2xl font-bold text-sm shadow-lg shadow-emerald-500/20 active:scale-95 transition-all"
                   >
-                    {agendamentoSaving ? 'Salvando...' : 'Salvar Alterações'}
+                    Salvar Alterações
                   </button>
                 </div>
               </form>
@@ -2147,140 +2217,123 @@ export function AdminDashboard({ onBack, estabelecimentoId, membroId, cargo, isO
           </div>
         )}
 
-
         {activeTab === 'config' && (
           <div className="space-y-6 animate-in slide-in-from-right duration-300 max-w-xl">
             <h2 className="font-black text-lg uppercase tracking-widest text-slate-400">Configurações do Estabelecimento</h2>
-            <div className="glass-card p-6 border-emerald-500/20 space-y-3">
-              <div className="flex items-center gap-2 text-emerald-400 text-xs font-bold uppercase tracking-widest mb-1">
-                <Link2 size={14} /> URL do Usuário
-              </div>
-              <div className="flex items-center gap-3 bg-slate-900 border border-white/5 rounded-xl px-4 py-3">
-                <p className="text-sm text-slate-300 font-mono flex-1 break-all">
-                  {window.location.origin}/{estab?.slug}/login
-                </p>
-                <button
-                  onClick={() => copyText(`${window.location.origin}/${estab?.slug}/login`, 'login')}
-                  className={`p-2 rounded-lg transition-all ${urlCopied === 'login' ? 'text-emerald-400 bg-emerald-500/10' : 'text-slate-500 hover:text-white hover:bg-white/5'}`}
-                >
-                  {urlCopied === 'login' ? <CheckCircle size={16} /> : <Copy size={16} />}
-                </button>
-              </div>
-              <p className="text-[10px] text-slate-600 px-1">Compartilhe essa URL com seus funcionários para que eles façam login via PIN.</p>
-            </div>
 
-            <div className="glass-card p-6 border-emerald-500/20 space-y-3 mb-6">
-              <div className="flex items-center gap-2 text-emerald-400 text-xs font-bold uppercase tracking-widest mb-1">
-                <Calendar size={14} /> Link de Agendamento (Clientes)
-              </div>
-              <div className="flex items-center gap-3 bg-slate-900 border border-white/5 rounded-xl px-4 py-3">
-                <p className="text-sm text-slate-300 font-mono flex-1 break-all">
-                  {window.location.origin}/{estab?.slug}/agendar
-                </p>
-                <button
-                  onClick={() => copyText(`${window.location.origin}/${estab?.slug}/agendar`, 'agendar')}
-                  className={`p-2 rounded-lg transition-all ${urlCopied === 'agendar' ? 'text-emerald-400 bg-emerald-500/10' : 'text-slate-500 hover:text-white hover:bg-white/5'}`}
-                >
-                  {urlCopied === 'agendar' ? <CheckCircle size={16} /> : <Copy size={16} />}
-                </button>
-              </div>
-              <p className="text-[10px] text-slate-600 px-1">Envie este link para seus clientes realizarem agendamentos online.</p>
-            </div>
-
-            <form onSubmit={handleSaveConfig} className="glass-card p-6 border-white/5 space-y-4 mb-6">
-              <h3 className="font-bold text-base mb-1">Dados da Empresa</h3>
-              <div className="space-y-1">
-                <label className="text-[10px] font-bold text-slate-500 uppercase px-1">Nome da Empresa</label>
-                <input
-                  required
-                  className="w-full bg-slate-900 border border-white/5 rounded-xl p-4 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/50"
-                  value={configForm.nome}
-                  onChange={e => setConfigForm(prev => ({ ...prev, nome: e.target.value }))}
-                  placeholder="Nome da empresa"
-                />
-              </div>
-              <div className="space-y-1">
-                <label className="text-[10px] font-bold text-slate-500 uppercase px-1">URL da Logo</label>
-                <input
-                  className="w-full bg-slate-900 border border-white/5 rounded-xl p-4 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/50"
-                  value={configForm.logo_url}
-                  onChange={e => setConfigForm(prev => ({ ...prev, logo_url: e.target.value }))}
-                  placeholder="https://... (link da imagem)"
-                />
-              </div>
-              <div className="space-y-1">
-                <label className="text-[10px] font-bold text-slate-500 uppercase px-1">WhatsApp de Atendimento (Com DDD)</label>
-                <input
-                  className="w-full bg-slate-900 border border-white/5 rounded-xl p-4 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/50"
-                  value={applyPhoneMask(configForm.whatsapp)}
-                  onChange={e => setConfigForm(prev => ({ ...prev, whatsapp: e.target.value.replace(/\D/g, '') }))}
-                  placeholder="(99) 9 9999-9999"
-                />
-                <p className="text-[9px] text-slate-600 px-1 italic">* Use apenas números, começando com 55 e o DDD.</p>
-              </div>
-              {configForm.logo_url && (
-                <div className="flex items-center gap-4 bg-slate-900 rounded-xl p-4 border border-white/5">
-                  <img src={configForm.logo_url} alt="Logo preview" className="w-14 h-14 rounded-xl object-cover border border-white/10" onError={e => (e.currentTarget.style.display = 'none')} />
-                  <p className="text-xs text-slate-400">Preview da logo</p>
-                </div>
-              )}
-              <button
-                type="submit"
-                disabled={configSaving}
-                className={`w-full py-4 rounded-xl font-bold shadow-lg active:scale-95 transition-all disabled:opacity-50 ${configSaved ? 'bg-teal-500 shadow-teal-500/20' : 'bg-emerald-500 shadow-emerald-500/20'}`}
-              >
-                {configSaved ? '✓ Salvo!' : configSaving ? 'Salvando...' : 'Salvar Configurações'}
+            {/* Navegação entre seções */}
+            <div className="grid grid-cols-3 gap-3">
+              <button onClick={() => setConfigSubTab('dados')} className={`py-3 px-4 rounded-2xl font-bold text-xs uppercase tracking-widest transition-all border ${configSubTab === 'dados' ? 'bg-emerald-500 text-white border-emerald-500 shadow-lg shadow-emerald-500/20' : 'bg-slate-900 text-slate-400 border-white/5 hover:border-emerald-500/30'}`}>
+                <span className="block text-base mb-1">{configSubTab === 'dados' ? '📋' : '📋'}</span>
+                Dados da Empresa
               </button>
-            </form>
-
-            <div className="glass-card p-6 border-white/5 space-y-6">
-              <div>
-                <h3 className="font-bold text-base mb-1 text-white">Horário de Funcionamento</h3>
-                <p className="text-[10px] text-slate-500 uppercase font-bold">Defina quando sua agenda estará aberta para clientes</p>
-              </div>
-
-              <div className="space-y-3">
-                {['Domingo', 'Segunda', 'Terça', 'Quarta', 'Quinta', 'Sexta', 'Sábado'].map((dia, idx) => {
-                  const h = horarios.find(item => item.dia_semana === idx) || { ativo: false, hora_inicio: '08:00', hora_fim: '18:00' };
-                  return (
-                    <div key={idx} className="flex flex-col sm:flex-row sm:items-center gap-4 bg-slate-900/50 p-4 rounded-2xl border border-white/5">
-                      <div className="flex-1 flex items-center justify-between">
-                        <p className="text-sm font-bold text-slate-200">{dia}</p>
-                        <button
-                          onClick={() => updateHorario(idx, 'ativo', !h.ativo)}
-                          className={`w-10 h-6 rounded-full relative transition-all sm:hidden ${h.ativo ? 'bg-emerald-500' : 'bg-slate-700'}`}
-                        >
-                          <div className={`absolute top-1 w-4 h-4 bg-white rounded-full transition-all ${h.ativo ? 'left-5' : 'left-1'}`} />
-                        </button>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <input
-                          type="time"
-                          disabled={!h.ativo}
-                          className="flex-1 sm:flex-none bg-slate-900 border border-white/5 rounded-lg p-2 text-xs text-slate-300 disabled:opacity-30"
-                          value={h.hora_inicio}
-                          onChange={(e) => updateHorario(idx, 'hora_inicio', e.target.value)}
-                        />
-                        <span className="text-slate-600 text-[10px]">até</span>
-                        <input
-                          type="time"
-                          disabled={!h.ativo}
-                          className="flex-1 sm:flex-none bg-slate-900 border border-white/5 rounded-lg p-2 text-xs text-slate-300 disabled:opacity-30"
-                          value={h.hora_fim}
-                          onChange={(e) => updateHorario(idx, 'hora_fim', e.target.value)}
-                        />
-                      </div>
-                      <button
-                        onClick={() => updateHorario(idx, 'ativo', !h.ativo)}
-                        className={`w-10 h-6 rounded-full relative transition-all hidden sm:block ${h.ativo ? 'bg-emerald-500' : 'bg-slate-700'}`}
-                      >
-                        <div className={`absolute top-1 w-4 h-4 bg-white rounded-full transition-all ${h.ativo ? 'left-5' : 'left-1'}`} />
-                      </button>
-                    </div>
-                  );
-                })}
-              </div>
+              <button onClick={() => setConfigSubTab('horarios')} className={`py-3 px-4 rounded-2xl font-bold text-xs uppercase tracking-widest transition-all border ${configSubTab === 'horarios' ? 'bg-emerald-500 text-white border-emerald-500 shadow-lg shadow-emerald-500/20' : 'bg-slate-900 text-slate-400 border-white/5 hover:border-emerald-500/30'}`}>
+                <span className="block text-base mb-1">{configSubTab === 'horarios' ? '🕐' : '🕐'}</span>
+                Horários
+              </button>
+              <button onClick={() => setConfigSubTab('outros')} className={`py-3 px-4 rounded-2xl font-bold text-xs uppercase tracking-widest transition-all border ${configSubTab === 'outros' ? 'bg-emerald-500 text-white border-emerald-500 shadow-lg shadow-emerald-500/20' : 'bg-slate-900 text-slate-400 border-white/5 hover:border-emerald-500/30'}`}>
+                <span className="block text-base mb-1">{configSubTab === 'outros' ? '⚙️' : '⚙️'}</span>
+                Outras Config.
+              </button>
             </div>
+
+            {/* Dados da Empresa */}
+            {configSubTab === 'dados' && (
+              <form onSubmit={handleSaveConfig} className="glass-card p-6 border-white/5 space-y-4">
+                <h3 className="font-bold text-base mb-1">Dados da Empresa</h3>
+                <div className="space-y-1">
+                  <label className="text-[10px] font-bold text-slate-500 uppercase px-1">Nome da Empresa</label>
+                  <input required className="w-full bg-slate-900 border border-white/5 rounded-xl p-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/50" value={configForm.nome} onChange={e => setConfigForm(prev => ({ ...prev, nome: e.target.value }))} placeholder="Nome da empresa" />
+                </div>
+                <div className="space-y-2">
+                  <label className="text-[10px] font-bold text-slate-500 uppercase px-1">Logo do Estabelecimento</label>
+                  <div className="flex items-center gap-4 bg-slate-900 rounded-xl p-4 border border-white/5">
+                    <div className="w-16 h-16 rounded-xl border border-white/10 bg-slate-800 flex items-center justify-center overflow-hidden flex-shrink-0">
+                      {(logoPreviewUrl || configForm.logo_url) ? (
+                        <img src={logoPreviewUrl || configForm.logo_url} alt="Preview da logo" className="w-full h-full object-cover" onError={e => (e.currentTarget.style.display = 'none')} />
+                      ) : (
+                        <span className="text-slate-600 text-xs text-center leading-tight px-1">Sem logo</span>
+                      )}
+                    </div>
+                    <div className="flex flex-col gap-2 flex-1">
+                      <label htmlFor="logo-upload-input" className="cursor-pointer inline-flex items-center justify-center gap-2 px-4 py-2 rounded-lg bg-white/5 hover:bg-white/10 text-sm font-medium text-slate-300 transition-colors border border-white/10">Alterar Logo</label>
+                      <input id="logo-upload-input" type="file" accept="image/*" className="hidden" onChange={e => { const file = e.target.files?.[0]; if (file) { setLogoFile(file); setLogoPreviewUrl(URL.createObjectURL(file)) } }} />
+                      {logoFile && <p className="text-[10px] text-emerald-400 px-1">{logoFile.name}</p>}
+                      {(logoPreviewUrl || configForm.logo_url) && (
+                        <button type="button" className="text-[10px] text-red-400 hover:text-red-300 text-left px-1 transition-colors" onClick={() => { setLogoFile(null); setLogoPreviewUrl(null); setConfigForm(prev => ({ ...prev, logo_url: '' })) }}>Remover logo</button>
+                      )}
+                    </div>
+                  </div>
+                </div>
+                <div className="space-y-1">
+                  <label className="text-[10px] font-bold text-slate-500 uppercase px-1">WhatsApp de Atendimento (Com DDD)</label>
+                  <input className="w-full bg-slate-900 border border-white/5 rounded-xl p-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/50" value={applyPhoneMask(configForm.whatsapp)} onChange={e => setConfigForm(prev => ({ ...prev, whatsapp: e.target.value.replace(/\D/g, '') }))} placeholder="(99) 9 9999-9999" />
+                </div>
+                <div className="space-y-1">
+                  <label className="text-[10px] font-bold text-slate-500 uppercase px-1">Instagram</label>
+                  <input className="w-full bg-slate-900 border border-white/5 rounded-xl p-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/50" value={configForm.instagram} onChange={e => setConfigForm(prev => ({ ...prev, instagram: e.target.value }))} placeholder="@nomedoperfil" />
+                </div>
+                <div className="space-y-1">
+                  <label className="text-[10px] font-bold text-slate-500 uppercase px-1">Facebook</label>
+                  <input className="w-full bg-slate-900 border border-white/5 rounded-xl p-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/50" value={configForm.facebook} onChange={e => setConfigForm(prev => ({ ...prev, facebook: e.target.value }))} placeholder="https://facebook.com/suapagina" />
+                </div>
+                <button type="submit" disabled={configSaving} className={`w-full py-4 rounded-xl font-bold shadow-lg active:scale-95 transition-all disabled:opacity-50 ${configSaved ? 'bg-teal-500 shadow-teal-500/20' : 'bg-emerald-500 shadow-emerald-500/20'}`}>{configSaved ? '✓ Salvo!' : configSaving ? 'Salvando...' : 'Salvar Configurações'}</button>
+              </form>
+            )}
+
+            {/* Horário de Funcionamento */}
+            {configSubTab === 'horarios' && (
+              <div className="glass-card p-6 border-white/5 space-y-6">
+                <div>
+                  <h3 className="font-bold text-base mb-1 text-white">Horário de Funcionamento</h3>
+                  <p className="text-[10px] text-slate-500 uppercase font-bold">Defina quando sua agenda estará aberta para clientes</p>
+                </div>
+                <div className="space-y-3">
+                  {['Domingo', 'Segunda', 'Terça', 'Quarta', 'Quinta', 'Sexta', 'Sábado'].map((dia, idx) => {
+                    const h = horarios.find(item => item.dia_semana === idx) || { ativo: false, hora_inicio: '08:00', hora_fim: '18:00' };
+                    return (
+                      <div key={idx} className="flex flex-col sm:flex-row sm:items-center gap-4 bg-slate-900/50 p-4 rounded-2xl border border-white/5">
+                        <div className="flex-1 flex items-center justify-between">
+                          <p className="text-sm font-bold text-slate-200">{dia}</p>
+                          <button onClick={() => updateHorario(idx, 'ativo', !h.ativo)} className={`w-10 h-6 rounded-full relative transition-all sm:hidden ${h.ativo ? 'bg-emerald-500' : 'bg-slate-700'}`}><div className={`absolute top-1 w-4 h-4 bg-white rounded-full transition-all ${h.ativo ? 'left-5' : 'left-1'}`} /></button>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <input type="time" disabled={!h.ativo} className="flex-1 sm:flex-none bg-slate-900 border border-white/5 rounded-lg p-2 text-xs text-slate-300 disabled:opacity-30" value={h.hora_inicio} onChange={(e) => updateHorario(idx, 'hora_inicio', e.target.value)} />
+                          <span className="text-slate-600 text-[10px]">até</span>
+                          <input type="time" disabled={!h.ativo} className="flex-1 sm:flex-none bg-slate-900 border border-white/5 rounded-lg p-2 text-xs text-slate-300 disabled:opacity-30" value={h.hora_fim} onChange={(e) => updateHorario(idx, 'hora_fim', e.target.value)} />
+                        </div>
+                        <button onClick={() => updateHorario(idx, 'ativo', !h.ativo)} className={`w-10 h-6 rounded-full relative transition-all hidden sm:block ${h.ativo ? 'bg-emerald-500' : 'bg-slate-700'}`}><div className={`absolute top-1 w-4 h-4 bg-white rounded-full transition-all ${h.ativo ? 'left-5' : 'left-1'}`} /></button>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+
+            {/* Outras Configurações */}
+            {configSubTab === 'outros' && (
+              <div className="space-y-6">
+                {/* URLs */}
+                <div className="space-y-4">
+                  <div className="glass-card p-5 border-emerald-500/20 space-y-2">
+                    <div className="flex items-center gap-2 text-emerald-400 text-xs font-bold uppercase tracking-widest">
+                      <Link2 size={14} /> URL do Usuário
+                    </div>
+                    <div className="flex items-center gap-3 bg-slate-900 border border-white/5 rounded-xl px-4 py-3">
+                      <p className="text-sm text-slate-300 font-mono flex-1 break-all truncate">{window.location.origin}/{estab?.slug}/login</p>
+                      <button onClick={() => copyText(`${window.location.origin}/${estab?.slug}/login`, 'login')} className={`p-2 rounded-lg transition-all shrink-0 ${urlCopied === 'login' ? 'text-emerald-400 bg-emerald-500/10' : 'text-slate-500 hover:text-white hover:bg-white/5'}`}>{urlCopied === 'login' ? <CheckCircle size={16} /> : <Copy size={16} />}</button>
+                    </div>
+                  </div>
+                  <div className="glass-card p-5 border-emerald-500/20 space-y-2">
+                    <div className="flex items-center gap-2 text-emerald-400 text-xs font-bold uppercase tracking-widest">
+                      <Calendar size={14} /> Link Agendamento
+                    </div>
+                    <div className="flex items-center gap-3 bg-slate-900 border border-white/5 rounded-xl px-4 py-3">
+                      <p className="text-sm text-slate-300 font-mono flex-1 break-all truncate">{window.location.origin}/{estab?.slug}/agendar</p>
+                      <button onClick={() => copyText(`${window.location.origin}/${estab?.slug}/agendar`, 'agendar')} className={`p-2 rounded-lg transition-all shrink-0 ${urlCopied === 'agendar' ? 'text-emerald-400 bg-emerald-500/10' : 'text-slate-500 hover:text-white hover:bg-white/5'}`}>{urlCopied === 'agendar' ? <CheckCircle size={16} /> : <Copy size={16} />}</button>
+                    </div>
+                  </div>
+                </div>
 
             {isDevMode ? (
               <div className="glass-card p-6 border-amber-500/20 space-y-4">
@@ -2329,6 +2382,8 @@ export function AdminDashboard({ onBack, estabelecimentoId, membroId, cargo, isO
                     Desbloquear
                   </button>
                 </div>
+              </div>
+            )}
               </div>
             )}
           </div>
