@@ -13,3 +13,4 @@ create_bucket() {
 
 create_bucket "servicos"
 create_bucket "logos"
+create_bucket "avatars"

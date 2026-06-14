@@ -1,7 +1,7 @@
 import { useState, useEffect, useMemo } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts'
-import { ArrowLeft, ArrowRight, TrendingUp, TrendingDown, Lock, Shield, Calendar, Filter, ArrowUpRight, ArrowDownLeft, Trash2, Edit2, Plus, Users, DollarSign, LayoutDashboard, MoreVertical, PieChart, List, Settings, Copy, Link2, CheckCircle, MessageCircle, ShieldAlert, History, User, Scissors, Search, X, Download, Printer, CheckSquare, Square, RefreshCw, Clock, Award, ShoppingBag, Percent, XCircle } from 'lucide-react'
+import { ArrowLeft, ArrowRight, TrendingUp, TrendingDown, Lock, Shield, Calendar, Filter, ArrowUpRight, ArrowDownLeft, Trash2, Edit2, Plus, Users, DollarSign, LayoutDashboard, MoreVertical, PieChart, List, Settings, Copy, Link2, CheckCircle, MessageCircle, ShieldAlert, History, User, Scissors, Search, X, Download, Printer, CheckSquare, Square, RefreshCw, Clock, Award, ShoppingBag, Percent, XCircle, Camera } from 'lucide-react'
 import { supabase } from '../lib/supabase'
 import { TransactionModal } from './TransactionModal'
 import { formatCurrency, formatDateTime } from '../lib/format'
@@ -220,10 +220,11 @@ export function AdminDashboard({ onBack, estabelecimentoId, membroId, cargo, isO
   const [isMembroModalOpen, setIsMembroModalOpen] = useState(false)
   const [isItemModalOpen, setIsItemModalOpen] = useState(false)
 
-  const [novoMembro, setNovoMembro] = useState({ nome: '', pin: '', cargo: 'usuario', whatsapp: '', ativo: true, percentual_comissao: 0 })
+  const [novoMembro, setNovoMembro] = useState({ nome: '', pin: '', cargo: 'usuario', whatsapp: '', ativo: true, percentual_comissao: 0, avatar_url: '' })
   const [membroParaEditar, setMembroParaEditar] = useState<string | null>(null)
   const [membroError, setMembroError] = useState('')
   const [salvandoMembro, setSalvandoMembro] = useState(false)
+  const [avatarFile, setAvatarFile] = useState<File | null>(null)
 
   const [estab, setEstab] = useState<any>(null)
   const [saasConfig, setSaasConfig] = useState<any>(null)
@@ -1199,6 +1200,28 @@ export function AdminDashboard({ onBack, estabelecimentoId, membroId, cargo, isO
     setMembros(data || [])
   }
 
+  const handleDeleteMembro = async (id: string, nome: string, avatarUrl: string | null) => {
+    if (!confirm(`Tem certeza que deseja excluir "${nome}"? Esta ação não pode ser desfeita.`)) return
+    if (avatarUrl) {
+      const pathAntigo = extractPathFromSupabaseUrl(avatarUrl, 'avatars')
+      if (pathAntigo) {
+        await supabase.storage.from('avatars').remove([pathAntigo]).then(({ error: delErr }) => {
+          if (delErr) console.error('Erro ao remover avatar do storage:', delErr)
+        })
+      }
+    }
+    const { error } = await supabase.from('membros_equipe').delete().eq('id', id)
+    if (error) {
+      if (error.code === '23503') {
+        alert(`Não é possível excluir "${nome}" pois existem registros vinculados a ele (transações ou agendamentos).`)
+      } else {
+        alert('Erro ao excluir membro: ' + error.message)
+      }
+      return
+    }
+    fetchMembros()
+  }
+
   const handleDelete = async (id: string) => {
     const motivo = prompt('Por favor, informe o motivo da exclusão:')
     if (!motivo) return
@@ -1769,7 +1792,8 @@ export function AdminDashboard({ onBack, estabelecimentoId, membroId, cargo, isO
               <h2 className="font-black text-lg uppercase tracking-widest text-slate-400">Equipe</h2>
               <button onClick={() => {
                 setMembroParaEditar(null)
-                setNovoMembro({ nome: '', pin: '', cargo: 'usuario', whatsapp: '', ativo: true, percentual_comissao: 0 })
+                setNovoMembro({ nome: '', pin: '', cargo: 'usuario', whatsapp: '', ativo: true, percentual_comissao: 0, avatar_url: '' })
+                setAvatarFile(null)
                 setIsMembroModalOpen(true)
               }} className="bg-emerald-500 text-white px-4 py-2 rounded-xl font-bold text-xs shadow-lg shadow-emerald-500/20 active:scale-95 transition-all flex items-center gap-2">
                 <Plus size={14} /> Novo Membro
@@ -1793,6 +1817,57 @@ export function AdminDashboard({ onBack, estabelecimentoId, membroId, cargo, isO
                       if (!/^\d{4}$/.test(pin)) { setMembroError('O PIN deve ter exatamente 4 dígitos numéricos.'); return }
                       setSalvandoMembro(true)
 
+                      let finalAvatarUrl = membroParaEditar ? novoMembro.avatar_url : ''
+
+                      if (avatarFile) {
+                        try {
+                          const compressedBlob = await new Promise<Blob>((resolve, reject) => {
+                            const img = new Image()
+                            img.onload = () => {
+                              const MAX = 800
+                              let { width, height } = img
+                              if (width > MAX || height > MAX) {
+                                if (width > height) { height = Math.round(height * MAX / width); width = MAX }
+                                else { width = Math.round(width * MAX / height); height = MAX }
+                              }
+                              const canvas = document.createElement('canvas')
+                              canvas.width = width
+                              canvas.height = height
+                              canvas.getContext('2d')!.drawImage(img, 0, 0, width, height)
+                              canvas.toBlob(b => b ? resolve(b) : reject(new Error('Falha na compressão')), 'image/jpeg', 0.8)
+                            }
+                            img.onerror = reject
+                            img.src = URL.createObjectURL(avatarFile)
+                          })
+
+                          const randomId = typeof crypto !== 'undefined' && crypto.randomUUID
+                            ? crypto.randomUUID()
+                            : Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15)
+                          const fileName = `${estabelecimentoId}/${randomId}.jpg`
+                          const { error: uploadError } = await supabase.storage
+                            .from('avatars')
+                            .upload(fileName, compressedBlob, { contentType: 'image/jpeg', cacheControl: '3600', upsert: true })
+
+                          if (uploadError) throw uploadError
+
+                          const { data: { publicUrl } } = supabase.storage.from('avatars').getPublicUrl(fileName)
+                          finalAvatarUrl = publicUrl
+
+                          // GC: deletar avatar antigo se trocou
+                          if (membroParaEditar && novoMembro.avatar_url && novoMembro.avatar_url !== finalAvatarUrl) {
+                            const pathAntigo = extractPathFromSupabaseUrl(novoMembro.avatar_url, 'avatars')
+                            if (pathAntigo) {
+                              supabase.storage.from('avatars').remove([pathAntigo]).then(({ error: delErr }) => {
+                                if (delErr) console.error('Erro ao remover avatar antigo:', delErr)
+                              })
+                            }
+                          }
+                        } catch (err: any) {
+                          console.error('Erro no upload do avatar:', err)
+                          alert('Erro ao enviar avatar. Os outros dados serão salvos normalmente.')
+                        }
+                      }
+
                       let error = null
                       if (membroParaEditar) {
                         const result = await supabase.from('membros_equipe').update({
@@ -1802,6 +1877,7 @@ export function AdminDashboard({ onBack, estabelecimentoId, membroId, cargo, isO
                           whatsapp: novoMembro.whatsapp.trim(),
                           percentual_comissao: Number(novoMembro.percentual_comissao) || 0,
                           ativo: novoMembro.ativo,
+                          avatar_url: finalAvatarUrl,
                         }).eq('id', membroParaEditar)
                         error = result.error
                       } else {
@@ -1813,6 +1889,7 @@ export function AdminDashboard({ onBack, estabelecimentoId, membroId, cargo, isO
                           whatsapp: novoMembro.whatsapp.trim(),
                           percentual_comissao: Number(novoMembro.percentual_comissao) || 0,
                           ativo: true,
+                          avatar_url: finalAvatarUrl,
                         })
                         error = result.error
                       }
@@ -1823,27 +1900,64 @@ export function AdminDashboard({ onBack, estabelecimentoId, membroId, cargo, isO
                         else setMembroError(error.message)
                         return
                       }
-                      setNovoMembro({ nome: '', pin: '', cargo: 'usuario', whatsapp: '', ativo: true, percentual_comissao: 0 })
+                      setNovoMembro({ nome: '', pin: '', cargo: 'usuario', whatsapp: '', ativo: true, percentual_comissao: 0, avatar_url: '' })
+                      setAvatarFile(null)
                       setMembroParaEditar(null)
                       setIsMembroModalOpen(false)
                       fetchMembros()
                     }}
                     className="p-6 space-y-4 max-h-[80vh] overflow-y-auto"
                   >
-                    <input
-                      className="w-full bg-slate-900 border border-white/5 rounded-xl p-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/50"
-                      placeholder="Nome"
-                      value={novoMembro.nome}
-                      onChange={e => setNovoMembro(prev => ({ ...prev, nome: e.target.value }))}
-                    />
-                    <input
-                      maxLength={4}
-                      inputMode="numeric"
-                      className="w-full bg-slate-900 border border-white/5 rounded-xl p-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/50"
-                      placeholder="PIN (4 dígitos)"
-                      value={novoMembro.pin}
-                      onChange={e => setNovoMembro(prev => ({ ...prev, pin: e.target.value.replace(/\D/g, '').slice(0, 4) }))}
-                    />
+                    {/* Avatar + Nome / PIN row */}
+                    <div className="flex gap-4">
+                      <label className="flex-shrink-0 w-20 cursor-pointer group">
+                        <div className="aspect-[3/4] w-full rounded-xl bg-slate-900 border border-white/5 overflow-hidden flex items-center justify-center relative group-hover:border-emerald-500/50 transition-all">
+                          {(avatarFile || novoMembro.avatar_url) ? (
+                            <img
+                              src={avatarFile ? URL.createObjectURL(avatarFile) : novoMembro.avatar_url}
+                              alt="Avatar"
+                              className="w-full h-full object-cover"
+                            />
+                          ) : (
+                            <div className="text-center p-2">
+                              <Camera className="mx-auto text-slate-600 mb-1" size={20} />
+                              <span className="text-[9px] font-bold text-slate-600 uppercase">Foto</span>
+                            </div>
+                          )}
+                          <div className="absolute inset-0 bg-black/40 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+                            <Camera size={24} className="text-white" />
+                          </div>
+                        </div>
+                        <input
+                          type="file"
+                          accept="image/*"
+                          className="hidden"
+                          onChange={e => {
+                            const file = e.target.files?.[0]
+                            if (file) {
+                              setAvatarFile(file)
+                              setNovoMembro(prev => ({ ...prev, avatar_url: '' }))
+                            }
+                          }}
+                        />
+                      </label>
+                      <div className="flex-1 flex flex-col gap-4">
+                        <input
+                          className="w-full bg-slate-900 border border-white/5 rounded-xl p-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/50"
+                          placeholder="Nome"
+                          value={novoMembro.nome}
+                          onChange={e => setNovoMembro(prev => ({ ...prev, nome: e.target.value }))}
+                        />
+                        <input
+                          maxLength={4}
+                          inputMode="numeric"
+                          className="w-full bg-slate-900 border border-white/5 rounded-xl p-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/50"
+                          placeholder="PIN (4 dígitos)"
+                          value={novoMembro.pin}
+                          onChange={e => setNovoMembro(prev => ({ ...prev, pin: e.target.value.replace(/\D/g, '').slice(0, 4) }))}
+                        />
+                      </div>
+                    </div>
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                       <select
                         className="w-full bg-slate-900 border border-white/5 rounded-xl p-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/50"
@@ -1860,27 +1974,32 @@ export function AdminDashboard({ onBack, estabelecimentoId, membroId, cargo, isO
                         onChange={e => setNovoMembro(prev => ({ ...prev, whatsapp: e.target.value.replace(/\D/g, '') }))}
                       />
                     </div>
-                    <div className="space-y-1">
-                      <label className="text-[10px] font-bold text-slate-500 uppercase px-1">Comissão Padrão (%)</label>
-                      <input
-                        type="number"
-                        min="0"
-                        max="100"
-                        className="w-full bg-slate-900 border border-white/5 rounded-xl p-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/50"
-                        placeholder="Ex: 50"
-                        value={novoMembro.percentual_comissao === 0 ? '' : novoMembro.percentual_comissao}
-                        onChange={e => setNovoMembro(prev => ({ ...prev, percentual_comissao: Number(e.target.value) }))}
-                      />
-                    </div>
-                    <label className="flex items-center justify-between bg-slate-900 border border-white/5 rounded-xl px-4 py-3 cursor-pointer">
-                      <span className="text-sm text-slate-300 font-medium">Membro ativo</span>
-                      <div
-                        onClick={() => setNovoMembro(prev => ({ ...prev, ativo: !prev.ativo }))}
-                        className={`relative w-11 h-6 rounded-full transition-all duration-300 ${novoMembro.ativo ? 'bg-emerald-500' : 'bg-slate-700'}`}
-                      >
-                        <span className={`absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full shadow transition-all duration-300 ${novoMembro.ativo ? 'translate-x-5' : 'translate-x-0'}`} />
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                      <div className="space-y-1">
+                        <label className="text-[10px] font-bold text-slate-500 uppercase px-1">Comissão Padrão (%)</label>
+                        <input
+                          type="number"
+                          min="0"
+                          max="100"
+                          className="w-full bg-slate-900 border border-white/5 rounded-xl p-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/50"
+                          placeholder="Ex: 50"
+                          value={novoMembro.percentual_comissao === 0 ? '' : novoMembro.percentual_comissao}
+                          onChange={e => setNovoMembro(prev => ({ ...prev, percentual_comissao: Number(e.target.value) }))}
+                        />
                       </div>
-                    </label>
+                      <div className="space-y-1">
+                        <label className="text-[10px] font-bold text-slate-500 uppercase px-1">Status</label>
+                        <label className="flex items-center justify-between bg-slate-900 border border-white/5 rounded-xl px-4 py-2.5 cursor-pointer">
+                          <span className="text-sm text-slate-300 font-medium">Membro ativo</span>
+                          <div
+                            onClick={() => setNovoMembro(prev => ({ ...prev, ativo: !prev.ativo }))}
+                            className={`relative w-9 h-5 rounded-full transition-all duration-300 ${novoMembro.ativo ? 'bg-emerald-500' : 'bg-slate-700'}`}
+                          >
+                            <span className={`absolute top-0.5 left-0.5 w-4 h-4 bg-white rounded-full shadow transition-all duration-300 ${novoMembro.ativo ? 'translate-x-4' : 'translate-x-0'}`} />
+                          </div>
+                        </label>
+                      </div>
+                    </div>
                     {membroError && <p className="text-rose-400 text-xs font-bold px-1">{membroError}</p>}
                     <button
                       type="submit"
@@ -1897,7 +2016,10 @@ export function AdminDashboard({ onBack, estabelecimentoId, membroId, cargo, isO
               {membros.map(m => (
                 <div key={m.id} className="glass-card p-4 flex justify-between items-center border-white/5">
                   <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 rounded-xl bg-slate-800 flex items-center justify-center font-bold text-emerald-500 uppercase">{m.nome.charAt(0)}</div>
+                    {m.avatar_url
+                      ? <img src={m.avatar_url} alt={m.nome} className="w-10 h-10 rounded-xl object-cover" />
+                      : <div className="w-10 h-10 rounded-xl bg-slate-800 flex items-center justify-center font-bold text-emerald-500 uppercase">{m.nome.charAt(0)}</div>
+                    }
                     <div>
                       <p className="font-bold text-sm">{m.nome}</p>
                       <div className="flex items-center gap-2 mt-1">
@@ -1920,8 +2042,10 @@ export function AdminDashboard({ onBack, estabelecimentoId, membroId, cargo, isO
                           cargo: m.cargo,
                           whatsapp: m.whatsapp || '',
                           ativo: m.ativo,
-                          percentual_comissao: m.percentual_comissao || 0
+                          percentual_comissao: m.percentual_comissao || 0,
+                          avatar_url: m.avatar_url || ''
                         })
+                        setAvatarFile(null)
                         setIsMembroModalOpen(true)
                       }}
                       className="p-3 bg-white/5 text-slate-400 rounded-xl hover:bg-white/10 hover:text-white transition-all shadow-lg active:scale-90"
@@ -1941,13 +2065,19 @@ export function AdminDashboard({ onBack, estabelecimentoId, membroId, cargo, isO
                         <MessageCircle size={20} />
                       </button>
                     )}
+                    <button
+                      onClick={() => handleDeleteMembro(m.id, m.nome, m.avatar_url)}
+                      className="p-3 bg-rose-500/10 text-rose-500 rounded-xl hover:bg-rose-500 hover:text-white transition-all shadow-lg active:scale-90"
+                      title="Excluir Membro"
+                    >
+                      <Trash2 size={20} />
+                    </button>
                   </div>
                 </div>
               ))}
             </div>
           </div>
         )}
-
 
 
         {activeTab === 'itens' && (

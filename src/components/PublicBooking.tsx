@@ -340,9 +340,12 @@ export function PublicBooking() {
                   onClick={() => { setSelecionado(prev => ({ ...prev, profissional: p })); setStep(3); }}
                   className="glass-card p-5 border-white/5 text-left flex items-center gap-4 active:scale-95 transition-all hover:border-emerald-500/30"
                 >
-                  <div className="w-12 h-12 rounded-2xl bg-emerald-500/10 flex items-center justify-center text-emerald-500 font-black uppercase text-xl">
-                    {p.nome.charAt(0)}
-                  </div>
+                  {p.avatar_url
+                      ? <img src={p.avatar_url} alt={p.nome} className="w-12 h-12 rounded-2xl object-cover" />
+                      : <div className="w-12 h-12 rounded-2xl bg-emerald-500/10 flex items-center justify-center text-emerald-500 font-black uppercase text-xl">
+                        {p.nome.charAt(0)}
+                      </div>
+                    }
                   <div>
                     <p className="font-bold text-sm">{p.nome}</p>
                     <p className="text-[10px] text-emerald-500/60 font-bold uppercase tracking-widest">Profissional</p>

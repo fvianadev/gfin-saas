@@ -157,7 +157,10 @@ function StaffLogin() {
               <div className="absolute top-full left-0 right-0 mt-2 bg-slate-900 border border-white/5 rounded-xl overflow-hidden z-50 shadow-2xl max-h-48 overflow-y-auto">
                 {filteredMembros.length > 0 ? filteredMembros.map(m => (
                   <button key={m.id} onClick={() => { setSelectedMembro(m); setSearchTerm('') }} className="w-full text-left px-4 py-3 hover:bg-emerald-500/10 hover:text-emerald-500 transition-all font-bold text-sm border-b border-white/5 last:border-0 flex items-center gap-3">
-                    <div className="w-8 h-8 rounded-full bg-slate-800 flex items-center justify-center text-xs text-emerald-500">{m.nome.charAt(0)}</div>
+                    {m.avatar_url
+                        ? <img src={m.avatar_url} alt={m.nome} className="w-8 h-8 rounded-full object-cover" />
+                        : <div className="w-8 h-8 rounded-full bg-slate-800 flex items-center justify-center text-xs text-emerald-500">{m.nome.charAt(0)}</div>
+                      }
                     {m.nome}
                   </button>
                 )) : (
