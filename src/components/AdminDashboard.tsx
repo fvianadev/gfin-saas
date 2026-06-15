@@ -19,6 +19,7 @@ type Periodo = 'hoje' | '7dias' | '30dias' | 'todos'
 type Tab = 'resumo' | 'transacoes' | 'equipe' | 'config' | 'auditoria' | 'itens' | 'relatorios' | 'agenda'
 
 export function AdminDashboard({ onBack, estabelecimentoId, membroId, cargo, isOwner }: AdminDashboardProps) {
+  const podeVerTudo = isOwner || cargo === 'administrador'
   const [searchParams, setSearchParams] = useSearchParams()
   const activeTab = (searchParams.get('aba') as Tab) || 'resumo'
   const setActiveTab = (tab: Tab) => setSearchParams({ aba: tab }, { replace: true })
@@ -76,7 +77,7 @@ export function AdminDashboard({ onBack, estabelecimentoId, membroId, cargo, isO
   const dashboardMetrics = useMemo(() => {
     let filteredTxs = transactions;
 
-    if (isOwner && filtroMembro !== 'todos') {
+    if (podeVerTudo && filtroMembro !== 'todos') {
       filteredTxs = transactions.filter(t => t.membro_id === filtroMembro);
     }
 
@@ -1492,8 +1493,8 @@ export function AdminDashboard({ onBack, estabelecimentoId, membroId, cargo, isO
                   ))}
                 </div>
 
-                {/* Filtro por Profissional (Apenas Dono) */}
-                {(isOwner && activeTab === 'resumo') && (
+                {/* Filtro por Profissional (Apenas Dono/Admin) */}
+                {(podeVerTudo && activeTab === 'resumo') && (
                   <div className="flex items-center gap-2 bg-slate-900/50 border border-white/5 rounded-full px-4 py-1.5 h-[34px]">
                     <User size={12} className="text-emerald-500" />
                     <select
@@ -1540,7 +1541,7 @@ export function AdminDashboard({ onBack, estabelecimentoId, membroId, cargo, isO
             {/* ROW 1: CARDS PRINCIPAIS */}
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4 sm:gap-6">
               {/* Card 1: Lucro Líquido (Dono) ou Comissão (PIN) */}
-              {isOwner ? (
+              {podeVerTudo ? (
                 <div className="glass-card p-6 bg-gradient-to-br from-emerald-500/10 to-teal-500/5 border-emerald-500/20 relative overflow-hidden group">
                   <div className="absolute -right-4 -top-4 w-24 h-24 bg-emerald-500/10 rounded-full blur-2xl group-hover:scale-150 transition-all" />
                   <p className="text-slate-400 text-[10px] font-bold uppercase tracking-widest mb-1">Lucro Líquido Global</p>
@@ -1557,7 +1558,7 @@ export function AdminDashboard({ onBack, estabelecimentoId, membroId, cargo, isO
               )}
 
               {/* Card 2: Receitas (Dono) ou Ticket Médio Pessoal (PIN) */}
-              {isOwner ? (
+              {podeVerTudo ? (
                 <div className="glass-card p-6 border-white/5 relative overflow-hidden group">
                   <p className="text-slate-500 text-[10px] font-bold uppercase mb-1">Receitas Operacionais</p>
                   <h3 className="text-2xl font-black text-emerald-400">{formatCurrency(dashboardMetrics.totalReceitas)}</h3>
@@ -1572,7 +1573,7 @@ export function AdminDashboard({ onBack, estabelecimentoId, membroId, cargo, isO
               )}
 
               {/* Card 3: Despesas (Dono) ou Total de Atendimentos (PIN) */}
-              {isOwner ? (
+              {podeVerTudo ? (
                 <div className="glass-card p-6 border-white/5 relative overflow-hidden group">
                   <p className="text-slate-500 text-[10px] font-bold uppercase mb-1">Despesas Operacionais</p>
                   <h3 className="text-2xl font-black text-rose-500">{formatCurrency(dashboardMetrics.totalDespesas)}</h3>
@@ -1589,8 +1590,8 @@ export function AdminDashboard({ onBack, estabelecimentoId, membroId, cargo, isO
               )}
             </div>
 
-            {/* ROW 2: DETALHES DE AGENDAMENTOS OPERACIONAIS (Apenas Dono) */}
-            {isOwner && (
+            {/* ROW 2: DETALHES DE AGENDAMENTOS OPERACIONAIS (Apenas Dono/Admin) */}
+            {podeVerTudo && (
               <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4">
                 <div className="glass-card p-4 border-white/5 text-center">
                   <p className="text-slate-500 text-[9px] font-bold uppercase">Total Agendados</p>
@@ -1612,7 +1613,7 @@ export function AdminDashboard({ onBack, estabelecimentoId, membroId, cargo, isO
             )}
 
             {/* ROW 3: GRÁFICO DE FLUXO DE CAIXA (Ocultado para PIN Usuário comum) */}
-            {isOwner && (
+            {podeVerTudo && (
               <section className="glass-card p-4 sm:p-8 border-white/5 overflow-hidden">
                 <h3 className="font-bold mb-8 text-sm flex items-center gap-2 uppercase tracking-widest"><TrendingUp size={16} className="text-emerald-500" /> Fluxo de Caixa</h3>
                 <div className="h-64 sm:h-80 w-full">
@@ -1636,8 +1637,8 @@ export function AdminDashboard({ onBack, estabelecimentoId, membroId, cargo, isO
 
             {/* ROW 4: RANKINGS E TABELAS (CONFORME NÍVEL DE ACESSO) */}
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-              {/* Coluna A: Desempenho da Equipe (Dono) ou Meus Serviços Campeões (PIN) */}
-              {isOwner ? (
+              {/* Coluna A: Desempenho da Equipe (Dono/Admin) ou Meus Serviços Campeões (PIN) */}
+              {podeVerTudo ? (
                 <section className="glass-card p-6 border-white/5">
                   <h3 className="font-bold mb-4 text-xs flex items-center gap-2 uppercase tracking-widest text-slate-300">
                     <Award size={16} className="text-emerald-500" /> Desempenho da Equipe
@@ -1695,8 +1696,8 @@ export function AdminDashboard({ onBack, estabelecimentoId, membroId, cargo, isO
                 </section>
               )}
 
-              {/* Coluna B: Serviços Mais Agendados (Dono) ou Detalhamento de Comissões Pessoais (PIN) */}
-              {isOwner ? (
+              {/* Coluna B: Serviços Mais Agendados (Dono/Admin) ou Detalhamento de Comissões Pessoais (PIN) */}
+              {podeVerTudo ? (
                 <section className="glass-card p-6 border-white/5">
                   <h3 className="font-bold mb-4 text-xs flex items-center gap-2 uppercase tracking-widest text-slate-300">
                     <ShoppingBag size={16} className="text-emerald-500" /> Serviços Mais Procurados
