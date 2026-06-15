@@ -104,7 +104,7 @@ export function LoginPage({ onLogin }: { onLogin: (session: UserSession) => void
   }
 
   return (
-    <div className="min-h-screen bg-slate-950 flex flex-col items-center justify-center p-4 md:p-6 text-white relative animate-in fade-in duration-500">
+    <div className="min-h-dvh bg-slate-950 flex flex-col items-center justify-center sm:justify-start sm:pt-8 p-4 md:p-6 text-white relative animate-in fade-in duration-500">
       {/* Botão de voltar */}
       <div className="absolute top-4 left-4 md:top-8 md:left-8">
         <Link to="/" className="flex items-center gap-2 text-slate-400 hover:text-white transition-colors text-sm font-medium bg-slate-900/50 p-2 md:px-4 md:py-2 rounded-lg border border-white/5 backdrop-blur-sm">
@@ -113,18 +113,18 @@ export function LoginPage({ onLogin }: { onLogin: (session: UserSession) => void
         </Link>
       </div>
 
-      <div className="glass-card w-full max-w-md p-6 md:p-8 border-white/5 space-y-8 shadow-2xl">
+      <div className="glass-card w-full max-w-md p-6 md:p-6 border-white/5 space-y-6 sm:space-y-5 shadow-2xl">
         {mode === 'login' ? (
           <>
             <div className="text-center">
-              <div className="w-14 h-14 md:w-16 md:h-16 bg-emerald-500 rounded-2xl flex items-center justify-center mx-auto mb-4 shadow-lg shadow-emerald-500/20">
-                <LayoutDashboard size={28} className="md:w-8 md:h-8" />
+              <div className="w-12 h-12 sm:w-14 sm:h-14 bg-emerald-500 rounded-2xl flex items-center justify-center mx-auto mb-3 shadow-lg shadow-emerald-500/20">
+                <LayoutDashboard size={24} className="sm:w-7 sm:h-7" />
               </div>
-              <h1 className="text-2xl md:text-3xl font-black tracking-tight">Bem-vindo de volta</h1>
-              <p className="text-slate-500 text-xs md:text-sm mt-2 uppercase tracking-widest font-bold">Login do Administrador</p>
+              <h1 className="text-xl sm:text-2xl font-black tracking-tight">Bem-vindo de volta</h1>
+              <p className="text-[10px] sm:text-xs text-slate-500 mt-1 uppercase tracking-widest font-bold">Login do Administrador</p>
             </div>
 
-            <form onSubmit={handleLogin} className="space-y-5">
+            <form onSubmit={handleLogin} className="space-y-4">
               <div className="space-y-1.5">
                 <label className="text-[10px] md:text-xs font-bold text-slate-400 uppercase px-1 tracking-wider">E-mail</label>
                 <input 
@@ -132,7 +132,7 @@ export function LoginPage({ onLogin }: { onLogin: (session: UserSession) => void
                   type="email" 
                   value={email} 
                   onChange={e => setEmail(e.target.value)} 
-                  className="w-full bg-slate-900 border border-white/10 rounded-xl p-3.5 md:p-4 text-sm md:text-base text-white outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 transition-all" 
+                  className="w-full bg-slate-900 border border-white/10 rounded-xl p-3 md:p-3.5 text-sm md:text-base text-white outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 transition-all" 
                   placeholder="seu@email.com"
                 />
               </div>
@@ -153,7 +153,7 @@ export function LoginPage({ onLogin }: { onLogin: (session: UserSession) => void
                     type={showSenha ? 'text' : 'password'} 
                     value={senha} 
                     onChange={e => setSenha(e.target.value)} 
-                    className="w-full bg-slate-900 border border-white/10 rounded-xl p-3.5 pr-11 md:p-4 md:pr-11 text-sm md:text-base text-white outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 transition-all" 
+                    className="w-full bg-slate-900 border border-white/10 rounded-xl p-3 pr-11 md:p-3.5 md:pr-11 text-sm md:text-base text-white outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 transition-all" 
                     placeholder="••••••••"
                   />
                   <button
@@ -167,7 +167,7 @@ export function LoginPage({ onLogin }: { onLogin: (session: UserSession) => void
               </div>
               
               <div className="pt-2">
-                <button disabled={loading} className="w-full bg-emerald-500 hover:bg-emerald-400 disabled:opacity-50 text-white font-bold py-3.5 md:py-4 px-4 rounded-xl shadow-lg shadow-emerald-500/20 active:scale-[0.98] transition-all text-sm md:text-base flex justify-center items-center">
+                <button disabled={loading} className="w-full bg-emerald-500 hover:bg-emerald-400 disabled:opacity-50 text-white font-bold py-3 md:py-3.5 px-4 rounded-xl shadow-lg shadow-emerald-500/20 active:scale-[0.98] transition-all text-sm md:text-base flex justify-center items-center">
                   {loading ? (
                     <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
                   ) : 'Acessar Painel'}
@@ -184,13 +184,13 @@ export function LoginPage({ onLogin }: { onLogin: (session: UserSession) => void
         ) : (
           <>
             {forgotSuccess ? (
-              <div className="text-center space-y-6 animate-in fade-in duration-300">
-                <div className="w-16 h-16 bg-emerald-500/10 text-emerald-500 rounded-2xl flex items-center justify-center mx-auto mb-2 shadow-lg shadow-emerald-500/5 border border-emerald-500/10">
-                  <Mail size={32} />
+              <div className="text-center space-y-4 animate-in fade-in duration-300">
+                <div className="w-14 h-14 sm:w-16 sm:h-16 bg-emerald-500/10 text-emerald-500 rounded-2xl flex items-center justify-center mx-auto mb-2 shadow-lg shadow-emerald-500/5 border border-emerald-500/10">
+                  <Mail size={28} />
                 </div>
                 <div className="space-y-2">
-                  <h1 className="text-2xl font-black tracking-tight">E-mail Enviado! 📬</h1>
-                  <p className="text-slate-400 text-xs md:text-sm leading-relaxed">
+                  <h1 className="text-xl sm:text-2xl font-black tracking-tight">E-mail Enviado!</h1>
+                  <p className="text-slate-400 text-xs sm:text-sm leading-relaxed">
                     Enviamos as instruções de recuperação de senha para:
                   </p>
                   <p className="text-emerald-400 font-bold break-all bg-emerald-500/5 py-2 px-3 rounded-lg border border-emerald-500/10 text-sm">
@@ -204,24 +204,24 @@ export function LoginPage({ onLogin }: { onLogin: (session: UserSession) => void
                 </div>
                 <button 
                   onClick={() => setMode('login')}
-                  className="w-full bg-emerald-500 hover:bg-emerald-400 text-white font-bold py-3.5 px-4 rounded-xl shadow-lg shadow-emerald-500/20 active:scale-[0.98] transition-all text-sm md:text-base text-center"
+                  className="w-full bg-emerald-500 hover:bg-emerald-400 text-white font-bold py-3 md:py-3.5 px-4 rounded-xl shadow-lg shadow-emerald-500/20 active:scale-[0.98] transition-all text-sm md:text-base text-center"
                 >
                   Voltar para o Login
                 </button>
               </div>
             ) : (
-              <div className="space-y-6 animate-in fade-in duration-300">
+              <div className="space-y-4 animate-in fade-in duration-300">
                 <div className="text-center">
-                  <div className="w-14 h-14 md:w-16 md:h-16 bg-emerald-500/10 text-emerald-500 rounded-2xl flex items-center justify-center mx-auto mb-4 shadow-lg shadow-emerald-500/5 border border-emerald-500/10">
-                    <Lock size={28} className="md:w-8 md:h-8" />
+                  <div className="w-12 h-12 sm:w-14 sm:h-14 bg-emerald-500/10 text-emerald-500 rounded-2xl flex items-center justify-center mx-auto mb-3 shadow-lg shadow-emerald-500/5 border border-emerald-500/10">
+                    <Lock size={24} className="sm:w-7 sm:h-7" />
                   </div>
-                  <h1 className="text-2xl font-black tracking-tight">Recuperar Senha</h1>
-                  <p className="text-slate-400 text-xs md:text-sm mt-2">
+                  <h1 className="text-xl sm:text-2xl font-black tracking-tight">Recuperar Senha</h1>
+                  <p className="text-slate-400 text-xs sm:text-sm mt-1">
                     Insira seu e-mail cadastrado e enviaremos um link para criar uma nova senha.
                   </p>
                 </div>
 
-                <form onSubmit={handleForgotPassword} className="space-y-5">
+                <form onSubmit={handleForgotPassword} className="space-y-4">
                   <div className="space-y-1.5">
                     <label className="text-[10px] md:text-xs font-bold text-slate-400 uppercase px-1 tracking-wider">E-mail</label>
                     <input 
@@ -229,7 +229,7 @@ export function LoginPage({ onLogin }: { onLogin: (session: UserSession) => void
                       type="email" 
                       value={forgotEmail} 
                       onChange={e => setForgotEmail(e.target.value)} 
-                      className="w-full bg-slate-900 border border-white/10 rounded-xl p-3.5 md:p-4 text-sm md:text-base text-white outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 transition-all" 
+                      className="w-full bg-slate-900 border border-white/10 rounded-xl p-3 md:p-3.5 text-sm md:text-base text-white outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 transition-all" 
                       placeholder="seu@email.com"
                     />
                   </div>
@@ -238,7 +238,7 @@ export function LoginPage({ onLogin }: { onLogin: (session: UserSession) => void
                     <button 
                       disabled={forgotLoading} 
                       type="submit"
-                      className="w-full bg-emerald-500 hover:bg-emerald-400 disabled:opacity-50 text-white font-bold py-3.5 md:py-4 px-4 rounded-xl shadow-lg shadow-emerald-500/20 active:scale-[0.98] transition-all text-sm md:text-base flex justify-center items-center"
+                      className="w-full bg-emerald-500 hover:bg-emerald-400 disabled:opacity-50 text-white font-bold py-3 md:py-3.5 px-4 rounded-xl shadow-lg shadow-emerald-500/20 active:scale-[0.98] transition-all text-sm md:text-base flex justify-center items-center"
                     >
                       {forgotLoading ? (
                         <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
