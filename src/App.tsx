@@ -113,7 +113,7 @@ function StaffLogin() {
   const filteredMembros = membros.filter(m => m.nome.toLowerCase().includes(searchTerm.toLowerCase()))
 
   return (
-    <div className="min-h-screen bg-slate-950 flex flex-col items-center justify-center p-6 text-white">
+    <div className="min-h-dvh bg-slate-950 flex flex-col items-center justify-center sm:justify-start sm:pt-8 p-6 text-white">
       <div className="w-full max-w-sm space-y-8">
         <div className="text-center">
           {estab.configuracoes?.logo_url && (
