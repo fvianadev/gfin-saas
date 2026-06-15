@@ -374,34 +374,92 @@ export function PublicBooking() {
 
             {selecionado.data && (
               <div className="space-y-3">
+                {selecionado.profissional && (
+                  <p className="text-[10px] text-slate-500 font-bold uppercase tracking-widest">
+                    Agenda de <span className="text-emerald-500/80">{selecionado.profissional.nome}</span>
+                  </p>
+                )}
+
                 <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">
-                  {carregandoHorarios ? 'Verificando disponibilidade...' : 'Horários Disponíveis'}
+                  Horários
                 </label>
-                <div className="grid grid-cols-3 gap-2">
-                  {['08:00', '08:30', '09:00', '09:30', '10:00', '10:30', '11:00', '11:30', '13:00', '13:30', '14:00', '14:30', '15:00', '15:30', '16:00', '16:30', '17:00', '17:30'].map(h => {
-                    const ocupadosNesseHorario = agendamentosExistentes.filter(a => a.hora === h)
-                    const jaTemAgendamento = selecionado.profissional && ocupadosNesseHorario.some(a => a.membro_id === selecionado.profissional.id)
-                    const disponivel = !jaTemAgendamento
 
-                    if (!disponivel) return null
+                {carregandoHorarios ? (
+                  <div className="grid grid-cols-3 gap-2">
+                    {Array.from({ length: 6 }).map((_, i) => (
+                      <div key={i} className="h-[42px] rounded-xl bg-slate-800/50 animate-pulse" />
+                    ))}
+                  </div>
+                ) : (
+                  <>
+                    {(() => {
+                      const todosSlots = ['08:00', '08:30', '09:00', '09:30', '10:00', '10:30', '11:00', '11:30', '13:00', '13:30', '14:00', '14:30', '15:00', '15:30', '16:00', '16:30', '17:00', '17:30']
+                      const slotsDisponiveis = todosSlots.filter(h => {
+                        const ocupadosNesseHorario = agendamentosExistentes.filter(a => a.hora === h)
+                        const jaTemAgendamento = selecionado.profissional && ocupadosNesseHorario.some(a => a.membro_id === selecionado.profissional.id)
+                        return !jaTemAgendamento
+                      })
 
-                    return (
-                      <button
-                        key={h}
-                        onClick={() => { setSelecionado(prev => ({ ...prev, hora: h })); setStep(4); }}
-                        className={`py-3.5 rounded-xl text-xs font-black transition-all ${
-                          selecionado.hora === h
-                            ? 'bg-emerald-500 text-white shadow-lg shadow-emerald-500/20 scale-105'
-                            : 'bg-slate-900 text-slate-400 border border-white/5 hover:border-emerald-500/40 hover:text-emerald-400'
-                        }`}
-                      >
-                        {h}
-                      </button>
-                    )
-                  })}
-                </div>
-                {agendamentosExistentes.length > 0 && (
-                  <p className="text-[10px] text-slate-600 italic">* Horários ocupados não são exibidos.</p>
+                      if (slotsDisponiveis.length === 0 && agendamentosExistentes.length > 0) {
+                        return (
+                          <div className="text-center py-8 space-y-3">
+                            <div className="w-12 h-12 bg-slate-800 rounded-2xl flex items-center justify-center mx-auto">
+                              <Clock size={20} className="text-slate-600" />
+                            </div>
+                            <p className="text-sm font-bold text-slate-400">Todos os horários reservados</p>
+                            <p className="text-[10px] text-slate-600">Tente outra data ou profissional.</p>
+                          </div>
+                        )
+                      }
+
+                      return (
+                        <>
+                          <div className="grid grid-cols-3 gap-2">
+                            {todosSlots.map(h => {
+                              const ocupadosNesseHorario = agendamentosExistentes.filter(a => a.hora === h)
+                              const jaTemAgendamento = selecionado.profissional && ocupadosNesseHorario.some(a => a.membro_id === selecionado.profissional.id)
+                              const disponivel = !jaTemAgendamento
+
+                              return (
+                                <button
+                                  key={h}
+                                  disabled={!disponivel}
+                                  onClick={() => { if (disponivel) { setSelecionado(prev => ({ ...prev, hora: h })); setStep(4); } }}
+                                  className={`py-3 rounded-xl text-xs font-black transition-all ${
+                                    !disponivel
+                                      ? 'bg-slate-900/30 text-slate-700 border border-white/5 cursor-not-allowed line-through decoration-slate-700'
+                                      : selecionado.hora === h
+                                        ? 'bg-emerald-500 text-white shadow-lg shadow-emerald-500/20 scale-105'
+                                        : 'bg-slate-900 text-slate-400 border border-white/5 hover:border-emerald-500/40 hover:text-emerald-400'
+                                  }`}
+                                >
+                                  {!disponivel ? (
+                                    <span className="flex flex-col items-center gap-0.5">
+                                      <span>{h}</span>
+                                      <span className="text-[7px] text-rose-500/50 uppercase tracking-[0.15em] font-bold">Reservado</span>
+                                    </span>
+                                  ) : h}
+                                </button>
+                              )
+                            })}
+                          </div>
+
+                          {agendamentosExistentes.length > 0 && (
+                            <div className="flex items-center gap-4 text-[9px] font-bold text-slate-600 uppercase tracking-widest">
+                              <span className="flex items-center gap-1.5">
+                                <span className="w-2 h-2 rounded-sm bg-emerald-500/60" />
+                                Disponível
+                              </span>
+                              <span className="flex items-center gap-1.5">
+                                <span className="w-2 h-2 rounded-sm bg-slate-700" />
+                                Reservado
+                              </span>
+                            </div>
+                          )}
+                        </>
+                      )
+                    })()}
+                  </>
                 )}
               </div>
             )}
