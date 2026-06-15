@@ -113,22 +113,22 @@ function StaffLogin() {
   const filteredMembros = membros.filter(m => m.nome.toLowerCase().includes(searchTerm.toLowerCase()))
 
   return (
-    <div className="min-h-dvh bg-slate-950 flex flex-col items-center justify-center sm:justify-start sm:pt-8 p-6 text-white">
-      <div className="w-full max-w-sm space-y-8">
-        <div className="text-center">
-          {estab.configuracoes?.logo_url && (
-            <img 
-              src={estab.configuracoes.logo_url} 
-              alt="Logo" 
-              className="w-24 h-24 mx-auto mb-4 rounded-2xl object-cover shadow-lg border border-white/10" 
-            />
-          )}
-          <h1 className="text-3xl font-black mb-2 tracking-tighter">{estab.nome}</h1>
-          <div className="flex items-center justify-center gap-2 text-slate-500 text-xs font-bold uppercase tracking-widest">
-            <Lock size={12} className="text-emerald-500" /> Acesso Seguro
+    <div className="min-h-dvh bg-slate-950 flex flex-col items-center justify-center sm:justify-start sm:pt-6 p-6 text-white">
+      <div className="w-full max-w-sm sm:max-w-lg sm:flex sm:gap-10 sm:items-start space-y-8 sm:space-y-0">
+        <div className="sm:flex-1 sm:pt-2 space-y-6 sm:space-y-4">
+          <div className="text-center sm:text-left">
+            {estab.configuracoes?.logo_url && (
+              <img 
+                src={estab.configuracoes.logo_url} 
+                alt="Logo" 
+                className="w-24 h-24 sm:w-14 sm:h-14 mx-auto sm:mx-0 mb-4 sm:mb-2 rounded-2xl object-cover shadow-lg border border-white/10" 
+              />
+            )}
+            <h1 className="text-3xl sm:text-xl font-black mb-1 tracking-tighter">{estab.nome}</h1>
+            <div className="flex items-center justify-center sm:justify-start gap-2 text-slate-500 text-[10px] font-bold uppercase tracking-widest">
+              <Lock size={10} className="text-emerald-500" /> Acesso Seguro
+            </div>
           </div>
-        </div>
-        <div className="space-y-6">
           <div className="relative">
             <div className="relative group">
               <input 
@@ -143,9 +143,9 @@ function StaffLogin() {
                 onFocus={() => {
                   if (!selectedMembro) setSearchTerm(searchTerm);
                 }}
-                className="w-full bg-slate-900 border border-white/5 rounded-2xl p-4 pl-12 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/50 transition-all" 
+                className="w-full bg-slate-900 border border-white/5 rounded-2xl p-4 sm:p-3 pl-12 sm:pl-10 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/50 transition-all" 
               />
-              <User className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-500" size={18} />
+              <User className="absolute left-4 sm:left-3 top-1/2 -translate-y-1/2 text-slate-500" size={18} />
               {selectedMembro && (
                 <button onClick={() => { setSelectedMembro(null); setSearchTerm(''); setPin('') }} className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-500 hover:text-rose-500 transition-all">
                   <X size={16} />
@@ -169,28 +169,28 @@ function StaffLogin() {
               </div>
             )}
           </div>
+        </div>
 
-          <div className={`space-y-6 transition-all duration-500 ${selectedMembro ? 'opacity-100' : 'opacity-30 pointer-events-none grayscale'}`}>
-            <div className="text-center">
-               <p className="text-slate-500 text-[10px] font-bold uppercase tracking-widest">{selectedMembro ? 'Digite seu PIN' : 'Selecione um perfil primeiro'}</p>
-            </div>
-            <div className="flex justify-center gap-4">
-              {[0,1,2,3].map(i => (
-                <div key={i} className={`w-4 h-4 rounded-full border-2 transition-all duration-300 ${pin.length > i ? 'bg-emerald-500 border-emerald-500 scale-125' : 'border-slate-800'}`} />
-              ))}
-            </div>
-            <div className="grid grid-cols-3 gap-3 w-full max-w-[280px] mx-auto">
-              {[1, 2, 3, 4, 5, 6, 7, 8, 9, 0, '', '<'].map((b, idx) => (
-                <button 
-                  key={idx} 
-                  disabled={loading || b === '' || !selectedMembro} 
-                  onClick={() => b === '<' ? setPin(p => p.slice(0, -1)) : b !== '' && pin.length < 4 && setPin(p => p + b)} 
-                  className={`h-14 sm:h-16 glass-card rounded-2xl text-2xl font-bold active:scale-90 transition-all ${b === '' ? 'opacity-0 pointer-events-none border-none' : 'hover:bg-white/5 border-white/5 shadow-md'}`}
-                >
-                  {b}
-                </button>
-              ))}
-            </div>
+        <div className={`space-y-5 sm:space-y-4 transition-all duration-500 ${selectedMembro ? 'opacity-100' : 'opacity-30 pointer-events-none grayscale'}`}>
+          <div className="text-center">
+             <p className="text-slate-500 text-[10px] font-bold uppercase tracking-widest">{selectedMembro ? 'Digite seu PIN' : 'Selecione um perfil primeiro'}</p>
+          </div>
+          <div className="flex justify-center gap-4">
+            {[0,1,2,3].map(i => (
+              <div key={i} className={`w-4 h-4 rounded-full border-2 transition-all duration-300 ${pin.length > i ? 'bg-emerald-500 border-emerald-500 scale-125' : 'border-slate-800'}`} />
+            ))}
+          </div>
+          <div className="grid grid-cols-3 gap-3 w-full max-w-[280px] sm:max-w-[220px] mx-auto">
+            {[1, 2, 3, 4, 5, 6, 7, 8, 9, 0, '', '<'].map((b, idx) => (
+              <button 
+                key={idx} 
+                disabled={loading || b === '' || !selectedMembro} 
+                onClick={() => b === '<' ? setPin(p => p.slice(0, -1)) : b !== '' && pin.length < 4 && setPin(p => p + b)} 
+                className={`h-14 sm:h-11 glass-card rounded-2xl sm:rounded-xl text-2xl sm:text-lg font-bold active:scale-90 transition-all ${b === '' ? 'opacity-0 pointer-events-none border-none' : 'hover:bg-white/5 border-white/5 shadow-md'}`}
+              >
+                {b}
+              </button>
+            ))}
           </div>
         </div>
       </div>
