@@ -1,7 +1,8 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 import { formatCurrency } from '../lib/format'
+import { compressImage, uploadImage, deleteOldImage } from '../lib/compressImage'
 import {
   LayoutDashboard, Users, Store, Settings, LogOut, TrendingUp, TrendingDown,
   Shield, Search, ChevronDown, X, CheckCircle, Clock, AlertCircle,
@@ -12,7 +13,7 @@ import {
 import {
   AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, BarChart, Bar
 } from 'recharts'
-import { AlertTriangle, Trash2 } from 'lucide-react'
+import { AlertTriangle, Trash2, Camera, Plus } from 'lucide-react'
 
 // ========================
 // TYPES
@@ -44,6 +45,7 @@ interface SaasConfig {
   trial_dias: number
   grace_period_dias: number
   aviso_trial_dias: number
+  valor_assinatura: number
   created_at: string
   updated_at: string
 }
@@ -64,14 +66,13 @@ interface Stats {
   totalEstabs: number
   estabsAtivos: number
   estabsPro: number
-  estabsPremium: number
   totalStaff: number
   totalTransacoes: number
   totalReceita: number
   realSaasReceita: number
 }
 
-type Tab = 'dashboard' | 'estabelecimentos' | 'faturamento' | 'configuracoes' | 'admins'
+type Tab = 'dashboard' | 'estabelecimentos' | 'faturamento' | 'configuracoes' | 'admins' | 'marketplace'
 
 // ========================
 // PLANO CONFIG
@@ -79,7 +80,6 @@ type Tab = 'dashboard' | 'estabelecimentos' | 'faturamento' | 'configuracoes' | 
 const PLANO_CONFIG = {
   gratis: { label: 'Grátis (Teste)', icon: Package, color: 'text-slate-400', bg: 'bg-slate-800/60', border: 'border-slate-700/50' },
   pro: { label: 'Pro (Assinante)', icon: Zap, color: 'text-emerald-400', bg: 'bg-emerald-900/30', border: 'border-emerald-700/50' },
-  premium: { label: 'Pro (Assinante)', icon: Zap, color: 'text-emerald-400', bg: 'bg-emerald-900/30', border: 'border-emerald-700/50' },
 }
 
 const STATUS_CONFIG = {
@@ -145,8 +145,8 @@ function StatusBadge({ status }: { status: keyof typeof STATUS_CONFIG }) {
 // TABS
 // ========================
 
-function DashboardTab({ estabelecimentos, stats, loading }: {
-  estabelecimentos: Estabelecimento[], stats: Stats, loading: boolean
+function DashboardTab({ estabelecimentos, stats, loading, saasConfig }: {
+  estabelecimentos: Estabelecimento[], stats: Stats, loading: boolean, saasConfig: SaasConfig | null
 }) {
   const planosData = [
     { name: 'Grátis (Teste)', value: estabelecimentos.filter(e => e.plano === 'gratis').length },
@@ -181,9 +181,9 @@ function DashboardTab({ estabelecimentos, stats, loading }: {
       {/* STAT CARDS */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
         <StatCard icon={Store} label="Total Tenants" value={stats.totalEstabs} sub={`${stats.estabsAtivos} ativos`} color="emerald" />
-        <StatCard icon={Crown} label="Assinantes Pro" value={stats.estabsPremium + stats.estabsPro} sub="planos ativos" color="amber" />
+        <StatCard icon={Crown} label="Assinantes Pro" value={stats.estabsPro} sub="planos ativos" color="amber" />
         <StatCard icon={Users} label="Total Staff" value={stats.totalStaff} sub="colaboradores" color="violet" />
-        <StatCard icon={TrendingUp} label="Receita SaaS Real" value={`R$ ${stats.realSaasReceita.toFixed(2).replace('.', ',')}`} sub={`Estimativa mensal: R$ ${((stats.estabsPro + stats.estabsPremium) * 49.90).toFixed(2).replace('.', ',')}`} color="blue" />
+        <StatCard icon={TrendingUp} label="Receita SaaS Real" value={`R$ ${stats.realSaasReceita.toFixed(2).replace('.', ',')}`} sub={`Estimativa mensal: R$ ${(stats.estabsPro * (saasConfig?.valor_assinatura ?? 0)).toFixed(2).replace('.', ',')}`} color="blue" />
       </div>
 
       {/* CHARTS */}
@@ -244,8 +244,18 @@ function DashboardTab({ estabelecimentos, stats, loading }: {
           )}
           {cadastrosRecentes.map(e => (
             <div key={e.id} className="flex items-center gap-3 p-3 rounded-xl bg-white/3 hover:bg-white/5 transition-all">
-              <div className="w-9 h-9 rounded-xl bg-emerald-900/40 border border-emerald-700/30 flex items-center justify-center text-sm font-black text-emerald-400 flex-shrink-0">
-                {e.nome.charAt(0)}
+              <div className="w-9 h-9 rounded-xl bg-emerald-900/40 border border-emerald-700/30 flex-shrink-0 relative overflow-hidden">
+                {e.configuracoes?.logo_url && (
+                  <img
+                    src={e.configuracoes.logo_url}
+                    alt={e.nome}
+                    className="w-full h-full object-cover absolute inset-0 z-10"
+                    onError={el => { (el.currentTarget as HTMLImageElement).style.display = 'none' }}
+                  />
+                )}
+                <div className="w-full h-full flex items-center justify-center text-sm font-black text-emerald-400">
+                  {e.nome.charAt(0)}
+                </div>
               </div>
               <div className="flex-1 min-w-0">
                 <p className="text-sm font-bold text-white truncate">{e.nome}</p>
@@ -369,8 +379,18 @@ function EstabelecimentosTab({ estabelecimentos, onUpdate, loading }: {
             >
               {/* Header */}
               <div className="flex items-start gap-3 mb-3">
-                <div className="w-10 h-10 rounded-xl bg-emerald-900/40 border border-emerald-700/30 flex items-center justify-center text-sm font-black text-emerald-400 flex-shrink-0">
-                  {e.nome.charAt(0)}
+                <div className="w-10 h-10 rounded-xl bg-emerald-900/40 border border-emerald-700/30 flex-shrink-0 relative overflow-hidden">
+                  {e.configuracoes?.logo_url && (
+                    <img
+                      src={e.configuracoes.logo_url}
+                      alt={e.nome}
+                      className="w-full h-full object-cover absolute inset-0 z-10"
+                      onError={el => { (el.currentTarget as HTMLImageElement).style.display = 'none' }}
+                    />
+                  )}
+                  <div className="w-full h-full flex items-center justify-center text-sm font-black text-emerald-400">
+                    {e.nome.charAt(0)}
+                  </div>
                 </div>
                 <div className="flex-1 min-w-0">
                   <p className="font-bold text-white truncate">{e.nome}</p>
@@ -522,8 +542,8 @@ function EstabelecimentosTab({ estabelecimentos, onUpdate, loading }: {
   )
 }
 
-function Field({ label, value, onChange, icon: Icon, placeholder, type = 'text' }: {
-  label: string, value: string, onChange: (val: string) => void, icon: any, placeholder?: string, type?: string
+function Field({ label, value, onChange, icon: Icon, placeholder, type = 'text', onBlur }: {
+  label: string, value: string, onChange: (val: string) => void, icon: any, placeholder?: string, type?: string, onBlur?: () => void
 }) {
   return (
     <div className="space-y-1.5">
@@ -534,6 +554,7 @@ function Field({ label, value, onChange, icon: Icon, placeholder, type = 'text' 
         type={type}
         value={value}
         onChange={e => onChange(e.target.value)}
+        onBlur={onBlur}
         placeholder={placeholder}
         className="w-full bg-slate-900/80 border border-white/5 rounded-xl px-4 py-3 text-sm text-white placeholder-slate-700 outline-none focus:border-emerald-500/50 transition-all"
       />
@@ -557,11 +578,19 @@ function ConfiguracoesTab({ onSaved }: { onSaved?: () => void }) {
 
   useEffect(() => { fetchConfig() }, [])
 
+  const [valorInput, setValorInput] = useState('')
+  useEffect(() => {
+    if (form.valor_assinatura !== undefined) {
+      setValorInput(form.valor_assinatura.toFixed(2).replace('.', ','))
+    }
+  }, [form.valor_assinatura])
+
   const handleSave = async () => {
     if (!form) return
     setSaving(true)
     try {
       const { id, created_at, updated_at, ...updateData } = form as any
+      updateData.valor_assinatura = parseFloat(valorInput.replace(',', '.')) || 0
       if (config?.id) {
         const { error } = await supabase.from('saas_configuracoes').update({ ...updateData, updated_at: new Date().toISOString() }).eq('id', config.id)
         if (error) throw error
@@ -621,6 +650,7 @@ function ConfiguracoesTab({ onSaved }: { onSaved?: () => void }) {
         <Field label="Dias de Teste Grátis (Trial)" value={String(form.trial_dias || '')} onChange={val => setForm(prev => ({ ...prev, trial_dias: parseInt(val) || 0 }))} icon={Clock} placeholder="Ex: 14" type="number" />
         <Field label="Aviso de Expiração do Trial (dias antes)" value={String(form.aviso_trial_dias || '')} onChange={val => setForm(prev => ({ ...prev, aviso_trial_dias: parseInt(val) || 0 }))} icon={AlertCircle} placeholder="Ex: 3" type="number" />
         <Field label="Carência Pós-Vencimento (dias)" value={String(form.grace_period_dias || '')} onChange={val => setForm(prev => ({ ...prev, grace_period_dias: parseInt(val) || 0 }))} icon={CalendarDays} placeholder="Ex: 5" type="number" />
+        <Field label="Valor da Assinatura Mensal (R$)" value={valorInput} onChange={setValorInput} icon={DollarSign} placeholder="Ex: 49,90" type="text" onBlur={() => setForm(prev => ({ ...prev, valor_assinatura: parseFloat(valorInput.replace(',', '.')) || 0 }))} />
       </div>
 
       <button
@@ -642,8 +672,9 @@ function ConfiguracoesTab({ onSaved }: { onSaved?: () => void }) {
 // ========================
 // FATURAMENTO TAB
 // ========================
-function FaturamentoTab({ estabelecimentos, whatsappAdmin, onUpdate }: {
+function FaturamentoTab({ estabelecimentos, saasConfig, whatsappAdmin, onUpdate }: {
   estabelecimentos: Estabelecimento[]
+  saasConfig: SaasConfig | null
   whatsappAdmin: string
   onUpdate?: () => void
 }) {
@@ -651,7 +682,8 @@ function FaturamentoTab({ estabelecimentos, whatsappAdmin, onUpdate }: {
   const [loadingPag, setLoadingPag] = useState(true)
   const [confirmModal, setConfirmModal] = useState<Estabelecimento | null>(null)
   const [goFaturamento, setGoFaturamento] = useState<boolean | null>(null)
-  const [form, setForm] = useState({ valor: '49,90', referencia: '', metodo: 'pix' as const, observacoes: '' })
+  const valorPadrao = (saasConfig?.valor_assinatura ?? 0).toFixed(2).replace('.', ',')
+  const [form, setForm] = useState({ valor: valorPadrao, referencia: '', metodo: 'pix' as const, observacoes: '' })
   const [saving, setSaving] = useState(false)
   const [saved, setSaved] = useState<string | null>(null)
   const [selectedEstab, setSelectedEstab] = useState<string | null>(null)
@@ -659,9 +691,13 @@ function FaturamentoTab({ estabelecimentos, whatsappAdmin, onUpdate }: {
   const currentMonth = new Date().toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' })
 
   useEffect(() => {
-    setForm(prev => ({ ...prev, referencia: currentMonth.charAt(0).toUpperCase() + currentMonth.slice(1) }))
+    setForm(prev => ({ ...prev, referencia: currentMonth.charAt(0).toUpperCase() + currentMonth.slice(1), valor: (saasConfig?.valor_assinatura ?? 0).toFixed(2).replace('.', ',') }))
     fetchPagamentos()
   }, [])
+
+  useEffect(() => {
+    setForm(prev => ({ ...prev, valor: (saasConfig?.valor_assinatura ?? 0).toFixed(2).replace('.', ',') }))
+  }, [saasConfig])
 
   const fetchPagamentos = async () => {
     setLoadingPag(true)
@@ -794,8 +830,18 @@ function FaturamentoTab({ estabelecimentos, whatsappAdmin, onUpdate }: {
             const ultimo = getUltimoPagamento(estab.id)
             return (
               <div key={estab.id} className="flex items-center gap-3 p-4 hover:bg-white/2 transition-all">
-                <div className="w-9 h-9 rounded-xl bg-emerald-900/40 border border-emerald-700/30 flex items-center justify-center text-sm font-black text-emerald-400 flex-shrink-0">
-                  {estab.nome.charAt(0)}
+                <div className="w-9 h-9 rounded-xl bg-emerald-900/40 border border-emerald-700/30 flex-shrink-0 relative overflow-hidden">
+                  {estab.configuracoes?.logo_url && (
+                    <img
+                      src={estab.configuracoes.logo_url}
+                      alt={estab.nome}
+                      className="w-full h-full object-cover absolute inset-0 z-10"
+                      onError={el => { (el.currentTarget as HTMLImageElement).style.display = 'none' }}
+                    />
+                  )}
+                  <div className="w-full h-full flex items-center justify-center text-sm font-black text-emerald-400">
+                    {estab.nome.charAt(0)}
+                  </div>
                 </div>
                 <div className="flex-1 min-w-0">
                   <p className="text-sm font-bold text-white truncate">{estab.nome}</p>
@@ -827,10 +873,10 @@ function FaturamentoTab({ estabelecimentos, whatsappAdmin, onUpdate }: {
                   </a>
                   {/* Botão confirmar pagamento */}
                   <button
-                    onClick={() => { setConfirmModal(estab); setGoFaturamento(null); setSaved(null) }}
+                    onClick={() => { setConfirmModal(estab); setGoFaturamento(null); setSaved(null); setForm(prev => ({ ...prev, valor: (saasConfig?.valor_assinatura ?? 0).toFixed(2).replace('.', ',') })) }}
                     className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 border border-emerald-500/20 transition-all"
                   >
-                    <DollarSign size={12}/> Pago
+                    <DollarSign size={12}/> Receber
                   </button>
                 </div>
               </div>
@@ -956,7 +1002,7 @@ function FaturamentoTab({ estabelecimentos, whatsappAdmin, onUpdate }: {
                     className="flex-1 py-3 rounded-xl text-sm font-bold text-white bg-emerald-500 hover:bg-emerald-400 disabled:opacity-50 transition-all flex items-center justify-center gap-2"
                   >
                     {saving ? <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" /> : <CheckCircle size={14}/>}
-                    Confirmar Pago
+                    Confirmar Recebimento
                   </button>
                 </div>
               </>
@@ -1135,6 +1181,465 @@ function AdminsTab({ currentUserId }: { currentUserId: string }) {
 }
 
 // ========================
+// MARKETPLACE TAB
+// ========================
+
+interface MarketplaceDestaque {
+  id: string
+  estabelecimento_id: string
+  imagem_url: string | null
+  premium: boolean
+  ordem: number
+  ativo: boolean
+  dados: Record<string, any>
+}
+
+function MarketplaceTab({ estabelecimentos, onUpdate }: {
+  estabelecimentos: Estabelecimento[]
+  onUpdate: () => void
+}) {
+  const [destaques, setDestaques] = useState<MarketplaceDestaque[]>([])
+  const [loading, setLoading] = useState(true)
+  const [editModal, setEditModal] = useState<{
+    estab: Estabelecimento
+    destaque?: MarketplaceDestaque
+  } | null>(null)
+  const [savingId, setSavingId] = useState<string | null>(null)
+
+  const fetchDestaques = async () => {
+    setLoading(true)
+    const { data } = await supabase.from('marketplace_destaques').select('*')
+    setDestaques(data || [])
+    setLoading(false)
+  }
+
+  useEffect(() => { fetchDestaques() }, [])
+
+  // Only show Pro establishments
+  const proEstabs = estabelecimentos.filter(e => e.plano === 'pro')
+
+  const getDestaque = (estabId: string) => destaques.find(d => d.estabelecimento_id === estabId)
+
+  const handleToggle = async (estab: Estabelecimento, current?: MarketplaceDestaque) => {
+    setSavingId(estab.id)
+    if (current) {
+      // Desativar
+      await supabase.from('marketplace_destaques').update({ ativo: !current.ativo }).eq('id', current.id)
+    } else {
+      // Ativar (criar)
+      await supabase.from('marketplace_destaques').insert({
+        estabelecimento_id: estab.id,
+        ativo: true,
+      })
+    }
+    await Promise.all([fetchDestaques(), onUpdate()])
+    setSavingId(null)
+  }
+
+  return (
+    <div className="space-y-4">
+      {/* Stats */}
+      <div className="grid grid-cols-3 gap-4">
+        <div className="rounded-2xl border border-white/5 bg-slate-900/50 p-4 text-center">
+          <p className="text-xs font-bold uppercase tracking-widest text-slate-500 mb-1">Assinantes Pro</p>
+          <p className="text-3xl font-black text-white">{proEstabs.length}</p>
+        </div>
+        <div className="rounded-2xl border border-white/5 bg-slate-900/50 p-4 text-center">
+          <p className="text-xs font-bold uppercase tracking-widest text-slate-500 mb-1">No Marketplace</p>
+          <p className="text-3xl font-black text-emerald-400">{destaques.filter(d => d.ativo).length}</p>
+        </div>
+        <div className="rounded-2xl border border-white/5 bg-slate-900/50 p-4 text-center">
+          <p className="text-xs font-bold uppercase tracking-widest text-slate-500 mb-1">Premium</p>
+          <p className="text-3xl font-black text-amber-400">{destaques.filter(d => d.premium).length}</p>
+        </div>
+      </div>
+
+      {/* Lista */}
+      {loading ? (
+        <div className="flex items-center justify-center h-40">
+          <div className="w-8 h-8 border-2 border-emerald-500 border-t-transparent rounded-full animate-spin" />
+        </div>
+      ) : (
+        <div className="space-y-3">
+          {proEstabs.length === 0 && (
+            <div className="text-center py-16 text-slate-600">
+              <Star size={40} className="mx-auto mb-3 opacity-30" />
+              <p className="font-bold">Nenhum assinante Pro ainda.</p>
+              <p className="text-sm mt-1">Estabelecimentos com plano Pro aparecerão aqui.</p>
+            </div>
+          )}
+          {proEstabs.map(estab => {
+            const destaque = getDestaque(estab.id)
+            const ativo = destaque?.ativo ?? false
+            return (
+              <div
+                key={estab.id}
+                className={`rounded-2xl border bg-slate-900/50 p-4 transition-all hover:border-white/10 ${savingId === estab.id ? 'opacity-50 pointer-events-none' : 'border-white/5'}`}
+              >
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-xl bg-emerald-900/40 border border-emerald-700/30 flex-shrink-0 relative overflow-hidden">
+                    {estab.configuracoes?.logo_url && (
+                      <img
+                        src={estab.configuracoes.logo_url}
+                        alt={estab.nome}
+                        className="w-full h-full object-cover absolute inset-0 z-10"
+                        onError={el => { (el.currentTarget as HTMLImageElement).style.display = 'none' }}
+                      />
+                    )}
+                    <div className="w-full h-full flex items-center justify-center text-sm font-black text-emerald-400">
+                      {estab.nome.charAt(0)}
+                    </div>
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <p className="font-bold text-white truncate">{estab.nome}</p>
+                      {destaque?.premium && (
+                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-lg text-[10px] font-bold bg-amber-500/10 border border-amber-500/20 text-amber-400">
+                          <Crown size={9} /> Premium
+                        </span>
+                      )}
+                    </div>
+                    <p className="text-xs text-slate-500">/{estab.slug}</p>
+                  </div>
+                  <div className="flex items-center gap-2 flex-shrink-0">
+                    {ativo ? (
+                      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-lg text-xs font-bold bg-emerald-500/10 border border-emerald-500/20 text-emerald-400">
+                        <CheckCircle size={10} /> Ativo
+                      </span>
+                    ) : (
+                      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-lg text-xs font-bold bg-slate-800/60 border border-slate-700/30 text-slate-400">
+                        Inativo
+                      </span>
+                    )}
+                    <button
+                      onClick={() => setEditModal({ estab, destaque })}
+                      className="p-2 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-400 hover:text-white transition-all"
+                      title="Editar"
+                    >
+                      <Edit3 size={13} />
+                    </button>
+                    <button
+                      onClick={() => handleToggle(estab, destaque)}
+                      disabled={savingId === estab.id}
+                      className={`px-3 py-1.5 rounded-xl text-xs font-bold border transition-all ${
+                        ativo
+                          ? 'bg-rose-500/10 border-rose-500/20 text-rose-400 hover:bg-rose-500/20'
+                          : 'bg-emerald-500/10 border-emerald-500/20 text-emerald-400 hover:bg-emerald-500/20'
+                      }`}
+                    >
+                      {ativo ? 'Desativar' : 'Ativar'}
+                    </button>
+                  </div>
+                </div>
+              </div>
+            )
+          })}
+        </div>
+      )}
+
+      {/* MODAL DE EDIÇÃO */}
+      {editModal && (
+        <MarketplaceEditModal
+          estab={editModal.estab}
+          destaque={editModal.destaque}
+          onClose={() => setEditModal(null)}
+          onSaved={() => {
+            setEditModal(null)
+            fetchDestaques()
+            onUpdate()
+          }}
+        />
+      )}
+    </div>
+  )
+}
+
+// ========================
+// MARKETPLACE EDIT MODAL
+// ========================
+
+function MarketplaceEditModal({ estab, destaque, onClose, onSaved }: {
+  estab: Estabelecimento
+  destaque?: MarketplaceDestaque
+  onClose: () => void
+  onSaved: () => void
+}) {
+  const [imagemPreview, setImagemPreview] = useState<string | null>(
+    destaque?.imagem_url || (estab.configuracoes as any)?.logo_url || null
+  )
+  const [imagemFile, setImagemFile] = useState<File | null>(null)
+  const [premium, setPremium] = useState(destaque?.premium ?? false)
+  const [ordem, setOrdem] = useState(destaque?.ordem ?? 0)
+  const [ativo, setAtivo] = useState(destaque?.ativo ?? false)
+  const [dados, setDados] = useState({ rating: 5, tags: [] as string[], horario: '', ...(destaque?.dados || {}) })
+  const dadosRef = useRef(dados)
+  dadosRef.current = dados
+  const [tagsInput, setTagsInput] = useState('')
+  const [saving, setSaving] = useState(false)
+
+  const adicionarTags = () => {
+    if (!tagsInput.trim()) return
+    const novas = tagsInput.split(',').map(t => t.trim()).filter(Boolean)
+    setDados(prev => {
+      const existentes = prev.tags || []
+      const unicas = novas.filter(n => !existentes.includes(n))
+      return unicas.length ? { ...prev, tags: [...existentes, ...unicas] } : prev
+    })
+    setTagsInput('')
+  }
+
+  const handleAddTag = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === 'Enter') {
+      e.preventDefault()
+      adicionarTags()
+    }
+  }
+
+  const handleRemoveTag = (tag: string) => {
+    setDados(prev => ({ ...prev, tags: (prev.tags || []).filter((t: string) => t !== tag) }))
+  }
+
+  const handleSave = async () => {
+    setSaving(true)
+    try {
+      let finalImagemUrl = destaque?.imagem_url || null
+
+      // Upload de nova imagem
+      if (imagemFile) {
+        const fileExt = imagemFile.name.split('.').pop()
+        const uuid = crypto.randomUUID?.() || Math.random().toString(36).substring(2)
+        const fileName = `${estab.id}/${uuid}.${fileExt}`
+        finalImagemUrl = await uploadImage(supabase, imagemFile, 'marketplace', fileName)
+
+        // Garbage collection: remove imagem antiga do marketplace
+        if (destaque?.imagem_url && destaque.imagem_url !== finalImagemUrl) {
+          deleteOldImage(supabase, 'marketplace', destaque.imagem_url)
+        }
+      }
+
+      const payload = {
+        estabelecimento_id: estab.id,
+        imagem_url: finalImagemUrl,
+        premium,
+        ordem,
+        ativo,
+        dados: dadosRef.current,
+      }
+
+      if (destaque?.id) {
+        await supabase.from('marketplace_destaques').update(payload).eq('id', destaque.id)
+      } else {
+        await supabase.from('marketplace_destaques').upsert(payload, {
+          onConflict: 'estabelecimento_id',
+        })
+      }
+
+      onSaved()
+    } catch (err: any) {
+      alert('Erro ao salvar: ' + (err.message || JSON.stringify(err)))
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm overflow-y-auto">
+      <div className="bg-slate-900 border border-white/10 rounded-2xl w-full max-w-lg shadow-2xl my-8">
+        <div className="p-5 border-b border-white/5 flex items-center justify-between">
+          <div>
+            <h3 className="font-bold text-white text-lg">Editar Card</h3>
+            <p className="text-xs text-slate-500">{estab.nome}</p>
+          </div>
+          <button onClick={onClose} className="text-slate-500 hover:text-white p-1 rounded-lg hover:bg-white/5 transition-all">
+            <X size={18} />
+          </button>
+        </div>
+
+        <div className="p-5 space-y-5 max-h-[60vh] overflow-y-auto">
+          {/* Imagem */}
+          <div className="space-y-2">
+            <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest flex items-center gap-1.5">
+              <Camera size={10} className="text-emerald-500" /> Imagem do Card
+            </label>
+            <div className="flex items-center gap-4 bg-slate-800/50 rounded-xl p-4 border border-white/5">
+              <div className="w-24 h-16 rounded-xl border border-white/10 bg-slate-800 flex items-center justify-center overflow-hidden flex-shrink-0">
+                {imagemPreview ? (
+                  <img
+                    src={imagemPreview}
+                    alt="Preview"
+                    className="w-full h-full object-cover"
+                    onError={e => { (e.currentTarget as HTMLImageElement).style.display = 'none' }}
+                  />
+                ) : (
+                  <span className="text-slate-600 text-xs text-center px-1">Sem imagem</span>
+                )}
+              </div>
+              <div className="flex flex-col gap-2 flex-1">
+                <label
+                  htmlFor="mp-image-upload"
+                  className="cursor-pointer inline-flex items-center justify-center gap-2 px-4 py-2 rounded-lg bg-white/5 hover:bg-white/10 text-sm font-medium text-slate-300 transition-colors border border-white/10"
+                >
+                  <Camera size={14} /> {imagemPreview ? 'Alterar' : 'Upload'}
+                </label>
+                <input
+                  id="mp-image-upload"
+                  type="file"
+                  accept="image/*"
+                  className="hidden"
+                  onChange={e => {
+                    const file = e.target.files?.[0]
+                    if (file) {
+                      setImagemFile(file)
+                      setImagemPreview(URL.createObjectURL(file))
+                    }
+                  }}
+                />
+                {imagemFile && <p className="text-[10px] text-emerald-400 truncate">{imagemFile.name}</p>}
+                {destaque?.imagem_url && (
+                  <button
+                    type="button"
+                    className="text-[10px] text-rose-400 hover:text-rose-300 text-left transition-colors"
+                    onClick={() => {
+                      deleteOldImage(supabase, 'marketplace', destaque.imagem_url!)
+                      setImagemPreview(null)
+                      setImagemFile(null)
+                    }}
+                  >
+                    Remover imagem
+                  </button>
+                )}
+              </div>
+            </div>
+            <p className="text-[10px] text-slate-600">
+              Se não definir imagem, usará a logo do estabelecimento. Máx 5MB.
+            </p>
+          </div>
+
+          {/* Rating */}
+          <div className="space-y-1.5">
+            <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Rating (0.0 - 5.0)</label>
+            <input
+              type="number"
+              min={0}
+              max={5}
+              step={0.1}
+              value={dados.rating ?? 5}
+              onChange={e => setDados(prev => ({ ...prev, rating: Math.min(5, Math.max(0, parseFloat(e.target.value) || 0)) }))}
+              className="w-full bg-slate-800 border border-white/5 rounded-xl px-4 py-3 text-white outline-none focus:border-emerald-500/50 text-sm"
+            />
+          </div>
+
+          {/* Horário */}
+          <div className="space-y-1.5">
+            <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Horário de Exibição</label>
+            <input
+              type="text"
+              value={dados.horario ?? ''}
+              onChange={e => setDados(prev => ({ ...prev, horario: e.target.value }))}
+              placeholder="Ex: 09:00 - 20:00"
+              className="w-full bg-slate-800 border border-white/5 rounded-xl px-4 py-3 text-white outline-none focus:border-emerald-500/50 text-sm placeholder-slate-600"
+            />
+            <p className="text-[10px] text-slate-600">Texto livre. Se vazio, não exibe horário no card.</p>
+          </div>
+
+          {/* Premium toggle */}
+          <div className="flex items-center justify-between bg-slate-800/50 rounded-xl p-4 border border-white/5">
+            <div>
+              <p className="text-sm font-bold text-white">Premium</p>
+              <p className="text-[10px] text-slate-500">Exibe badge dourado "Premium" no card</p>
+            </div>
+            <button
+              onClick={() => setPremium(!premium)}
+              className={`w-12 h-7 rounded-full relative transition-all ${premium ? 'bg-amber-500' : 'bg-slate-700'}`}
+            >
+              <div className={`absolute top-1 w-5 h-5 bg-white rounded-full transition-all shadow-md ${premium ? 'right-1' : 'left-1'}`} />
+            </button>
+          </div>
+
+          {/* Tags */}
+          <div className="space-y-1.5">
+            <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Tags de Serviços</label>
+            <div className="flex flex-wrap gap-2 mb-2">
+              {(dados.tags ?? []).map((tag: string) => (
+                <span
+                  key={tag}
+                  className="inline-flex items-center gap-1 px-3 py-1 rounded-lg text-xs font-bold bg-emerald-500/10 text-emerald-400 border border-emerald-500/20"
+                >
+                  {tag}
+                  <button onClick={() => handleRemoveTag(tag)} className="hover:text-white transition-colors">
+                    <X size={10} />
+                  </button>
+                </span>
+              ))}
+            </div>
+            <div className="flex gap-2">
+              <input
+                type="text"
+                value={tagsInput}
+                onChange={e => setTagsInput(e.target.value)}
+                onKeyDown={handleAddTag}
+                placeholder="Ex: Corte, Barba, Hidratação"
+                className="flex-1 bg-slate-800 border border-white/5 rounded-xl px-4 py-3 text-white text-sm outline-none focus:border-emerald-500/50 placeholder-slate-600"
+              />
+              <button
+                onClick={adicionarTags}
+                disabled={!tagsInput.trim()}
+                className="px-4 py-3 rounded-xl text-sm font-bold text-white bg-emerald-500 hover:bg-emerald-400 disabled:opacity-40 disabled:cursor-not-allowed transition-all flex items-center gap-1"
+              >
+                <Plus size={14} /> Adicionar
+              </button>
+            </div>
+          </div>
+
+          {/* Ordem */}
+          <div className="space-y-1.5">
+            <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Ordem no Carrossel</label>
+            <input
+              type="number"
+              min={0}
+              value={ordem}
+              onChange={e => setOrdem(parseInt(e.target.value) || 0)}
+              className="w-full bg-slate-800 border border-white/5 rounded-xl px-4 py-3 text-white outline-none focus:border-emerald-500/50 text-sm"
+            />
+          </div>
+
+          {/* Ativo toggle */}
+          <div className="flex items-center justify-between bg-slate-800/50 rounded-xl p-4 border border-white/5">
+            <div>
+              <p className="text-sm font-bold text-white">Ativo no Marketplace</p>
+              <p className="text-[10px] text-slate-500">Exibir este card na landing page</p>
+            </div>
+            <button
+              onClick={() => setAtivo(!ativo)}
+              className={`w-12 h-7 rounded-full relative transition-all ${ativo ? 'bg-emerald-500' : 'bg-slate-700'}`}
+            >
+              <div className={`absolute top-1 w-5 h-5 bg-white rounded-full transition-all shadow-md ${ativo ? 'right-1' : 'left-1'}`} />
+            </button>
+          </div>
+        </div>
+
+        <div className="p-5 border-t border-white/5 flex gap-3">
+          <button
+            onClick={onClose}
+            className="flex-1 py-3 rounded-xl text-sm font-bold text-slate-400 bg-slate-800 hover:bg-slate-700 transition-all"
+          >
+            Cancelar
+          </button>
+          <button
+            onClick={handleSave}
+            disabled={saving}
+            className="flex-1 py-3 rounded-xl text-sm font-bold text-white bg-emerald-500 hover:bg-emerald-400 disabled:opacity-50 transition-all flex items-center justify-center gap-2"
+          >
+            {saving ? <RefreshCw size={14} className="animate-spin" /> : <Save size={14} />}
+            {saving ? 'Salvando...' : 'Salvar'}
+          </button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+// ========================
 // MAIN COMPONENT
 // ========================
 export function SuperAdminDashboard({ onLogout }: { onLogout: () => void }) {
@@ -1142,7 +1647,7 @@ export function SuperAdminDashboard({ onLogout }: { onLogout: () => void }) {
   const activeTab = (searchParams.get('aba') as Tab) || 'dashboard'
   const setActiveTab = (tab: Tab) => setSearchParams({ aba: tab }, { replace: true })
   const [estabelecimentos, setEstabelecimentos] = useState<Estabelecimento[]>([])
-  const [stats, setStats] = useState<Stats>({ totalEstabs: 0, estabsAtivos: 0, estabsPro: 0, estabsPremium: 0, totalStaff: 0, totalTransacoes: 0, totalReceita: 0, realSaasReceita: 0 })
+  const [stats, setStats] = useState<Stats>({ totalEstabs: 0, estabsAtivos: 0, estabsPro: 0, totalStaff: 0, totalTransacoes: 0, totalReceita: 0, realSaasReceita: 0 })
   const [loading, setLoading] = useState(true)
   const [sidebarOpen, setSidebarOpen] = useState(false)
   const [saasConfig, setSaasConfig] = useState<any>(null)
@@ -1162,7 +1667,7 @@ export function SuperAdminDashboard({ onLogout }: { onLogout: () => void }) {
         supabase.from('membros_equipe').select('id', { count: 'exact', head: true }),
         supabase.from('transacoes').select('valor, tipo').eq('excluido', false),
         supabase.from('saas_pagamentos').select('valor').eq('status', 'pago'),
-        supabase.from('saas_configuracoes').select('saas_nome').limit(1).maybeSingle(),
+        supabase.from('saas_configuracoes').select('*').limit(1).maybeSingle(),
       ])
 
       const estabs: Estabelecimento[] = estabRes.data || []
@@ -1180,7 +1685,6 @@ export function SuperAdminDashboard({ onLogout }: { onLogout: () => void }) {
         totalEstabs: estabs.length,
         estabsAtivos: estabs.filter(e => e.status_assinatura === 'ativo').length,
         estabsPro: estabs.filter(e => e.plano === 'pro').length,
-        estabsPremium: estabs.filter(e => e.plano === 'premium').length,
         totalStaff: staffRes.count || 0,
         totalTransacoes: transRes.data?.length || 0,
         totalReceita,
@@ -1199,6 +1703,7 @@ export function SuperAdminDashboard({ onLogout }: { onLogout: () => void }) {
     { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
     { id: 'estabelecimentos', label: 'Estabelecimentos', icon: Store },
     { id: 'faturamento', label: 'Faturamento', icon: DollarSign },
+    { id: 'marketplace', label: 'Marketplace', icon: Star },
     { id: 'admins', label: 'Admins', icon: Shield },
     { id: 'configuracoes', label: 'Configurações', icon: Settings },
   ]
@@ -1321,15 +1826,16 @@ export function SuperAdminDashboard({ onLogout }: { onLogout: () => void }) {
 
         {/* TAB CONTENT */}
         {activeTab === 'dashboard' && (
-          <DashboardTab estabelecimentos={estabelecimentos} stats={stats} loading={loading} />
+          <DashboardTab estabelecimentos={estabelecimentos} stats={stats} loading={loading} saasConfig={saasConfig} />
         )}
         {activeTab === 'estabelecimentos' && (
           <EstabelecimentosTab estabelecimentos={estabelecimentos} onUpdate={fetchData} loading={loading} />
         )}
         {activeTab === 'faturamento' && (
-          <FaturamentoTab estabelecimentos={estabelecimentos} whatsappAdmin="" onUpdate={fetchData} />
+          <FaturamentoTab estabelecimentos={estabelecimentos} saasConfig={saasConfig} whatsappAdmin="" onUpdate={fetchData} />
         )}
         {activeTab === 'admins' && <AdminsTab currentUserId={currentUserId} />}
+        {activeTab === 'marketplace' && <MarketplaceTab estabelecimentos={estabelecimentos} onUpdate={fetchData} />}
         {activeTab === 'configuracoes' && <ConfiguracoesTab onSaved={fetchData} />}
       </main>
 

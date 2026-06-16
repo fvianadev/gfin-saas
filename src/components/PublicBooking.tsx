@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
-import { useParams, useNavigate } from 'react-router-dom'
+import { useParams, useNavigate, Link } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
-import { Calendar, Clock, User, Scissors, CheckCircle, ArrowLeft, MessageCircle, ChevronRight } from 'lucide-react'
+import { Calendar, Clock, User, Scissors, CheckCircle, ArrowLeft, MessageCircle, ChevronRight, Instagram, Facebook } from 'lucide-react'
 import { formatCurrency } from '../lib/format'
 
 export function PublicBooking() {
@@ -237,7 +237,7 @@ export function PublicBooking() {
             <ArrowLeft size={20} />
           </button>
         )}
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-3 flex-1 min-w-0">
           {estab.configuracoes?.logo_url ? (
             <img src={estab.configuracoes.logo_url} alt="Logo" className="w-10 h-10 rounded-xl object-cover border border-white/10" />
           ) : (
@@ -248,6 +248,12 @@ export function PublicBooking() {
             <p className="text-[10px] text-emerald-500 font-bold uppercase tracking-tighter">Agendamento Online</p>
           </div>
         </div>
+        <Link
+          to="/"
+          className="shrink-0 text-[10px] font-bold text-slate-500 hover:text-emerald-400 transition-colors uppercase tracking-widest flex items-center gap-1"
+        >
+          <ArrowLeft size={12} /> Marketplace
+        </Link>
       </header>
 
       {/* RESUMO DINÂMICO */}
@@ -561,7 +567,31 @@ export function PublicBooking() {
 
       {/* FOOTER BAR */}
       {step < 5 && (
-        <div className="fixed bottom-0 left-0 right-0 p-4 bg-slate-950/80 backdrop-blur-lg border-t border-white/5 flex justify-center">
+        <div className="fixed bottom-0 left-0 right-0 p-3 bg-slate-950/80 backdrop-blur-lg border-t border-white/5 flex items-center justify-center gap-4">
+          {(estab.configuracoes?.instagram || estab.configuracoes?.facebook) && (
+            <div className="flex items-center gap-4 mr-6">
+              {estab.configuracoes?.instagram && (
+                <a
+                  href={`https://instagram.com/${estab.configuracoes.instagram.replace('@', '')}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-slate-500 hover:text-pink-400 transition-colors p-1"
+                >
+                  <Instagram size={20} />
+                </a>
+              )}
+              {estab.configuracoes?.facebook && (
+                <a
+                  href={estab.configuracoes.facebook.startsWith('http') ? estab.configuracoes.facebook : `https://facebook.com/${estab.configuracoes.facebook}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-slate-500 hover:text-blue-400 transition-colors p-1"
+                >
+                  <Facebook size={20} />
+                </a>
+              )}
+            </div>
+          )}
           <p className="text-[9px] text-slate-500 font-bold uppercase tracking-[0.2em]">GFin • Agendamento Seguro</p>
         </div>
       )}

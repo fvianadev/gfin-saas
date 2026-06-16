@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import { Link } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
-import { CheckCircle2, Scissors, CalendarCheck, TrendingUp, Users, Shield, ArrowRight, Mail, Phone, Instagram } from 'lucide-react'
+import { CheckCircle2, Scissors, CalendarCheck, TrendingUp, Users, Shield, ArrowRight, Mail, Phone, Instagram, Star, Clock, ChevronLeft, ChevronRight } from 'lucide-react'
 
 interface SaasConfig {
   titulo_hero: string
@@ -47,9 +47,47 @@ export function LandingPage() {
       })
   }, [])
 
+  const [marketplace, setMarketplace] = useState<any[]>([])
+  const [marketplaceLoading, setMarketplaceLoading] = useState(true)
+
+  useEffect(() => {
+    supabase
+      .from('marketplace_destaques')
+      .select(`
+        id, imagem_url, premium, ordem, dados,
+        estabelecimento:estabelecimentos!inner (nome, slug, configuracoes)
+      `)
+      .eq('ativo', true)
+      .order('ordem', { ascending: true, nullsLast: true })
+      .then(({ data }) => {
+        const parsed = (data || []).map((item: any) => ({
+          ...item,
+          dados: typeof item.dados === 'string' ? JSON.parse(item.dados) : (item.dados || {}),
+        }))
+        console.log('Marketplace data:', parsed)
+        setMarketplace(parsed)
+        setMarketplaceLoading(false)
+      })
+  }, [])
+
   const whatsappLink = config.whatsapp_contato
     ? `https://wa.me/${config.whatsapp_contato.replace(/\D/g, '')}`
     : null
+
+  const scrollMarketplace = (dir: 'left' | 'right') => {
+    const el = document.getElementById('marketplace-scroll')
+    if (el) {
+      const scrollAmount = 340
+      el.scrollBy({ left: dir === 'left' ? -scrollAmount : scrollAmount, behavior: 'smooth' })
+    }
+  }
+
+  const getFallbackImage = (destaque: any) => {
+    if (destaque.imagem_url) return destaque.imagem_url
+    const logoUrl = destaque.estabelecimento?.configuracoes?.logo_url
+    if (logoUrl) return logoUrl
+    return null
+  }
 
   return (
     <div className="min-h-screen bg-slate-950 text-white font-sans selection:bg-emerald-500/30">
@@ -75,9 +113,117 @@ export function LandingPage() {
       </header>
 
       <main className="pt-24 md:pt-32 pb-16">
-        
+
+        {/* MARKETPLACE */}
+        <section className="py-8 md:py-12 bg-slate-900/30">
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div className="flex flex-col md:flex-row justify-between items-end mb-6 md:mb-8 gap-4">
+              <div>
+                <h2 className="text-2xl md:text-3xl font-bold text-white mb-1">Assinantes Pro</h2>
+                <p className="text-slate-400 text-xs md:text-sm">Experiências de alto nível, potencializadas pela gfin.</p>
+              </div>
+              {marketplace.length > 0 && (
+                <div className="flex gap-2">
+                  <button
+                    onClick={() => scrollMarketplace('left')}
+                    className="p-2.5 border border-white/10 rounded-full hover:bg-white/5 transition-colors text-slate-400 hover:text-white"
+                  >
+                    <ChevronLeft size={18} />
+                  </button>
+                  <button
+                    onClick={() => scrollMarketplace('right')}
+                    className="p-2.5 border border-white/10 rounded-full hover:bg-white/5 transition-colors text-slate-400 hover:text-white"
+                  >
+                    <ChevronRight size={18} />
+                  </button>
+                </div>
+              )}
+            </div>
+
+            {marketplaceLoading ? (
+              <div className="flex gap-6 overflow-hidden">
+                {[1, 2, 3].map(i => (
+                  <div key={i} className="min-w-[75vw] sm:min-w-[280px] bg-slate-900 border border-white/5 rounded-xl overflow-hidden animate-pulse flex-shrink-0">
+                    <div className="h-36 sm:h-52 bg-slate-800" />
+                    <div className="p-6 space-y-3">
+                      <div className="h-6 bg-slate-800 rounded w-3/4" />
+                      <div className="h-4 bg-slate-800 rounded w-1/2" />
+                      <div className="flex gap-2">
+                        <div className="h-6 bg-slate-800 rounded w-16" />
+                        <div className="h-6 bg-slate-800 rounded w-16" />
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : marketplace.length === 0 ? null : (
+              <div
+                id="marketplace-scroll"
+                className="flex gap-6 overflow-x-auto hide-scrollbar pb-4"
+              >
+                  {marketplace.map(item => {
+                  const img = getFallbackImage(item)
+                  return (
+                    <Link
+                      key={item.id}
+                      to={`/${item.estabelecimento.slug}/agendar`}
+                      className="min-w-[75vw] sm:min-w-[280px] sm:max-w-[320px] bg-slate-900 border border-white/5 rounded-xl overflow-hidden flex-shrink-0 hover:border-emerald-500/30 hover:shadow-[0_4px_30px_rgba(0,0,0,0.3)] hover:-translate-y-1 transition-all duration-300 group block"
+                    >
+                      <div className="h-36 sm:h-52 w-full relative overflow-hidden">
+                        {img ? (
+                          <img
+                            alt={item.estabelecimento.nome}
+                            className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110"
+                            src={img}
+                          />
+                        ) : (
+                          <div className="w-full h-full bg-slate-800 flex items-center justify-center">
+                            <span className="text-4xl font-black text-slate-700">
+                              {item.estabelecimento.nome.charAt(0)}
+                            </span>
+                          </div>
+                        )}
+                        {item.premium && (
+                          <div className="absolute top-4 left-4 bg-emerald-500 text-white text-[10px] font-bold px-3 py-1 rounded-full uppercase tracking-widest shadow-lg">
+                            Premium
+                          </div>
+                        )}
+                      </div>
+                      <div className="p-4 sm:p-6">
+                        <div className="flex justify-between items-start mb-2 sm:mb-3">
+                          <h3 className="text-base sm:text-lg font-bold text-white">{item.estabelecimento.nome}</h3>
+                          <div className="flex items-center gap-1 text-emerald-400">
+                            <Star size={14} className="fill-current" />
+                            <span className="text-xs font-bold">{item.dados?.rating ?? 5}</span>
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-1.5 sm:gap-2 text-slate-500 mb-3 sm:mb-4">
+                          <Clock size={14} />
+                          <span className="text-xs sm:text-sm">{item.dados?.horario || 'Horário não informado'}</span>
+                        </div>
+                        {Array.isArray(item.dados?.tags) && item.dados.tags.length > 0 && (
+                          <div className="flex flex-wrap gap-1.5 sm:gap-2">
+                            {item.dados.tags.map((tag: string) => (
+                              <span
+                                key={tag}
+                                className="px-2 sm:px-3 py-0.5 sm:py-1 bg-slate-800 text-slate-300 text-[10px] sm:text-[11px] font-bold rounded-md uppercase tracking-wide"
+                              >
+                                {tag}
+                              </span>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    </Link>
+                  )
+                })}
+              </div>
+            )}
+          </div>
+        </section>
+
         {/* HERO SECTION */}
-        <section className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-10 md:pt-20 pb-20 md:pb-32 text-center">
+        <section className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-6 md:pt-14 pb-14 md:pb-24 text-center">
           <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[300px] md:w-[600px] h-[300px] md:h-[600px] bg-emerald-500/20 blur-[120px] rounded-full pointer-events-none" />
           
           {loading ? (
@@ -105,16 +251,13 @@ export function LandingPage() {
           
           <div className="flex flex-col sm:flex-row items-center justify-center gap-4 relative z-10">
             <Link to="/register" className="w-full sm:w-auto bg-emerald-500 hover:bg-emerald-400 text-white font-bold py-4 px-8 rounded-xl shadow-xl shadow-emerald-500/20 active:scale-95 transition-all text-lg flex items-center justify-center gap-2">
-              Criar conta grátis <ArrowRight size={20} />
-            </Link>
-            <Link to="/login" className="w-full sm:w-auto bg-slate-800 hover:bg-slate-700 text-white font-bold py-4 px-8 rounded-xl border border-white/5 active:scale-95 transition-all text-lg flex items-center justify-center">
-              Fazer Login
+              Comece agora <ArrowRight size={20} />
             </Link>
           </div>
         </section>
 
         {/* SOBRE O SISTEMA */}
-        <section className="py-16 md:py-24 bg-slate-900/50 border-y border-white/5">
+        <section className="py-12 md:py-16 bg-slate-900/50 border-y border-white/5">
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
             <div className="text-center mb-12 md:mb-16">
               <h2 className="text-3xl md:text-4xl font-bold mb-4">Tudo que seu negócio precisa</h2>
@@ -171,7 +314,7 @@ export function LandingPage() {
         </section>
 
         {/* BENEFÍCIOS */}
-        <section className="py-16 md:py-24 bg-emerald-950/20 border-y border-emerald-500/10">
+        <section className="py-12 md:py-16 bg-emerald-950/20 border-y border-emerald-500/10">
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
             <div className="grid md:grid-cols-2 gap-12 items-center">
               <div>
@@ -211,7 +354,7 @@ export function LandingPage() {
         </section>
 
         {/* CTA FINAL */}
-        <section className="py-20 md:py-32 text-center px-4">
+        <section className="py-16 md:py-24 text-center px-4">
           <h2 className="text-4xl md:text-5xl font-black mb-6">Pronto para evoluir?</h2>
           <p className="text-slate-400 text-lg mb-10 max-w-xl mx-auto">Junte-se a dezenas de profissionais que já modernizaram a gestão de seus salões.</p>
           <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
