@@ -93,7 +93,7 @@ export function AdminDashboard({ onBack, estabelecimentoId, membroId, cargo, isO
     let comissaoPessoal = 0;
 
     const profissionalMap: { [key: string]: { nome: string; faturamento: number; comissao: number; quantidade: number } } = {};
-    const servicosMap: { [key: string]: { nome: string; quantidade: number; total: number } } = {};
+    const servicosMap: { [key: string]: { nome: string; categoria: string; quantidade: number; total: number } } = {};
 
     transactions.forEach(t => {
       if (t.tipo === 'receita') {
@@ -117,12 +117,23 @@ export function AdminDashboard({ onBack, estabelecimentoId, membroId, cargo, isO
     });
 
     receitas.forEach(t => {
-      const desc = t.descricao || 'Geral';
-      if (!servicosMap[desc]) {
-        servicosMap[desc] = { nome: desc, quantidade: 0, total: 0 };
+      let nome = t.descricao || 'Geral'
+      let categoria = t.categoria || ''
+
+      if (t.agendamento_id) {
+        const ag = (agendamentos || []).find(a => a.id === t.agendamento_id)
+        if (ag?.servicos_produtos) {
+          nome = ag.servicos_produtos.nome || nome
+          categoria = ag.servicos_produtos.categoria ?? ''
+        }
       }
-      servicosMap[desc].quantidade += 1;
-      servicosMap[desc].total += Number(t.valor);
+
+      const key = `${categoria}||${nome}`.toUpperCase()
+      if (!servicosMap[key]) {
+        servicosMap[key] = { nome, categoria, quantidade: 0, total: 0 }
+      }
+      servicosMap[key].quantidade += 1
+      servicosMap[key].total += Number(t.valor)
     });
 
     const rankingProfissionais = Object.entries(profissionalMap).map(([id, info]) => ({
@@ -238,7 +249,7 @@ export function AdminDashboard({ onBack, estabelecimentoId, membroId, cargo, isO
 
   const [itens, setItens] = useState<any[]>([])
   const [servicoSearch, setServicoSearch] = useState('')
-  const [novoItem, setNovoItem] = useState({ nome: '', preco: '', tipo: 'receita' as 'receita' | 'despesa', categoria: 'Geral', duracao: '30', imagem_url: '' })
+  const [novoItem, setNovoItem] = useState({ nome: '', preco: '', tipo: 'receita' as 'receita' | 'despesa', categoria: '', duracao: '30', imagem_url: '' })
   const [imageFile, setImageFile] = useState<File | null>(null)
   const [itemParaEditar, setItemParaEditar] = useState<string | null>(null)
   const [itemSaving, setItemSaving] = useState(false)
@@ -874,8 +885,8 @@ export function AdminDashboard({ onBack, estabelecimentoId, membroId, cargo, isO
           membro_id: ag.membro_id || membroId,
           tipo: 'receita',
           valor: preco,
-          descricao: `Agendamento: ${ag.cliente_nome} (${ag.servicos_produtos?.nome || 'Serviço'})`,
-          categoria: ag.servicos_produtos?.categoria || 'Geral',
+          descricao: ag.servicos_produtos?.nome || 'Serviço',
+          categoria: ag.servicos_produtos?.categoria || '',
           data_competencia: new Date().toISOString().split('T')[0],
           agendamento_id: ag.id
         })
@@ -1065,6 +1076,8 @@ export function AdminDashboard({ onBack, estabelecimentoId, membroId, cargo, isO
   const handleSaveItem = async (e: React.FormEvent) => {
     e.preventDefault()
     if (!novoItem.nome.trim()) return
+    const cat = (novoItem.categoria || '').trim()
+    if (!cat) { alert('Informe a categoria do item'); setItemSaving(false); return }
     setItemSaving(true)
 
     let finalImageUrl = itemParaEditar ? novoItem.imagem_url : ''
@@ -1678,10 +1691,10 @@ export function AdminDashboard({ onBack, estabelecimentoId, membroId, cargo, isO
                   </h3>
                   <div className="space-y-4">
                     {dashboardMetrics.rankingServicos.slice(0, 5).map((serv, index) => (
-                      <div key={serv.nome} className="flex items-center justify-between border-b border-white/5 pb-2 last:border-0 last:pb-0">
+                      <div key={`${serv.categoria}||${serv.nome}`} className="flex items-center justify-between border-b border-white/5 pb-2 last:border-0 last:pb-0">
                         <div className="flex items-center gap-2">
                           <span className="w-5 h-5 rounded-full bg-slate-800 flex items-center justify-center text-[10px] font-bold text-emerald-500">{index + 1}</span>
-                          <span className="font-bold text-white text-xs">{serv.nome}</span>
+                          <span className="font-bold text-white text-xs">{serv.categoria ? `${serv.categoria} / ${serv.nome}` : serv.nome}</span>
                         </div>
                         <div className="text-right">
                           <p className="font-bold text-xs text-slate-300">{serv.quantidade} atendimentos</p>
@@ -1703,11 +1716,11 @@ export function AdminDashboard({ onBack, estabelecimentoId, membroId, cargo, isO
                     <ShoppingBag size={16} className="text-emerald-500" /> Serviços Mais Procurados
                   </h3>
                   <div className="space-y-4">
-                    {dashboardMetrics.rankingServicos.slice(0, 5).map((serv, index) => (
-                      <div key={serv.nome} className="flex items-center justify-between border-b border-white/5 pb-2 last:border-0 last:pb-0">
+                    {dashboardMetrics.rankingServicos.slice(0, 3).map((serv, index) => (
+                      <div key={`${serv.categoria}||${serv.nome}`} className="flex items-center justify-between border-b border-white/5 pb-2 last:border-0 last:pb-0">
                         <div className="flex items-center gap-2">
                           <span className="w-5 h-5 rounded-full bg-slate-800 flex items-center justify-center text-[10px] font-bold text-emerald-500">{index + 1}</span>
-                          <span className="font-bold text-white text-xs">{serv.nome}</span>
+                          <span className="font-bold text-white text-xs">{serv.categoria ? `${serv.categoria} / ${serv.nome}` : serv.nome}</span>
                         </div>
                         <div className="text-right">
                           <p className="font-bold text-xs text-slate-300">{serv.quantidade} vendas</p>
@@ -2087,7 +2100,7 @@ export function AdminDashboard({ onBack, estabelecimentoId, membroId, cargo, isO
               <h2 className="font-black text-lg uppercase tracking-widest text-slate-400">Serviços e Produtos</h2>
               <button onClick={() => {
                 setItemParaEditar(null)
-                setNovoItem({ nome: '', preco: '', tipo: 'receita', categoria: 'Geral', duracao: '30', imagem_url: '' })
+      setNovoItem({ nome: '', preco: '', tipo: 'receita', categoria: '', duracao: '30', imagem_url: '' })
                 setImageFile(null)
                 setIsItemModalOpen(true)
               }} className="bg-emerald-500 text-white px-4 py-2 rounded-xl font-bold text-xs shadow-lg shadow-emerald-500/20 active:scale-95 transition-all flex items-center gap-2">
@@ -2217,7 +2230,7 @@ export function AdminDashboard({ onBack, estabelecimentoId, membroId, cargo, isO
                           nome: (item.nome || '').toString().trim().toUpperCase(),
                           preco: item.preco_sugerido ? item.preco_sugerido.toString().replace('.', ',') : '',
                           tipo: item.tipo || 'receita',
-                          categoria: (item.categoria || 'Geral').toString().trim().toUpperCase(),
+                          categoria: (item.categoria || '').toString().trim().toUpperCase(),
                           duracao: item.duracao_minutos?.toString() || '30',
                           imagem_url: item.imagem_url || ''
                         })
@@ -3036,7 +3049,7 @@ export function AdminDashboard({ onBack, estabelecimentoId, membroId, cargo, isO
         membros={membros}
         estabelecimentoId={estabelecimentoId}
         onSuccess={fetchAdminData}
-        canSelectMember={true}
+        canSelectMember={cargo !== 'usuario'}
         editingTransaction={transactionToEdit}
       />
 
