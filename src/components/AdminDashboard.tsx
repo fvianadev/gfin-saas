@@ -278,7 +278,6 @@ export function AdminDashboard({ onBack, estabelecimentoId, membroId, cargo, isO
   const [salvandoHorario, setSalvandoHorario] = useState<string | null>(null)
 
   const [configSubTab, setConfigSubTab] = useState<'dados' | 'horarios' | 'outros'>('dados')
-  const [devPassword, setDevPassword] = useState('')
 
   const [whatsappPrompt, setWhatsappPrompt] = useState<{
     isOpen: boolean;
@@ -294,8 +293,6 @@ export function AdminDashboard({ onBack, estabelecimentoId, membroId, cargo, isO
     onConfirm: () => void;
     onCancel?: () => void;
   } | null>(null)
-  const [isDevMode, setIsDevMode] = useState(false)
-
   const closeFeedbackModal = () => setFeedbackModal(null)
 
   const subscriptionStatus = useMemo(() => {
@@ -716,22 +713,45 @@ export function AdminDashboard({ onBack, estabelecimentoId, membroId, cargo, isO
 
   const generateDemoData = async () => {
     setConfigSaving(true)
-    const demoData = [
-      { tipo: 'receita', valor: 450, descricao: 'Cortes da Semana', created_at: new Date(Date.now() - 5 * 24 * 60 * 60 * 1000).toISOString() },
-      { tipo: 'receita', valor: 380, descricao: 'Serviços de Barba', created_at: new Date(Date.now() - 4 * 24 * 60 * 60 * 1000).toISOString() },
-      { tipo: 'despesa', valor: 120, descricao: 'Produtos de Limpeza', created_at: new Date(Date.now() - 3 * 24 * 60 * 60 * 1000).toISOString() },
-      { tipo: 'receita', valor: 600, descricao: 'Combo Premium', created_at: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000).toISOString() },
-      { tipo: 'receita', valor: 420, descricao: 'Venda de Produtos', created_at: new Date(Date.now() - 1 * 24 * 60 * 60 * 1000).toISOString() },
-      { tipo: 'despesa', valor: 85, descricao: 'Manutenção Equipamento', created_at: new Date(Date.now() - 1 * 24 * 60 * 60 * 1000).toISOString() },
-      { tipo: 'receita', valor: 150, descricao: 'Corte e Barba', created_at: new Date().toISOString() },
-    ]
 
-    const toInsert = demoData.map(d => ({
-      ...d,
-      descricao: d.descricao + ' [DEMO]',
-      estabelecimento_id: estabelecimentoId,
-      membro_id: membroId
-    }))
+    const descricoes: Record<string, string[]> = {
+      receita: [
+        'Corte Degradê', 'Barba Completa', 'Corte e Barba', 'Hidratação Capilar',
+        'Pigmentação Capilar', 'Design de Barba', 'Corte Infantil', 'Sobrancelha',
+        'Combo Premium', 'Selagem Progressiva', 'Lavagem', 'Corte Máquina',
+        'Tratamento Capilar', 'Finalização', 'Corte Tesoura'
+      ],
+      despesa: [
+        'Produtos de Limpeza', 'Café e Insumos', 'Manutenção Equipamento',
+        'Material Descartável', 'Conta de Água', 'Conta de Luz',
+        'Aluguel', 'Produtos Capilares', 'Uniforme', 'Publicidade'
+      ]
+    }
+
+    const qtd = 10 + Math.floor(Math.random() * 6)
+    const agora = Date.now()
+    const dezDias = 10 * 24 * 60 * 60 * 1000
+
+    const toInsert = Array.from({ length: qtd }, () => {
+      const tipo = Math.random() < 0.7 ? 'receita' : 'despesa'
+      const lista = descricoes[tipo]
+      const descricao = lista[Math.floor(Math.random() * lista.length)]
+      const valor = tipo === 'receita'
+        ? Math.round((Math.random() * 760 + 40) / 5) * 5
+        : Math.round((Math.random() * 460 + 30) / 5) * 5
+      const offset = Math.random() * dezDias
+
+      return {
+        tipo,
+        valor,
+        descricao: descricao + ' [DEMO]',
+        estabelecimento_id: estabelecimentoId,
+        membro_id: membros.length > 0
+          ? membros[Math.floor(Math.random() * membros.length)].id
+          : membroId,
+        created_at: new Date(agora - offset).toISOString(),
+      }
+    })
 
     const { error } = await supabase.from('transacoes').insert(toInsert)
     setConfigSaving(false)
@@ -741,7 +761,7 @@ export function AdminDashboard({ onBack, estabelecimentoId, membroId, cargo, isO
         isOpen: true,
         variant: 'success',
         title: 'Dados demo gerados',
-        message: 'Lançamentos fictícios criados com sucesso. Eles estão marcados com a tag [DEMO].',
+        message: `${qtd} lançamentos fictícios criados${membros.length > 0 ? ' e distribuídos entre os profissionais' : ''} com sucesso. Eles estão marcados com a tag [DEMO].`,
         onConfirm: closeFeedbackModal,
       })
     } else {
@@ -1388,7 +1408,7 @@ export function AdminDashboard({ onBack, estabelecimentoId, membroId, cargo, isO
     )
   }
 
-  const isEmailLogin = !!localStorage.getItem('gfin_admin');
+  const isEmailLogin = !!sessionStorage.getItem('gfin_admin');
   const loggedMembro = membros.find(m => m.id === membroId);
   const nomeExibicao = loggedMembro ? loggedMembro.nome : (isEmailLogin ? (estab?.nome || 'Dono') : 'Staff');
   const sufixo = isEmailLogin ? ' (CEO)' : (cargo === 'administrador' ? ' (Adm)' : ' (Usu)');
@@ -2479,55 +2499,28 @@ export function AdminDashboard({ onBack, estabelecimentoId, membroId, cargo, isO
                   </div>
                 </div>
 
-            {isDevMode ? (
-              <div className="glass-card p-6 border-amber-500/20 space-y-4">
-                <div className="flex justify-between items-center">
-                  <h3 className="text-amber-400 font-bold text-sm uppercase tracking-widest flex items-center gap-2">
-                    <ShieldAlert size={16} /> Área de Testes (Dev Mode)
-                  </h3>
-                  <button onClick={() => { setIsDevMode(false); setDevPassword(''); }} className="text-slate-500 hover:text-amber-500 p-2 rounded-full hover:bg-amber-500/10 transition-all" title="Ocultar Área de Testes">
-                    <X size={16} />
-                  </button>
-                </div>
-                <p className="text-xs text-slate-500">Gere lançamentos fictícios para testar a interface, e remova-os facilmente depois. Eles terão a tag [DEMO].</p>
-                <div className="flex flex-col sm:flex-row gap-4">
-                  <button
-                    onClick={generateDemoData}
-                    disabled={configSaving}
-                    className="flex-1 py-3 bg-amber-500/10 text-amber-500 border border-amber-500/20 rounded-xl font-bold hover:bg-amber-500 hover:text-white transition-all active:scale-95"
-                  >
-                    Gerar Dados Demo
-                  </button>
-                  <button
-                    onClick={removeDemoData}
-                    disabled={configSaving}
-                    className="flex-1 py-3 bg-rose-500/10 text-rose-500 border border-rose-500/20 rounded-xl font-bold hover:bg-rose-500 hover:text-white transition-all active:scale-95"
-                  >
-                    Limpar Dados Demo
-                  </button>
-                </div>
+            <div className="glass-card p-6 border-amber-500/20 space-y-4">
+              <h3 className="text-amber-400 font-bold text-sm uppercase tracking-widest flex items-center gap-2">
+                <ShieldAlert size={16} /> Dados de Teste
+              </h3>
+              <p className="text-xs text-slate-500">Gere lançamentos fictícios para testar a interface, e remova-os facilmente depois. Eles terão a tag [DEMO].</p>
+              <div className="flex flex-col sm:flex-row gap-4">
+                <button
+                  onClick={generateDemoData}
+                  disabled={configSaving}
+                  className="flex-1 py-3 bg-amber-500/10 text-amber-500 border border-amber-500/20 rounded-xl font-bold hover:bg-amber-500 hover:text-white transition-all active:scale-95"
+                >
+                  Gerar Dados Demo
+                </button>
+                <button
+                  onClick={removeDemoData}
+                  disabled={configSaving}
+                  className="flex-1 py-3 bg-rose-500/10 text-rose-500 border border-rose-500/20 rounded-xl font-bold hover:bg-rose-500 hover:text-white transition-all active:scale-95"
+                >
+                  Limpar Dados Demo
+                </button>
               </div>
-            ) : (
-              <div className="glass-card p-6 border-white/5 space-y-4">
-                <h3 className="font-bold text-sm text-slate-400 uppercase tracking-widest">Modo Desenvolvedor</h3>
-                <div className="flex flex-col sm:flex-row gap-2">
-                  <input
-                    type="password"
-                    placeholder="Senha de liberação"
-                    className="w-full min-w-0 sm:flex-1 bg-slate-900 border border-white/5 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/50"
-                    value={devPassword}
-                    onChange={e => setDevPassword(e.target.value)}
-                    onKeyDown={e => { if (e.key === 'Enter') { if (devPassword === import.meta.env.VITE_DEV_PASSWORD) setIsDevMode(true); else alert('Senha incorreta') } }}
-                  />
-                  <button
-                    onClick={() => { if (devPassword === import.meta.env.VITE_DEV_PASSWORD) setIsDevMode(true); else alert('Senha incorreta') }}
-                    className="w-full sm:w-auto sm:shrink-0 bg-slate-800 text-slate-300 px-4 py-2.5 rounded-xl text-sm font-bold hover:bg-slate-700 transition-all"
-                  >
-                    Desbloquear
-                  </button>
-                </div>
-              </div>
-            )}
+            </div>
               </div>
             )}
           </div>

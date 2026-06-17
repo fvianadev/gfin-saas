@@ -10,17 +10,20 @@ VALUES (
 ON CONFLICT (id) DO NOTHING;
 
 -- Política: leitura pública (anon pode ler)
+DROP POLICY IF EXISTS "logos_public_read" ON storage.objects;
 CREATE POLICY "logos_public_read"
   ON storage.objects FOR SELECT
   USING (bucket_id = 'logos');
 
 -- Política: apenas usuários autenticados podem fazer upload
+DROP POLICY IF EXISTS "logos_authenticated_upload" ON storage.objects;
 CREATE POLICY "logos_authenticated_upload"
   ON storage.objects FOR INSERT
   TO authenticated
   WITH CHECK (bucket_id = 'logos');
 
 -- Política: apenas usuários autenticados podem deletar
+DROP POLICY IF EXISTS "logos_authenticated_delete" ON storage.objects;
 CREATE POLICY "logos_authenticated_delete"
   ON storage.objects FOR DELETE
   TO authenticated

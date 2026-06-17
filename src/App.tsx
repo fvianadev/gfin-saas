@@ -13,9 +13,10 @@ import type { UserSession } from './types/auth'
 import { LandingPage } from './components/LandingPage'
 import { LoginPage } from './components/auth/LoginPage'
 import { RegisterPage } from './components/auth/RegisterPage'
-import { RegisterSaasAdminPage } from './components/auth/RegisterSaasAdminPage'
 import { ResetPasswordPage } from './components/auth/ResetPasswordPage'
 import AuthCallback from './pages/AuthCallback'
+import { FirstAdminGuard } from './router/FirstAdminGuard'
+import { FirstAdminSetup } from './pages/setup/FirstAdminSetup'
 
 // --- COMPONENTE: STAFF LOGIN ---
 function StaffLogin() {
@@ -94,7 +95,7 @@ function StaffLogin() {
             alert('PIN inválido');
             setPin('');
           } else {
-            localStorage.setItem('gfin_staff', JSON.stringify({ ...data, role: data.cargo || 'usuario', slug }));
+            sessionStorage.setItem('gfin_staff', JSON.stringify({ ...data, role: data.cargo || 'usuario', slug }));
             navigate(`/${slug}/dashboard`);
           }
         } catch (e) {
@@ -203,7 +204,7 @@ function StaffDashboard() {
   const { slug } = useParams()
   const navigate = useNavigate()
   const [user, setUser] = useState<any>(() => {
-    const stored = localStorage.getItem('gfin_staff')
+    const stored = sessionStorage.getItem('gfin_staff')
     return stored ? JSON.parse(stored) : null
   })
   const [estab, setEstab] = useState<any>(null)
@@ -260,27 +261,6 @@ function StaffDashboard() {
     }
   }
 
-  const generateDemoData = async () => {
-    const demoData = [
-      { tipo: 'receita', valor: 250, descricao: 'Corte e Barba', created_at: new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString() },
-      { tipo: 'receita', valor: 180, descricao: 'Degradê Navalhado', created_at: new Date(Date.now() - 4 * 60 * 60 * 1000).toISOString() },
-      { tipo: 'despesa', valor: 45, descricao: 'Café e Insumos', created_at: new Date(Date.now() - 6 * 60 * 60 * 1000).toISOString() },
-      { tipo: 'receita', valor: 140, descricao: 'Corte Infantil', created_at: new Date(Date.now() - 8 * 60 * 60 * 1000).toISOString() },
-    ]
-
-    const toInsert = demoData.map(d => ({
-      ...d,
-      estabelecimento_id: user.estabelecimento_id,
-      membro_id: user.id
-    }))
-
-    const { error } = await supabase.from('transacoes').insert(toInsert)
-    if (!error) {
-      alert('Dados de teste gerados para ' + user.nome)
-      fetchTransactions(user.id, user.estabelecimento_id, user.cargo, periodo)
-    }
-  }
-
   useEffect(() => {
     if (!user) navigate(`/${slug}/login`)
     else {
@@ -290,7 +270,7 @@ function StaffDashboard() {
     }
   }, [slug, navigate, periodo, user])
 
-  const logout = () => { localStorage.removeItem('gfin_staff'); navigate(`/${slug}/login`) }
+  const logout = () => { sessionStorage.removeItem('gfin_staff'); navigate(`/${slug}/login`) }
 
   if (!user) return <div className="min-h-screen bg-slate-950 flex items-center justify-center text-slate-500 font-bold italic tracking-widest animate-pulse">CARREGANDO...</div>
 
@@ -301,7 +281,7 @@ function StaffDashboard() {
         membroId={user.id}
         cargo={user.cargo}
         isOwner={false}
-        onBack={() => { localStorage.removeItem('gfin_staff'); navigate(`/${slug}/login`) }} 
+        onBack={() => { sessionStorage.removeItem('gfin_staff'); navigate(`/${slug}/login`) }} 
       />
     )
   }
@@ -311,18 +291,18 @@ function StaffDashboard() {
 
 export default function App() {
   const [admin, setAdmin] = useState<UserSession | null>(() => {
-    const stored = localStorage.getItem('gfin_admin')
+    const stored = sessionStorage.getItem('gfin_admin')
     return stored ? JSON.parse(stored) : null
   })
 
   const handleLoginState = (session: UserSession) => {
-    localStorage.setItem('gfin_admin', JSON.stringify(session))
+    sessionStorage.setItem('gfin_admin', JSON.stringify(session))
     setAdmin(session)
   }
 
   const logoutAdmin = async () => {
     await supabase.auth.signOut()
-    localStorage.removeItem('gfin_admin')
+    sessionStorage.removeItem('gfin_admin')
     setAdmin(null)
   }
 
@@ -332,8 +312,11 @@ export default function App() {
       <Route path="/" element={<LandingPage />} />
       <Route path="/login" element={<LoginPage onLogin={handleLoginState} />} />
       <Route path="/register" element={<RegisterPage onLogin={handleLoginState} />} />
-      <Route path="/register-saas-admin" element={<RegisterSaasAdminPage onLogin={handleLoginState} />} />
-      <Route path="/novo-admin" element={<Navigate to="/register-saas-admin" replace />} />
+       <Route path="/register-saas-admin" element={<Navigate to="/setup" replace />} />
+       <Route path="/novo-admin" element={<Navigate to="/setup" replace />} />
+       <Route element={<FirstAdminGuard />}>
+         <Route path="/setup" element={<FirstAdminSetup onLogin={handleLoginState} />} />
+       </Route>
       <Route path="/reset-password" element={<ResetPasswordPage />} />
       <Route path="/signup" element={<Navigate to="/register" replace />} />
       <Route path="/create-account" element={<Navigate to="/register" replace />} />

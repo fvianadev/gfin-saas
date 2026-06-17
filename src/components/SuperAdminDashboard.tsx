@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react'
+﻿import { useState, useEffect, useRef } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 import { formatCurrency } from '../lib/format'
@@ -1710,9 +1710,30 @@ export function SuperAdminDashboard({ onLogout }: { onLogout: () => void }) {
   const [saasConfig, setSaasConfig] = useState<any>(null)
   const [currentUserId, setCurrentUserId] = useState<string>('')
 
+  const [authorized, setAuthorized] = useState<boolean | null>(null)
+
   useEffect(() => {
-    supabase.auth.getUser().then(({ data }) => {
-      if (data.user) setCurrentUserId(data.user.id)
+    supabase.auth.getUser().then(async ({ data }) => {
+      if (!data.user) {
+        setAuthorized(false)
+        return
+      }
+      setCurrentUserId(data.user.id)
+
+      let { data: admin } = await supabase
+        .from('saas_admins')
+        .select('id')
+        .eq('id', data.user.id)
+        .maybeSingle()
+
+      if (!admin && data.user.user_metadata?.is_saas_admin) {
+        const { data: confirmed } = await supabase.rpc('confirm_saas_admin')
+        if (confirmed) {
+          admin = { id: data.user.id }
+        }
+      }
+
+      setAuthorized(!!admin)
     })
   }, [])
 
@@ -1754,7 +1775,29 @@ export function SuperAdminDashboard({ onLogout }: { onLogout: () => void }) {
       setLoading(false)
     }
   }
+
   useEffect(() => { fetchData() }, [])
+
+  if (authorized === false) {
+    return (
+      <div className="min-h-screen bg-slate-950 flex items-center justify-center text-white flex-col gap-4 p-4">
+        <Shield size={48} className="text-rose-500" />
+        <h1 className="text-2xl font-black">Acesso negado</h1>
+        <p className="text-slate-400 text-sm">Você não tem permissão para acessar esta área.</p>
+        <button onClick={onLogout} className="mt-4 px-6 py-2 bg-rose-600 hover:bg-rose-500 rounded-xl font-bold transition-colors">
+          Voltar ao Login
+        </button>
+      </div>
+    )
+  }
+
+  if (authorized === null) {
+    return (
+      <div className="min-h-screen bg-slate-950 flex items-center justify-center">
+        <div className="w-8 h-8 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+      </div>
+    )
+  }
 
   const TABS: { id: Tab, label: string, icon: any }[] = [
     { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
@@ -1932,3 +1975,4 @@ function PlanosBadge({ plano }: { plano: keyof typeof PLANO_CONFIG }) {
     </span>
   )
 }
+

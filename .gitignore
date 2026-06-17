@@ -25,3 +25,6 @@ dist-ssr
 
 .env
 mapeamento_funcionalidades.md
+
+# Removido do projeto - arquivo bloqueado no Windows
+/src/components/auth/RegisterSaasAdminPage.tsx

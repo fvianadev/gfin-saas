@@ -1,6 +1,6 @@
 # GFin — Guia de Deploy
 
-Guia completo para colocar o GFin em produção usando **Vercel** ou **Netlify** com **Supabase**.
+Guia completo para colocar o GFin em produção usando **Vercel** com **Supabase**.
 
 ---
 
@@ -22,11 +22,15 @@ Guia completo para colocar o GFin em produção usando **Vercel** ou **Netlify**
 
 ### 2.2 Aplicar Migrations
 
-As migrations estão em `supabase/migrations/` (10 arquivos no total).
+As migrations estão em `supabase/migrations/` (11 arquivos no total).
 
-**Opção A — SQL Editor (recomendado para primeiro setup):**
+**No primeiro deploy**, as migrations são aplicadas automaticamente pelo script `scripts/migrate.mjs` durante o build da Vercel (via `vercel-build`). Ele:
+1. Cria a tabela de controle `_schema_migrations` (se não existir)
+2. Lê os arquivos `.sql` em ordem numérica
+3. Aplica apenas os que ainda não foram executados
+4. Registra cada migration aplicada em `_schema_migrations`
 
-Abra cada arquivo em ordem numérica e execute no **SQL Editor** do Supabase:
+> **Importante:** É necessário configurar a variável `DATABASE_URL` no ambiente da Vercel (Project Settings → Environment Variables) com a connection string do Supabase.
 
 | Ordem | Arquivo | Descrição |
 |-------|---------|-----------|
@@ -40,13 +44,14 @@ Abra cada arquivo em ordem numérica e execute no **SQL Editor** do Supabase:
 | 8 | `20260614000000_add_avatar_url_to_membros.sql` | Avatar em membros + bucket `avatars` |
 | 9 | `20260615000000_create_marketplace_destaques.sql` | Marketplace + bucket `marketplace` |
 | 10 | `20260616000000_add_valor_assinatura.sql` | Coluna valor_assinatura |
+| 11 | `20260617000000_super_admin_singleton.sql` | Singleton de super admin + RPC `is_first_saas_admin()` |
 
-> As migrations de storage buckets (`servicos`, `logos`, `avatars`, `marketplace`) já criam os buckets e as políticas de acesso via SQL. Não é necessário usar o CLI do Supabase ou scripts extras.
-
-**Opção B — Supabase CLI:**
+**Executar migrations manualmente (opcional):**
 ```bash
-supabase db push
+node scripts/migrate.mjs
 ```
+
+> O script lê a `DATABASE_URL` do arquivo `.env` ou das variáveis de ambiente.
 
 ### 2.3 Configurar Autenticação
 
@@ -83,42 +88,45 @@ Copie `.env.example`:
 |----------|-------------|-----------|
 | `VITE_SUPABASE_URL` | ✅ | Project URL (ex: `https://xxx.supabase.co`) |
 | `VITE_SUPABASE_ANON_KEY` | ✅ | anon/public key |
-| `VITE_DEV_PASSWORD` | ✅ | Senha para ativar modo admin de desenvolvimento |
+| `DATABASE_URL` | ✅ | Connection string do banco (ex: `postgresql://postgres:senha@db.xxx.supabase.co:5432/postgres`) |
 
 > Use **apenas** a `anon key` no frontend. Nunca exponha a `service_role key`.
+
+> A `DATABASE_URL` é usada **apenas no build** (script de migrations). Não é exposta ao frontend.
 
 ---
 
 ## 4. Deploy Frontend
 
-### Opção A — Vercel ✅
+### Vercel (recomendado) ✅
 
 O `vercel.json` já está configurado com redirecionamento SPA.
 
+O `package.json` contém o script `vercel-build` que roda as migrations antes do build:
+
+```json
+"vercel-build": "node scripts/migrate.mjs && npm run build"
+```
+
+O Vercel executa automaticamente o comando `vercel-build` se ele existir no `package.json`.
+
 1. Acesse [Vercel Dashboard](https://vercel.com/) → **Add New → Project**
-2. Importe o repositório `sistemagfin/gfin`
+2. Importe o repositório
 3. **Framework Preset:** Vite (detectado automaticamente)
-4. **Build Command:** `npm run build`
+4. **Build Command:** detectado automaticamente como `vercel-build`
 5. **Output Directory:** `dist`
-6. Adicione as variáveis de ambiente
+6. Adicione as variáveis de ambiente (incluindo `DATABASE_URL`)
 7. **Deploy**
 
-### Opção B — Netlify ✅
-
-O `netlify.toml` já está configurado com build e redirects.
-
-1. Acesse [Netlify Dashboard](https://app.netlify.com/) → **Add new site → Import an existing project**
-2. Conecte o repositório `sistemagfin/gfin`
-3. O Netlify detecta o `netlify.toml` automaticamente
-4. Adicione as variáveis de ambiente em **Site Configuration → Environment Variables**
-5. **Deploy**
+> **Importante:** A `DATABASE_URL` deve ser a connection string direta do Supabase (com `postgresql://`), disponível em Project Settings → Database → Connection string.
 
 ---
 
 ## 5. Pós-Deploy
 
 - [ ] Login aparece na URL do deploy
-- [ ] Criar conta → primeiro usuário vira admin do estabelecimento
+- [ ] Acessar `/setup` → criar o primeiro super admin
+- [ ] Criar conta como estabelecimento → admin do estabelecimento
 - [ ] Navegar entre rotas e recarregar → sem 404
 - [ ] Configurar **Site URL** e **Redirect URLs** no Supabase Auth
 - [ ] Verificar se os buckets de storage foram criados (devem estar listados em **Storage** no Supabase)
@@ -136,4 +144,4 @@ Push na branch configurada dispara deploy automático.
 
 ---
 
-*GFin — v1.2.0*
+*GFin — v1.3.0*

@@ -1,4 +1,4 @@
-import { useState } from 'react'
+﻿import { useState } from 'react'
 import { useNavigate, Link } from 'react-router-dom'
 import { supabase } from '../../lib/supabase'
 import { LayoutDashboard, ArrowLeft, Mail, Lock, Eye, EyeOff } from 'lucide-react'
@@ -24,7 +24,7 @@ export function LoginPage({ onLogin }: { onLogin: (session: UserSession) => void
       if (authError) throw authError
       if (!authData.user) throw new Error('Usuário não encontrado.')
 
-      // 2. Verificar se é Super Admin do SaaS (ANTES de buscar estabelecimentos)
+      // 2. Verificar se é Super Admin do SaaS
       const { data: saasAdmin, error: saasError } = await supabase
         .from('saas_admins')
         .select('*')
@@ -36,7 +36,6 @@ export function LoginPage({ onLogin }: { onLogin: (session: UserSession) => void
       }
 
       if (saasAdmin) {
-        // É Super Admin! Cria sessão com role especial e redireciona
         const session: UserSession = {
           id: authData.user.id,
           membro_id: null,
@@ -47,6 +46,29 @@ export function LoginPage({ onLogin }: { onLogin: (session: UserSession) => void
         onLogin(session)
         navigate('/super-admin')
         return
+      }
+
+      // 2b. Fallback: usuário com is_saas_admin no metadata mas ainda não confirmado
+      if (authData.user.user_metadata?.is_saas_admin) {
+        const { data: confirmed } = await supabase.rpc('confirm_saas_admin')
+        if (confirmed) {
+          const { data: newAdmin } = await supabase
+            .from('saas_admins')
+            .select('email')
+            .eq('id', authData.user.id)
+            .single()
+          const session: UserSession = {
+            id: authData.user.id,
+            membro_id: null,
+            nome: newAdmin?.email || authData.user.email || '',
+            estabelecimento_id: '',
+            role: 'super_admin'
+          }
+          onLogin(session)
+          navigate('/super-admin')
+          return
+        }
+        throw new Error('Email not confirmed')
       }
 
       // 3. É um dono de estabelecimento comum — fluxo original
@@ -262,3 +284,4 @@ export function LoginPage({ onLogin }: { onLogin: (session: UserSession) => void
     </div>
   )
 }
+
