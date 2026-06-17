@@ -250,7 +250,7 @@ export function RegisterPage({ onLogin }: { onLogin: (session: UserSession) => v
   }
 
   return (
-    <div className="min-h-screen bg-slate-950 flex flex-col items-center justify-center p-4 md:p-6 text-white relative">
+    <div className="min-h-dvh bg-slate-950 flex flex-col items-center justify-center sm:justify-start sm:pt-8 p-4 md:p-6 text-white relative animate-in fade-in duration-500">
       {/* Botão de voltar */}
       <div className="absolute top-4 left-4 md:top-8 md:left-8">
         <Link to="/" className="flex items-center gap-2 text-slate-400 hover:text-white transition-colors text-sm font-medium bg-slate-900/50 p-2 md:px-4 md:py-2 rounded-lg border border-white/5 backdrop-blur-sm">
@@ -259,45 +259,48 @@ export function RegisterPage({ onLogin }: { onLogin: (session: UserSession) => v
         </Link>
       </div>
 
-      <div className="glass-card w-full max-w-md p-6 md:p-8 border-white/5 space-y-6 md:space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500 mt-12 md:mt-0">
+      <div className="glass-card w-full max-w-md p-5 md:p-5 border-white/5 space-y-5 sm:space-y-4 shadow-2xl">
         <div className="text-center">
-          <h1 className="text-3xl md:text-4xl font-black mb-2 tracking-tighter">GFin <span className="text-emerald-500">SaaS</span></h1>
-          <p className="text-slate-400 text-xs md:text-sm">Gestão financeira para sua barbearia ou salão.</p>
+          <div className="w-10 h-10 sm:w-12 sm:h-12 bg-emerald-500 rounded-2xl flex items-center justify-center mx-auto mb-2 shadow-lg shadow-emerald-500/20">
+            <Mail size={20} className="sm:w-6 sm:h-6" />
+          </div>
+          <h1 className="text-lg sm:text-xl font-black tracking-tight">Criar Conta</h1>
+          <p className="text-[10px] sm:text-xs text-slate-500 mt-0.5 uppercase tracking-widest font-bold">Gestão financeira para seu negócio</p>
         </div>
         
-        <form onSubmit={handleRegister} className="space-y-4 md:space-y-5">
-          <div className="space-y-1.5">
+        <form onSubmit={handleRegister} className="space-y-3">
+          <div className="space-y-1">
             <label className="text-[10px] md:text-xs font-bold text-slate-400 uppercase px-1 tracking-wider">Nome do Estabelecimento</label>
             <input 
               required 
               value={empresa} 
               onChange={e => setEmpresa(e.target.value)} 
-              className="w-full bg-slate-900 border border-white/10 rounded-xl p-3.5 md:p-4 text-sm md:text-base text-white outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 transition-all" 
+              className="w-full bg-slate-900 border border-white/10 rounded-xl p-2.5 md:p-3 text-sm md:text-base text-white outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 transition-all" 
               placeholder="Ex: Barbearia Viana" 
             />
           </div>
-          <div className="space-y-1.5">
+          <div className="space-y-1">
             <label className="text-[10px] md:text-xs font-bold text-slate-400 uppercase px-1 tracking-wider">Seu Nome</label>
             <input 
               required 
               value={nome} 
               onChange={e => setNome(e.target.value)} 
-              className="w-full bg-slate-900 border border-white/10 rounded-xl p-3.5 md:p-4 text-sm md:text-base text-white outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 transition-all" 
+              className="w-full bg-slate-900 border border-white/10 rounded-xl p-2.5 md:p-3 text-sm md:text-base text-white outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 transition-all" 
               placeholder="Ex: Lucas Sousa" 
             />
           </div>
-          <div className="space-y-1.5">
+          <div className="space-y-1">
             <label className="text-[10px] md:text-xs font-bold text-slate-400 uppercase px-1 tracking-wider">Seu Melhor E-mail</label>
             <input 
               required 
               type="email" 
               value={email} 
               onChange={e => setEmail(e.target.value)} 
-              className="w-full bg-slate-900 border border-white/10 rounded-xl p-3.5 md:p-4 text-sm md:text-base text-white outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 transition-all" 
+              className="w-full bg-slate-900 border border-white/10 rounded-xl p-2.5 md:p-3 text-sm md:text-base text-white outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 transition-all" 
               placeholder="seu@email.com" 
             />
           </div>
-          <div className="space-y-1.5">
+          <div className="space-y-1">
             <label className="text-[10px] md:text-xs font-bold text-slate-400 uppercase px-1 tracking-wider">Senha de Acesso</label>
             <div className="relative">
               <input 
@@ -305,7 +308,7 @@ export function RegisterPage({ onLogin }: { onLogin: (session: UserSession) => v
                 type={showSenha ? 'text' : 'password'} 
                 value={senha} 
                 onChange={e => setSenha(e.target.value)} 
-                className="w-full bg-slate-900 border border-white/10 rounded-xl p-3.5 pr-11 md:p-4 md:pr-11 text-sm md:text-base text-white outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 transition-all" 
+                className="w-full bg-slate-900 border border-white/10 rounded-xl p-2.5 pr-11 md:p-3 md:pr-11 text-sm md:text-base text-white outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 transition-all" 
                 placeholder="••••••••" 
               />
               <button
@@ -318,14 +321,14 @@ export function RegisterPage({ onLogin }: { onLogin: (session: UserSession) => v
             </div>
           </div>
           
-          <button disabled={loading} className="w-full bg-emerald-500 hover:bg-emerald-400 disabled:opacity-50 text-white font-bold py-3.5 md:py-4 px-4 rounded-xl shadow-lg shadow-emerald-500/20 active:scale-[0.98] transition-all text-sm md:text-base flex justify-center items-center">
+          <button disabled={loading} className="w-full bg-emerald-500 hover:bg-emerald-400 disabled:opacity-50 text-white font-bold py-2.5 md:py-3 px-4 rounded-xl shadow-lg shadow-emerald-500/20 active:scale-[0.98] transition-all text-sm md:text-base flex justify-center items-center">
             {loading ? (
               <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
             ) : 'Criar Conta'}
           </button>
 
           {errorMessage && (
-            <div className="bg-red-600/20 border border-red-600 text-red-200 rounded-md p-3 mb-4 text-sm">
+            <div className="bg-red-600/20 border border-red-600 text-red-200 rounded-md p-2.5 mb-2 text-xs md:text-sm">
               {errorMessage}
             </div>
           )}

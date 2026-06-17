@@ -1,7 +1,4 @@
 {
-  "builds": [{ "src": "package.json", "use": "@vercel/node" }],
-  "hooks": {
-    "build": "bash scripts/create-storage-buckets.sh"
-  },
+  "$schema": "https://openapi.vercel.sh/vercel.json",
   "rewrites": [{ "source": "/(.*)", "destination": "/index.html" }]
 }

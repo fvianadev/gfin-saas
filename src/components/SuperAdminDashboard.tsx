@@ -80,6 +80,7 @@ type Tab = 'dashboard' | 'estabelecimentos' | 'faturamento' | 'configuracoes' | 
 const PLANO_CONFIG = {
   gratis: { label: 'Grátis (Teste)', icon: Package, color: 'text-slate-400', bg: 'bg-slate-800/60', border: 'border-slate-700/50' },
   pro: { label: 'Pro (Assinante)', icon: Zap, color: 'text-emerald-400', bg: 'bg-emerald-900/30', border: 'border-emerald-700/50' },
+  premium: { label: 'Premium', icon: Crown, color: 'text-amber-400', bg: 'bg-amber-900/30', border: 'border-amber-700/50' },
 }
 
 const STATUS_CONFIG = {
@@ -688,12 +689,22 @@ function FaturamentoTab({ estabelecimentos, saasConfig, whatsappAdmin, onUpdate 
   const [saved, setSaved] = useState<string | null>(null)
   const [selectedEstab, setSelectedEstab] = useState<string | null>(null)
 
-  const currentMonth = new Date().toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' })
+  const meses = ['Janeiro','Fevereiro','Março','Abril','Maio','Junho','Julho','Agosto','Setembro','Outubro','Novembro','Dezembro']
+
+  const [refMes, setRefMes] = useState(() => {
+    const m = new Date().toLocaleDateString('pt-BR', { month: 'long' })
+    return m.charAt(0).toUpperCase() + m.slice(1)
+  })
+  const [refAno, setRefAno] = useState(() => String(new Date().getFullYear()))
 
   useEffect(() => {
-    setForm(prev => ({ ...prev, referencia: currentMonth.charAt(0).toUpperCase() + currentMonth.slice(1), valor: (saasConfig?.valor_assinatura ?? 0).toFixed(2).replace('.', ',') }))
+    setForm(prev => ({ ...prev, referencia: `${refMes}/${refAno}`, valor: (saasConfig?.valor_assinatura ?? 0).toFixed(2).replace('.', ',') }))
     fetchPagamentos()
   }, [])
+
+  useEffect(() => {
+    setForm(prev => ({ ...prev, referencia: `${refMes}/${refAno}` }))
+  }, [refMes, refAno])
 
   useEffect(() => {
     setForm(prev => ({ ...prev, valor: (saasConfig?.valor_assinatura ?? 0).toFixed(2).replace('.', ',') }))
@@ -755,6 +766,21 @@ function FaturamentoTab({ estabelecimentos, saasConfig, whatsappAdmin, onUpdate 
     if (!confirmModal) return
     setSaving(true)
     const valor = parseFloat(form.valor.replace(',', '.'))
+
+    // Verificar se já existe pagamento para esta empresa + referência
+    const { data: duplicado } = await supabase
+      .from('saas_pagamentos')
+      .select('id')
+      .eq('estabelecimento_id', confirmModal.id)
+      .eq('referencia', form.referencia)
+      .maybeSingle()
+
+    if (duplicado) {
+      alert(`Já existe um pagamento registrado para "${confirmModal.nome}" referente a "${form.referencia}".`)
+      setSaving(false)
+      return
+    }
+
     const { error } = await supabase.from('saas_pagamentos').insert({
       estabelecimento_id: confirmModal.id,
       valor,
@@ -762,6 +788,7 @@ function FaturamentoTab({ estabelecimentos, saasConfig, whatsappAdmin, onUpdate 
       metodo_pagamento: form.metodo,
       observacoes: form.observacoes || null,
       status: 'pago',
+      pago_em: new Date().toISOString(),
     })
     if (!error) {
       const hoje = new Date()
@@ -770,20 +797,35 @@ function FaturamentoTab({ estabelecimentos, saasConfig, whatsappAdmin, onUpdate 
       // Próxima cobrança daqui a 30 dias
       const proximaCobranca = new Date(hoje.getTime() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]
 
-      // Atualizar status do estabelecimento
+      // Atualizar status do estabelecimento e limpar trial
       await supabase.from('estabelecimentos').update({
         plano: 'pro',
         status_assinatura: 'ativo',
         data_ultimo_pagamento: dataUltimo,
         data_proxima_cobranca: proximaCobranca,
+        trial_active: false,
+        trial_start: null,
+        trial_end: null,
       }).eq('id', confirmModal.id)
       setSaved(confirmModal.id)
       fetchPagamentos()
       onUpdate?.()
+      setSaving(false)
+      setGoFaturamento(true)
+    } else {
+      console.error('Erro ao inserir pagamento:', error)
+      alert('Erro ao registrar pagamento: ' + error.message)
+      setSaving(false)
     }
-    setSaving(false)
-    // Pergunta sobre redirecionar ao faturamento
-    setGoFaturamento(true)
+  }
+
+  const handleDeletePagamento = async (pagamento: SaasPagamento, estabNome: string) => {
+    if (!confirm(`Excluir pagamento de ${pagamento.referencia} de ${estabNome}?`)) return
+    const { error } = await supabase.from('saas_pagamentos').delete().eq('id', pagamento.id)
+    if (!error) {
+      fetchPagamentos()
+      onUpdate?.()
+    }
   }
 
   const METODOS = [
@@ -792,14 +834,6 @@ function FaturamentoTab({ estabelecimentos, saasConfig, whatsappAdmin, onUpdate 
     { value: 'cartao', label: 'Cartão', icon: <CreditCard size={14}/> },
     { value: 'manual', label: 'Outro', icon: <DollarSign size={14}/> },
   ]
-
-  const estabsView = selectedEstab
-    ? pagamentos.filter(p => p.estabelecimento_id === selectedEstab)
-    : []
-
-  const estabSelected = selectedEstab
-    ? estabelecimentos.find(e => e.id === selectedEstab)
-    : null
 
   return (
     <div className="space-y-6">
@@ -819,7 +853,7 @@ function FaturamentoTab({ estabelecimentos, saasConfig, whatsappAdmin, onUpdate 
       </div>
 
       {/* LISTA DE ESTABELECIMENTOS */}
-      <div className="rounded-2xl border border-white/5 bg-slate-900/50 overflow-hidden">
+      <div className="rounded-2xl border border-white/5 bg-slate-900/50">
         <div className="p-4 border-b border-white/5">
           <p className="text-xs font-bold uppercase tracking-widest text-slate-500">Status de Assinatura por Estabelecimento</p>
         </div>
@@ -828,97 +862,111 @@ function FaturamentoTab({ estabelecimentos, saasConfig, whatsappAdmin, onUpdate 
             const statusKey = getStatus(estab)
             const statusCfg = STATUS_PAG[statusKey]
             const ultimo = getUltimoPagamento(estab.id)
+            const expanded = selectedEstab === estab.id
             return (
-              <div key={estab.id} className="flex items-center gap-3 p-4 hover:bg-white/2 transition-all">
-                <div className="w-9 h-9 rounded-xl bg-emerald-900/40 border border-emerald-700/30 flex-shrink-0 relative overflow-hidden">
-                  {estab.configuracoes?.logo_url && (
-                    <img
-                      src={estab.configuracoes.logo_url}
-                      alt={estab.nome}
-                      className="w-full h-full object-cover absolute inset-0 z-10"
-                      onError={el => { (el.currentTarget as HTMLImageElement).style.display = 'none' }}
-                    />
-                  )}
-                  <div className="w-full h-full flex items-center justify-center text-sm font-black text-emerald-400">
-                    {estab.nome.charAt(0)}
+              <div key={estab.id}>
+                <div className="flex items-center gap-3 p-4 hover:bg-white/2 transition-all">
+                  <div className="w-9 h-9 rounded-xl bg-emerald-900/40 border border-emerald-700/30 flex-shrink-0 relative overflow-hidden">
+                    {estab.configuracoes?.logo_url && (
+                      <img
+                        src={estab.configuracoes.logo_url}
+                        alt={estab.nome}
+                        className="w-full h-full object-cover absolute inset-0 z-10"
+                        onError={el => { (el.currentTarget as HTMLImageElement).style.display = 'none' }}
+                      />
+                    )}
+                    <div className="w-full h-full flex items-center justify-center text-sm font-black text-emerald-400">
+                      {estab.nome.charAt(0)}
+                    </div>
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-bold text-white truncate">{estab.nome}</p>
+                    <p className="text-xs text-slate-500 truncate">
+                      {ultimo ? `Último pag: ${new Date(ultimo.pago_em).toLocaleDateString('pt-BR')} — ${ultimo.referencia}` : 'Sem pagamentos registrados'}
+                    </p>
+                  </div>
+                  <div className="flex items-center gap-2 flex-shrink-0">
+                    <span className={`hidden sm:inline-flex items-center gap-1 px-2 py-1.5 rounded-lg text-xs font-bold border ${statusCfg.bg} ${statusCfg.border} ${statusCfg.color}`}>
+                      {statusCfg.label}
+                    </span>
+                    {/* Botão histórico */}
+                    <button
+                      onClick={() => setSelectedEstab(selectedEstab === estab.id ? null : estab.id)}
+                      className={`p-1.5 rounded-lg transition-all ${expanded ? 'bg-emerald-500/20 text-emerald-400' : 'bg-slate-800 hover:bg-slate-700 text-slate-400 hover:text-white'}`}
+                      title="Ver histórico"
+                    >
+                      <History size={13}/>
+                    </button>
+                    {/* Botão cobrar por WhatsApp */}
+                    <a
+                      href={buildWhatsApp(estab)}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="p-1.5 rounded-lg bg-emerald-900/30 hover:bg-emerald-800/50 text-emerald-400 border border-emerald-700/30 transition-all"
+                      title="Disparar cobrança no WhatsApp"
+                    >
+                      <MessageCircle size={13}/>
+                    </a>
+                    {/* Botão confirmar pagamento */}
+                    <button
+                      onClick={() => {
+                      const m = new Date().toLocaleDateString('pt-BR', { month: 'long' })
+                      setRefMes(m.charAt(0).toUpperCase() + m.slice(1))
+                      setRefAno(String(new Date().getFullYear()))
+                      setConfirmModal(estab); setGoFaturamento(null); setSaved(null); setForm(prev => ({ ...prev, valor: (saasConfig?.valor_assinatura ?? 0).toFixed(2).replace('.', ',') }))
+                    }}
+                      className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 border border-emerald-500/20 transition-all"
+                    >
+                      <DollarSign size={12}/> Receber
+                    </button>
                   </div>
                 </div>
-                <div className="flex-1 min-w-0">
-                  <p className="text-sm font-bold text-white truncate">{estab.nome}</p>
-                  <p className="text-xs text-slate-500 truncate">
-                    {ultimo ? `Último pag: ${new Date(ultimo.pago_em).toLocaleDateString('pt-BR')} — ${ultimo.referencia}` : 'Sem pagamentos registrados'}
-                  </p>
-                </div>
-                <div className="flex items-center gap-2 flex-shrink-0">
-                  <span className={`hidden sm:inline-flex items-center gap-1 px-2 py-0.5 rounded-lg text-xs font-bold border ${statusCfg.bg} ${statusCfg.border} ${statusCfg.color}`}>
-                    {statusCfg.label}
-                  </span>
-                  {/* Botão histórico */}
-                  <button
-                    onClick={() => setSelectedEstab(selectedEstab === estab.id ? null : estab.id)}
-                    className="p-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-400 hover:text-white transition-all"
-                    title="Ver histórico"
-                  >
-                    <History size={13}/>
-                  </button>
-                  {/* Botão cobrar por WhatsApp */}
-                  <a
-                    href={buildWhatsApp(estab)}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="p-1.5 rounded-lg bg-emerald-900/30 hover:bg-emerald-800/50 text-emerald-400 border border-emerald-700/30 transition-all"
-                    title="Disparar cobrança no WhatsApp"
-                  >
-                    <MessageCircle size={13}/>
-                  </a>
-                  {/* Botão confirmar pagamento */}
-                  <button
-                    onClick={() => { setConfirmModal(estab); setGoFaturamento(null); setSaved(null); setForm(prev => ({ ...prev, valor: (saasConfig?.valor_assinatura ?? 0).toFixed(2).replace('.', ',') })) }}
-                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 border border-emerald-500/20 transition-all"
-                  >
-                    <DollarSign size={12}/> Receber
-                  </button>
-                </div>
+
+                {/* Histórico expansível */}
+                {expanded && (
+                  <div className="border-t border-white/5 bg-slate-950/50 animate-in fade-in slide-in-from-top-2 duration-200">
+                    <div className="px-4 py-3 border-b border-white/5 flex items-center justify-between">
+                      <p className="text-xs font-bold uppercase tracking-widest text-slate-500">Histórico de Pagamentos</p>
+                    </div>
+                    {(() => {
+                      const estabHistory = pagamentos.filter(p => p.estabelecimento_id === estab.id)
+                      if (loadingPag) return (
+                        <div className="p-6 text-center"><div className="w-5 h-5 border-2 border-emerald-500 border-t-transparent rounded-full animate-spin mx-auto" /></div>
+                      )
+                      if (estabHistory.length === 0) return (
+                        <div className="p-6 text-center text-slate-600 text-sm">Nenhum pagamento registrado.</div>
+                      )
+                      return (
+                        <div className="divide-y divide-white/5">
+                          {estabHistory.map(p => (
+                            <div key={p.id} className="flex items-center gap-3 px-4 py-3">
+                              <div className="w-8 h-8 rounded-lg bg-emerald-900/20 flex items-center justify-center text-emerald-400">
+                                <DollarSign size={14}/>
+                              </div>
+                              <div className="flex-1">
+                                <p className="text-sm font-bold text-white">{p.referencia}</p>
+                                <p className="text-xs text-slate-500">{p.metodo_pagamento.toUpperCase()} • {new Date(p.pago_em).toLocaleDateString('pt-BR')}</p>
+                              </div>
+                              <p className="text-emerald-400 font-bold text-sm">{formatCurrency(p.valor)}</p>
+                              <button
+                                onClick={() => handleDeletePagamento(p, estab.nome)}
+                                className="p-1.5 rounded-lg bg-rose-900/20 hover:bg-rose-800/40 text-rose-400 transition-all"
+                                title="Excluir pagamento"
+                              >
+                                <Trash2 size={13}/>
+                              </button>
+                            </div>
+                          ))}
+                        </div>
+                      )
+                    })()}
+                  </div>
+                )}
               </div>
             )
           })}
         </div>
       </div>
-
-      {/* HISTÓRICO DO ESTABELECIMENTO SELECIONADO */}
-      {selectedEstab && estabSelected && (
-        <div className="rounded-2xl border border-white/5 bg-slate-900/50 overflow-hidden">
-          <div className="p-4 border-b border-white/5 flex items-center justify-between">
-            <div>
-              <p className="text-sm font-bold text-white">{estabSelected.nome}</p>
-              <p className="text-xs font-bold uppercase tracking-widest text-slate-500">Histórico de Pagamentos</p>
-            </div>
-            <button onClick={() => setSelectedEstab(null)} className="text-slate-500 hover:text-white">
-              <X size={16}/>
-            </button>
-          </div>
-          {loadingPag ? (
-            <div className="p-8 text-center"><div className="w-6 h-6 border-2 border-emerald-500 border-t-transparent rounded-full animate-spin mx-auto" /></div>
-          ) : estabsView.length === 0 ? (
-            <div className="p-8 text-center text-slate-600 text-sm">Nenhum pagamento registrado.</div>
-          ) : (
-            <div className="divide-y divide-white/5">
-              {estabsView.map(p => (
-                <div key={p.id} className="flex items-center gap-3 px-4 py-3">
-                  <div className="w-8 h-8 rounded-lg bg-emerald-900/20 flex items-center justify-center text-emerald-400">
-                    <DollarSign size={14}/>
-                  </div>
-                  <div className="flex-1">
-                    <p className="text-sm font-bold text-white">{p.referencia}</p>
-                    <p className="text-xs text-slate-500">{p.metodo_pagamento.toUpperCase()} • {new Date(p.pago_em).toLocaleDateString('pt-BR')}</p>
-                  </div>
-                  <p className="text-emerald-400 font-bold text-sm">{formatCurrency(p.valor)}</p>
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
-      )}
 
       {/* MODAL: CONFIRMAR PAGAMENTO */}
       {confirmModal && (
@@ -949,14 +997,23 @@ function FaturamentoTab({ estabelecimentos, saasConfig, whatsappAdmin, onUpdate 
                   </div>
                   {/* Referência */}
                   <div className="space-y-1.5">
-                    <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Referência (mês/período)</label>
-                    <input
-                      type="text"
-                      value={form.referencia}
-                      onChange={e => setForm(p => ({ ...p, referencia: e.target.value }))}
-                      className="w-full bg-slate-800 border border-white/5 rounded-xl px-4 py-3 text-white outline-none focus:border-emerald-500/50 text-sm"
-                      placeholder="Junho/2026"
-                    />
+                    <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Referência (mês/ano)</label>
+                    <div className="grid grid-cols-2 gap-2">
+                      <select
+                        value={refMes}
+                        onChange={e => setRefMes(e.target.value)}
+                        className="w-full bg-slate-800 border border-white/5 rounded-xl px-4 py-3 text-white outline-none focus:border-emerald-500/50 text-sm cursor-pointer"
+                      >
+                        {meses.map(m => <option key={m} value={m}>{m}</option>)}
+                      </select>
+                      <select
+                        value={refAno}
+                        onChange={e => setRefAno(e.target.value)}
+                        className="w-full bg-slate-800 border border-white/5 rounded-xl px-4 py-3 text-white outline-none focus:border-emerald-500/50 text-sm cursor-pointer"
+                      >
+                        {Array.from({ length: 10 }, (_, i) => String(new Date().getFullYear() - 2 + i)).map(a => <option key={a} value={a}>{a}</option>)}
+                      </select>
+                    </div>
                   </div>
                   {/* Método */}
                   <div className="space-y-1.5">
