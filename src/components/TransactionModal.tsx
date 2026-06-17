@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import { X, DollarSign, FileText, Check, Users, AlertCircle, MessageSquare, Calendar } from 'lucide-react'
 import { supabase } from '../lib/supabase'
 
@@ -33,23 +33,34 @@ export function TransactionModal({
   const [loading, setLoading] = useState(false)
   const [success, setSuccess] = useState(false)
 
+  const [categoria, setCategoria] = useState('')
   const [catalogItems, setCatalogItems] = useState<any[]>([])
   const [filteredCatalog, setFilteredCatalog] = useState<any[]>([])
   const [showDropdown, setShowDropdown] = useState(false)
 
   const isEditing = !!editingTransaction
 
+  const availableCategories = useMemo(() => {
+    const cats = new Set<string>()
+    catalogItems.forEach((item: any) => {
+      if (item.categoria) cats.add(item.categoria.toUpperCase())
+    })
+    return Array.from(cats).sort()
+  }, [catalogItems])
+
   useEffect(() => {
     if (isOpen) {
       if (editingTransaction) {
         setValor(editingTransaction.valor.toString().replace('.', ','))
         setDescricao(editingTransaction.descricao)
+        setCategoria(editingTransaction.categoria || '')
         setDataCompetencia(editingTransaction.data_competencia || new Date().toLocaleDateString('en-CA'))
         setSelectedMembroId(editingTransaction.membro_id)
         setMotivo('')
       } else {
         setValor('')
         setDescricao('')
+        setCategoria('')
         setDataCompetencia(new Date().toLocaleDateString('en-CA'))
         setSelectedMembroId(membroId)
         setMotivo('')
@@ -101,6 +112,11 @@ export function TransactionModal({
       return
     }
 
+    if (!categoria.trim()) {
+      alert('Informe a categoria do lançamento.')
+      return
+    }
+
     setLoading(true)
     const valorFloat = parseFloat(valor.replace(',', '.'))
 
@@ -112,6 +128,7 @@ export function TransactionModal({
           .update({
             valor: valorFloat,
             descricao,
+            categoria: categoria.toUpperCase(),
             data_competencia: dataCompetencia,
             membro_id: selectedMembroId,
             updated_at: new Date().toISOString(),
@@ -154,7 +171,7 @@ export function TransactionModal({
             membro_id: selectedMembroId,
             estabelecimento_id: estabelecimentoId,
             data_competencia: dataCompetencia,
-            categoria: tipo === 'receita' ? 'Serviço' : 'Geral',
+            categoria: categoria.toUpperCase(),
             motivo_alteracao: isPastDate ? motivo : null
           })
           .select()
@@ -265,6 +282,7 @@ export function TransactionModal({
                           onClick={() => {
                             setDescricao(item.nome)
                             if (item.preco_sugerido) setValor(item.preco_sugerido.toString().replace('.', ','))
+                            setCategoria(item.categoria || '')
                             setShowDropdown(false)
                           }}
                           className="w-full p-4 text-left hover:bg-emerald-500/10 flex justify-between items-center group border-b border-white/5 last:border-0"
@@ -293,6 +311,27 @@ export function TransactionModal({
                     className="w-full h-14 bg-white/5 border border-white/10 rounded-xl px-4 text-xl font-bold focus:border-emerald-500 outline-none transition-all"
                     required
                   />
+                </div>
+
+                {/* Categoria Input */}
+                <div className="space-y-2">
+                  <label className="text-sm font-medium text-slate-400 flex items-center gap-2">
+                    <FileText size={16} /> Categoria
+                  </label>
+                  <input
+                    list="tx-categoria-list"
+                    type="text"
+                    value={categoria}
+                    onChange={(e) => setCategoria(e.target.value.toUpperCase())}
+                    placeholder={tipo === 'receita' ? 'Ex: CABELO, BARBA' : 'Ex: ÁGUA, ALUGUEL'}
+                    className="w-full h-14 bg-white/5 border border-white/10 rounded-xl px-4 focus:border-emerald-500 outline-none transition-all"
+                    required
+                  />
+                  <datalist id="tx-categoria-list">
+                    {availableCategories.map(cat => (
+                      <option key={cat} value={cat} />
+                    ))}
+                  </datalist>
                 </div>
 
                 {/* Data Input */}

@@ -1,35 +1,64 @@
-import { useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useEffect, useState } from 'react';
+import { useNavigate, Link } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
 
-/**
- * AuthCallback – destino do link de confirmação de e-mail enviado pelo Supabase.
- *
- * O estabelecimento já foi criado no momento do registro (RegisterPage).
- * Aqui só precisamos confirmar a sessão e redirecionar o usuário para o login.
- */
 export default function AuthCallback() {
   const navigate = useNavigate();
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    // O Supabase lê o token_hash da URL e dispara SIGNED_IN automaticamente.
+    let timeoutId: ReturnType<typeof setTimeout> | null = null;
+    let redirected = false;
+
+    const redirect = (path: string) => {
+      if (redirected) return;
+      redirected = true;
+      if (timeoutId) clearTimeout(timeoutId);
+      navigate(path);
+    };
+
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
       if (event === 'SIGNED_IN' && session) {
-        // Sessão criada após confirmação – vai direto para o login
-        // (o LoginPage fará o lookup do estabelecimento normalmente)
-        navigate('/login');
+        redirect('/login');
       }
     });
 
-    // Caso a sessão já exista ao abrir o callback (ex: clicou no link 2x)
     supabase.auth.getSession().then(({ data }) => {
       if (data.session) {
-        navigate('/login');
+        redirect('/login');
       }
     });
 
-    return () => subscription.unsubscribe();
+    timeoutId = setTimeout(() => {
+      if (!redirected) {
+        subscription.unsubscribe();
+        setError('O link de confirmação expirou ou já foi utilizado.');
+      }
+    }, 15000);
+
+    return () => {
+      if (timeoutId) clearTimeout(timeoutId);
+      subscription.unsubscribe();
+    };
   }, [navigate]);
+
+  if (error) {
+    return (
+      <div className="flex h-screen items-center justify-center bg-slate-950 text-white flex-col gap-4 text-center px-4">
+        <div className="rounded-full h-12 w-12 bg-red-500/20 flex items-center justify-center">
+          <span className="text-red-400 text-2xl">!</span>
+        </div>
+        <p className="text-lg font-medium text-red-400">Falha na confirmação</p>
+        <p className="text-slate-400 text-sm max-w-md">{error}</p>
+        <Link
+          to="/login"
+          className="mt-4 px-6 py-2 bg-emerald-600 hover:bg-emerald-700 rounded-lg text-white font-medium transition-colors"
+        >
+          Ir para o Login
+        </Link>
+      </div>
+    );
+  }
 
   return (
     <div className="flex h-screen items-center justify-center bg-slate-950 text-white flex-col gap-4">

@@ -1,73 +1,36 @@
-# React + TypeScript + Vite
+# GFin — Gestão Financeira
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+SaaS de gestão financeira para estabelecimentos com agendamento, marketplace e multi-tenancy.
 
-Currently, two official plugins are available:
+## Stack
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
+- **Frontend:** React 19, TypeScript 6, Vite 8, Tailwind CSS 4
+- **Backend:** Supabase (PostgreSQL, Auth, Storage, RLS)
+- **Gráficos:** Recharts
+- **Ícones:** Lucide React
 
-## React Compiler
+## Scripts
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+| Comando | Descrição |
+|---------|-----------|
+| `npm run dev` | Inicia servidor de desenvolvimento |
+| `npm run build` | Compila TypeScript e faz o build de produção |
+| `npm run lint` | Executa ESLint |
+| `npm run preview` | Preview do build de produção |
+| `npm run db:setup` | Aplica migrations no banco |
+| `npm run db:clear` | Limpa todas as tabelas |
+| `npm run db:reset` | Limpa e aplica migrations novamente |
 
-## Expanding the ESLint configuration
+## Deploy
 
-If you are developing a production application, we recommend updating the configuration to enable type-aware lint rules:
+Compatível com **Vercel** e **Netlify**. Consulte o [DEPLOY.md](DEPLOY.md) para o guia completo.
 
-```js
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
+## Variáveis de Ambiente
 
-      // Remove tseslint.configs.recommended and replace with this
-      tseslint.configs.recommendedTypeChecked,
-      // Alternatively, use this for stricter rules
-      tseslint.configs.strictTypeChecked,
-      // Optionally, add this for stylistic rules
-      tseslint.configs.stylisticTypeChecked,
+Copie `.env.example` para `.env` e preencha:
 
-      // Other configs...
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
 ```
-
-You can also install [eslint-plugin-react-x](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-x) and [eslint-plugin-react-dom](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-dom) for React-specific lint rules:
-
-```js
-// eslint.config.js
-import reactX from 'eslint-plugin-react-x'
-import reactDom from 'eslint-plugin-react-dom'
-
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
-      // Enable lint rules for React
-      reactX.configs['recommended-typescript'],
-      // Enable lint rules for React DOM
-      reactDom.configs.recommended,
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
+VITE_SUPABASE_URL=https://seu-projeto.supabase.co
+VITE_SUPABASE_ANON_KEY=sua_chave_anon
+VITE_DEV_PASSWORD=sua_senha_dev
 ```

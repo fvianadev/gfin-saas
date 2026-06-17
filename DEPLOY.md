@@ -1,174 +1,139 @@
-# GFin SaaS — Guia de Deploy
+# GFin — Guia de Deploy
 
-Guia completo e atualizado para colocar o GFin em produção usando **Netlify** ou **Vercel** com **Supabase** como banco de dados.
+Guia completo para colocar o GFin em produção usando **Vercel** ou **Netlify** com **Supabase**.
 
 ---
 
 ## 1. Pré-requisitos
 
 - Conta no [Supabase](https://supabase.com/)
-- Conta no [Netlify](https://www.netlify.com/) **ou** no [Vercel](https://vercel.com/)
-- Repositório conectado ao GitHub
+- Conta na [Vercel](https://vercel.com/) ou [Netlify](https://netlify.com/)
+- Repositório no GitHub conectado à plataforma escolhida
 
 ---
 
-## 2. Configurar o Banco de Dados (Supabase)
+## 2. Banco de Dados (Supabase)
 
-### 2.1 Criar o Projeto
+### 2.1 Criar Projeto
 
-1. Acesse o [Supabase](https://supabase.com/) e faça login.
-2. Clique em **New Project** e preencha nome, senha e região.
-3. Aguarde o provisionamento (1–2 minutos).
+1. Acesse o [Supabase Dashboard](https://supabase.com/dashboard)
+2. **New Project** → nome, senha do banco, região
+3. Aguarde o provisionamento (~2 min)
 
-### 2.2 Aplicar a Migration
+### 2.2 Aplicar Migrations
 
-O schema completo do banco está em um único arquivo consolidado:
+As migrations estão em `supabase/migrations/` (10 arquivos no total).
 
-```
-supabase/migrations/20260601000000_initial_schema.sql
-```
+**Opção A — SQL Editor (recomendado para primeiro setup):**
 
-**Opção A — Via CLI do Supabase (recomendado):**
+Abra cada arquivo em ordem numérica e execute no **SQL Editor** do Supabase:
+
+| Ordem | Arquivo | Descrição |
+|-------|---------|-----------|
+| 1 | `20260601000000_initial_schema.sql` | Schema inicial (tabelas, RLS, funções) |
+| 2 | `20260602000000_add_aviso_trial_dias.sql` | Coluna aviso_trial_dias |
+| 3 | `20260604000000_staff_gerencia_agenda.sql` | Staff gerencia agenda |
+| 4 | `20260606000000_auto_create_saas_admins.sql` | Criação automática de admins |
+| 5 | `20260607000000_delete_saas_user_rpc.sql` | RPC para deletar usuário |
+| 6 | `20260613000000_add_imagem_url_to_servicos.sql` | Imagem em serviços + bucket `servicos` |
+| 7 | `20260613000001_create_logos_bucket.sql` | Bucket `logos` + políticas |
+| 8 | `20260614000000_add_avatar_url_to_membros.sql` | Avatar em membros + bucket `avatars` |
+| 9 | `20260615000000_create_marketplace_destaques.sql` | Marketplace + bucket `marketplace` |
+| 10 | `20260616000000_add_valor_assinatura.sql` | Coluna valor_assinatura |
+
+> As migrations de storage buckets (`servicos`, `logos`, `avatars`, `marketplace`) já criam os buckets e as políticas de acesso via SQL. Não é necessário usar o CLI do Supabase ou scripts extras.
+
+**Opção B — Supabase CLI:**
 ```bash
 supabase db push
 ```
 
-**Opção B — Via SQL Editor no painel do Supabase:**
-1. Vá em **SQL Editor** no painel do projeto.
-2. Copie o conteúdo do arquivo acima e execute.
-
 ### 2.3 Configurar Autenticação
 
-Após o deploy do frontend, adicione a URL do site em:
+Após o deploy, em **Authentication → URL Configuration**:
 
-42: - **Authentication → URL Configuration → Site URL**: `https://seu-dominio.vercel.app`
-43: - **Authentication → URL Configuration → Redirect URLs**: `https://seu-dominio.vercel.app/**`
+| Campo | Valor |
+|-------|-------|
+| Site URL | `https://seu-dominio.vercel.app` (ou `*.netlify.app`) |
+| Redirect URLs | `https://seu-dominio.vercel.app/**` |
 
-### 2.4 Configuração de E-mail & SMTP em Produção
+### 2.4 SMTP em Produção
 
-Para que os fluxos de confirmação de cadastro e recuperação de senha funcionem corretamente, evitem a caixa de spam e contornem os limites severos do Supabase (4 e-mails/hora):
+Para e-mails de confirmação e recuperação de senha:
 
-1. **Ativar Confirmação de E-mail**:
-   - No painel do Supabase, vá em **Authentication → Providers → Email**.
-   - Habilite a opção **Confirm Email**.
+1. **Authentication → Providers → Email** → habilite **Confirm email**
+2. **Project Settings → Auth → SMTP Settings** → **Enable Custom SMTP**
 
-2. **Configurar SMTP Transacional Próprio (Obrigatório para Produção)**:
-   - Vá em **Project Settings → Auth → SMTP Settings**.
-   - Ative a opção **Enable Custom SMTP**.
-   - Configure as credenciais de um provedor de e-mail. 
+**Opções de provedor:**
 
-     **Exemplo usando GMAIL (para testes ou escala inicial):**
-     - **SMTP Host**: `smtp.gmail.com`
-     - **Port**: `587`
-     - **From Email Address**: O seu e-mail do Gmail (ex: `seu-email@gmail.com`)
-     - **Sender Name**: Nome do remetente (ex: `GFin SaaS`)
-     - **User Name**: O seu e-mail do Gmail completo (ex: `seu-email@gmail.com`)
-     - **Password**: Uma **Senha de App (App Password)** de 16 caracteres.
-       *💡 DICA: O Google bloqueia logins SMTP com a senha convencional. Você precisa ativar a "Verificação em duas etapas" na sua conta Google e acessar [myaccount.google.com/apppasswords](https://myaccount.google.com/apppasswords) para gerar uma Senha de App específica.*
+| Provedor | SMTP Host | Porta | Observação |
+|----------|-----------|-------|------------|
+| Gmail | `smtp.gmail.com` | 587 | Usar App Password (16 caracteres) |
+| Resend (recomendado) | `smtp.resend.com` | 465/587 | Usar API Key `re_...` |
 
-      **Exemplo usando Provedor Gratuito (Recomendado: Resend)**:
-      - **SMTP Host**: `smtp.resend.com`
-      - **Port**: `465` (SSL) ou `587` (TLS)
-      - **From Email Address**: Endereço de e‑mail fornecido pelo Resend (ex.: `onboarding@resend.dev`).
-      - **Sender Name**: Nome que aparecerá no e‑mail (ex.: `GFin SaaS`).
-      - **User Name** & **Password**: Sua **API Key** do Resend (`re_XXXXXXXX`).
-      - **Observação**: Quando seu domínio próprio for verificado, troque o *From Email* para algo como `noreply@gfin.com.br` e continue usando a mesma API Key.
-
+> **Resend:** Comece com `onboarding@resend.dev`. Após verificar seu domínio, troque para `noreply@seudominio.com`.
 
 ---
 
-## 3. Obter as Chaves do Supabase
+## 3. Variáveis de Ambiente
 
-No painel do projeto Supabase, vá em **Project Settings → API**:
-
-| Variável | Onde encontrar |
-|---|---|
-| `VITE_SUPABASE_URL` | Project URL |
-| `VITE_SUPABASE_ANON_KEY` | anon / public key |
-
-> [!NOTE]
-> A `VITE_DEV_PASSWORD` protege o modo de geração de dados fictícios no painel Admin. Defina um valor seguro.
-
----
-
-## 4. Deploy do Frontend
-
-### Opção A — Netlify ✅ (configurado)
-
-O projeto já possui o arquivo `netlify.toml` com tudo configurado.
-
-1. Acesse o [Netlify](https://app.netlify.com/) e clique em **Add new site → Import an existing project**.
-2. Conecte o repositório `fvianadev/gfin-saas`.
-3. Configure a **branch** de deploy (ex: `main` para produção ou `develop` para staging).
-4. O Netlify detecta o `netlify.toml` automaticamente — **não altere** os campos de build.
-5. Vá em **Site Configuration → Environment Variables** e adicione:
-
-```
-VITE_SUPABASE_URL=https://seu-projeto.supabase.co
-VITE_SUPABASE_ANON_KEY=sua_anon_key_aqui
-VITE_DEV_PASSWORD=sua_senha_dev_aqui
-```
-
-6. Clique em **Deploy site**.
-
----
-
-### Opção B — Vercel ✅ (configurado)
-
-O projeto já possui o arquivo `vercel.json` com redirecionamento SPA.
-
-1. Acesse o [Vercel](https://vercel.com/) e clique em **Add New → Project**.
-2. Importe o repositório `fvianadev/gfin-saas`.
-3. Em **Framework Preset**, selecione **Vite**.
-4. Em **Build & Output Settings**:
-   - Build Command: `npm run build`
-   - Output Directory: `dist`
-5. Em **Environment Variables**, adicione:
-
-```
-VITE_SUPABASE_URL=https://seu-projeto.supabase.co
-VITE_SUPABASE_ANON_KEY=sua_anon_key_aqui
-VITE_DEV_PASSWORD=sua_senha_dev_aqui
-```
-
-6. Clique em **Deploy**.
-
----
-
-## 5. Variáveis de Ambiente — Referência
-
-Consulte o arquivo [.env.example](.env.example) na raiz do projeto para ver todas as variáveis necessárias.
+Copie `.env.example`:
 
 | Variável | Obrigatória | Descrição |
-|---|---|---|
-| `VITE_SUPABASE_URL` | ✅ Sim | URL do projeto Supabase |
-| `VITE_SUPABASE_ANON_KEY` | ✅ Sim | Chave pública anon do Supabase |
-| `VITE_DEV_PASSWORD` | ✅ Sim | Senha para ativar modo de dados fictícios no Admin |
+|----------|-------------|-----------|
+| `VITE_SUPABASE_URL` | ✅ | Project URL (ex: `https://xxx.supabase.co`) |
+| `VITE_SUPABASE_ANON_KEY` | ✅ | anon/public key |
+| `VITE_DEV_PASSWORD` | ✅ | Senha para ativar modo admin de desenvolvimento |
 
-> [!WARNING]
-> Nunca exponha a `service_role` key no frontend. Use apenas a `anon key`.
-
----
-
-## 6. Verificação Pós-Deploy
-
-- [ ] Acesse a URL do deploy — a tela de login deve aparecer.
-- [ ] Crie uma conta — o primeiro usuário vira administrador do estabelecimento.
-- [ ] Navegue entre as rotas (ex: `/dashboard`) e recarregue a página — não deve dar 404.
-- [ ] No painel Admin, verifique se os dados carregam corretamente do Supabase.
-- [ ] Configure o **Site URL** e **Redirect URLs** no Supabase Authentication.
+> Use **apenas** a `anon key` no frontend. Nunca exponha a `service_role key`.
 
 ---
 
-## 7. Deploys Automáticos (CI/CD)
+## 4. Deploy Frontend
 
-Tanto Netlify quanto Vercel fazem **deploy automático** a cada `git push` na branch configurada.
+### Opção A — Vercel ✅
 
-| Branch | Ambiente sugerido |
-|---|---|
+O `vercel.json` já está configurado com redirecionamento SPA.
+
+1. Acesse [Vercel Dashboard](https://vercel.com/) → **Add New → Project**
+2. Importe o repositório `sistemagfin/gfin`
+3. **Framework Preset:** Vite (detectado automaticamente)
+4. **Build Command:** `npm run build`
+5. **Output Directory:** `dist`
+6. Adicione as variáveis de ambiente
+7. **Deploy**
+
+### Opção B — Netlify ✅
+
+O `netlify.toml` já está configurado com build e redirects.
+
+1. Acesse [Netlify Dashboard](https://app.netlify.com/) → **Add new site → Import an existing project**
+2. Conecte o repositório `sistemagfin/gfin`
+3. O Netlify detecta o `netlify.toml` automaticamente
+4. Adicione as variáveis de ambiente em **Site Configuration → Environment Variables**
+5. **Deploy**
+
+---
+
+## 5. Pós-Deploy
+
+- [ ] Login aparece na URL do deploy
+- [ ] Criar conta → primeiro usuário vira admin do estabelecimento
+- [ ] Navegar entre rotas e recarregar → sem 404
+- [ ] Configurar **Site URL** e **Redirect URLs** no Supabase Auth
+- [ ] Verificar se os buckets de storage foram criados (devem estar listados em **Storage** no Supabase)
+
+---
+
+## 6. Deploys Automáticos
+
+Push na branch configurada dispara deploy automático.
+
+| Branch | Ambiente |
+|--------|----------|
 | `main` | Produção |
-| `develop` | Staging / Preview |
+| `develop` | Preview/Staging |
 
 ---
 
-*GFin SaaS — v1.2.0*
+*GFin — v1.2.0*

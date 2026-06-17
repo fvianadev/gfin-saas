@@ -58,7 +58,7 @@ export function LandingPage() {
         estabelecimento:estabelecimentos!inner (nome, slug, configuracoes)
       `)
       .eq('ativo', true)
-      .order('ordem', { ascending: true, nullsLast: true })
+      .order('ordem', { ascending: true, nullsFirst: true })
       .then(({ data }) => {
         const parsed = (data || []).map((item: any) => ({
           ...item,
