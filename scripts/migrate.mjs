@@ -1,35 +1,59 @@
 import postgres from 'postgres'
 import fs from 'fs'
 import path from 'path'
-import dotenv from 'dotenv'
+import { fileURLToPath } from 'url'
 
-dotenv.config()
+// Carrega dotenv apenas se disponível (ambiente local)
+try { (await import('dotenv')).config() } catch {}
 
-const dbUrl = new URL(process.env.DATABASE_URL || '')
-if (!process.env.DATABASE_URL || !dbUrl.hostname) {
-  console.error('❌ DATABASE_URL não definida ou inválida.')
+const dbUrl = process.env.DATABASE_URL
+if (!dbUrl) {
+  console.error('❌ DATABASE_URL não definida.')
   console.error('   Formato: postgresql://usuario:senha@host:5432/banco')
-  console.error('   Pegue em: Supabase → Settings → Database → Connection string')
+  console.error('   Na Vercel: Settings → Environment Variables')
+  console.error('   Local: arquivo .env na raiz do projeto')
+  process.exit(1)
+}
+
+let parsed
+try {
+  parsed = new URL(dbUrl)
+} catch {
+  console.error('❌ DATABASE_URL inválida:', dbUrl.replace(/\/\/.*@/, '//***@'))
+  console.error('   Formato esperado: postgresql://usuario:senha@host:5432/banco')
   process.exit(1)
 }
 
 const sql = postgres({
-  host: dbUrl.hostname,
-  port: parseInt(dbUrl.port || '5432'),
-  database: dbUrl.pathname?.replace(/^\//, '') || 'postgres',
-  username: decodeURIComponent(dbUrl.username),
-  password: decodeURIComponent(dbUrl.password),
+  host: parsed.hostname,
+  port: parseInt(parsed.port || '5432'),
+  database: parsed.pathname?.replace(/^\//, '') || 'postgres',
+  username: decodeURIComponent(parsed.username),
+  password: decodeURIComponent(parsed.password),
   ssl: 'require',
+  connect_timeout: 30,
 })
 
 async function migrate() {
+  // Resolve o diretório de migrations relativo a este script (funciona na Vercel)
+  const __dirname = path.dirname(fileURLToPath(import.meta.url))
+  const dir = path.resolve(__dirname, '..', 'supabase', 'migrations')
+
+  if (!fs.existsSync(dir)) {
+    console.error(`❌ Diretório de migrations não encontrado: ${dir}`)
+    process.exit(1)
+  }
+
   await sql`CREATE TABLE IF NOT EXISTS _schema_migrations (
     filename TEXT PRIMARY KEY,
     applied_at TIMESTAMPTZ DEFAULT now()
   )`
 
-  const dir = path.join(process.cwd(), 'supabase/migrations')
   const files = fs.readdirSync(dir).filter(f => f.endsWith('.sql')).sort()
+
+  if (files.length === 0) {
+    console.log('⚠️  Nenhum arquivo .sql encontrado em supabase/migrations')
+  }
 
   for (const file of files) {
     const [{ count }] = await sql`
@@ -57,5 +81,6 @@ async function migrate() {
 migrate().catch(err => {
   console.error('❌ Migration falhou:', err?.message || err?.toString() || 'Erro desconhecido')
   if (err?.stack) console.error(err.stack)
+  sql.end({ timeout: 5 }).catch(() => {})
   process.exit(1)
 })
