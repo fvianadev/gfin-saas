@@ -1,5 +1,4 @@
 {
-  "buildCommand": "node -e \"process.env.DATABASE_URL&&require('child_process').execSync('node scripts/migrate.mjs',{stdio:'inherit'})\" && npm run build",
   "outputDirectory": "dist",
   "framework": "vite",
   "rewrites": [{ "source": "/(.*)", "destination": "/index.html" }]

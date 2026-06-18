@@ -8,7 +8,7 @@
     "build": "tsc -b && vite build",
     "lint": "eslint .",
     "preview": "vite preview",
-    "vercel-build": "node scripts/migrate.mjs && npm run build",
+    "vercel-build": "node scripts/migrate.mjs || true && npm run build",
     "db:clear": "node scripts/clear_db.mjs",
     "db:setup": "node scripts/apply_migration.mjs",
     "db:reset": "node scripts/clear_db.mjs && node scripts/apply_migration.mjs"
