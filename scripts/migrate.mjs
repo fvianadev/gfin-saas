@@ -32,6 +32,7 @@ const sql = postgres({
   password: decodeURIComponent(parsed.password),
   ssl: 'require',
   connect_timeout: 30,
+  family: 4,
 })
 
 async function migrate() {
