@@ -728,30 +728,34 @@ export function AdminDashboard({ onBack, estabelecimentoId, membroId, cargo, isO
       ]
     }
 
-    const qtd = 10 + Math.floor(Math.random() * 6)
     const agora = Date.now()
     const dezDias = 10 * 24 * 60 * 60 * 1000
 
-    const toInsert = Array.from({ length: qtd }, () => {
-      const tipo = Math.random() < 0.7 ? 'receita' : 'despesa'
-      const lista = descricoes[tipo]
-      const descricao = lista[Math.floor(Math.random() * lista.length)]
-      const valor = tipo === 'receita'
-        ? Math.round((Math.random() * 760 + 40) / 5) * 5
-        : Math.round((Math.random() * 460 + 30) / 5) * 5
-      const offset = Math.random() * dezDias
+    const membrosAlvo = membros.length > 0 ? membros : [{ id: membroId }]
+    const qtd = membrosAlvo.length * 10
 
-      return {
-        tipo,
-        valor,
-        descricao: descricao + ' [DEMO]',
-        estabelecimento_id: estabelecimentoId,
-        membro_id: membros.length > 0
-          ? membros[Math.floor(Math.random() * membros.length)].id
-          : membroId,
-        created_at: new Date(agora - offset).toISOString(),
+    const toInsert: any[] = []
+
+    for (const membro of membrosAlvo) {
+      for (let i = 0; i < 10; i++) {
+        const tipo = Math.random() < 0.7 ? 'receita' : 'despesa'
+        const lista = descricoes[tipo]
+        const descricao = lista[Math.floor(Math.random() * lista.length)]
+        const valor = Math.round((Math.random() * 50 + 30) / 5) * 5
+        const offset = Math.random() * dezDias
+        const data = new Date(agora - offset)
+
+        toInsert.push({
+          tipo,
+          valor,
+          descricao: descricao + ' [DEMO]',
+          estabelecimento_id: estabelecimentoId,
+          membro_id: membro.id,
+          created_at: new Date().toISOString(),
+          data_competencia: data.toISOString().split('T')[0],
+        })
       }
-    })
+    }
 
     const { error } = await supabase.from('transacoes').insert(toInsert)
     setConfigSaving(false)
@@ -761,7 +765,7 @@ export function AdminDashboard({ onBack, estabelecimentoId, membroId, cargo, isO
         isOpen: true,
         variant: 'success',
         title: 'Dados demo gerados',
-        message: `${qtd} lançamentos fictícios criados${membros.length > 0 ? ' e distribuídos entre os profissionais' : ''} com sucesso. Eles estão marcados com a tag [DEMO].`,
+        message: `${qtd} lançamentos fictícios criados${membrosAlvo.length > 0 ? ` e distribuídos entre ${membrosAlvo.length} profissionais` : ''} com sucesso. Eles estão marcados com a tag [DEMO].`,
         onConfirm: closeFeedbackModal,
       })
     } else {
