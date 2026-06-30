@@ -45,9 +45,7 @@ As migrations estão em `supabase/migrations/` (11 arquivos no total).
 | 9 | `20260615000000_create_marketplace_destaques.sql` | Marketplace + bucket `marketplace` |
 | 10 | `20260616000000_add_valor_assinatura.sql` | Coluna valor_assinatura |
 | 11 | `20260617000000_super_admin_singleton.sql` | Singleton de super admin + RPC `is_first_saas_admin()` |
-| 12 | `20260618000000_confirm_saas_admin_by_email.sql` | RPC de fallback para promover primeiro admin |
-| 13 | `20260619000000_add_saas_admin_rpc.sql` | RPC `add_saas_admin` + modal no painel |
-| 14 | `20260620000000_add_saas_admin_auto_confirm.sql` | Auto-confirma email ao adicionar admin |
+| 12 | `20260621000000_admin_functions.sql` | RPCs de gestão de admins (add, confirm, reset) |
 
 **Executar migrations manualmente (opcional):**
 ```bash
