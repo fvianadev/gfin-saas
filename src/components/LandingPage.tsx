@@ -26,6 +26,7 @@ function SkeletonText({ className }: { className?: string }) {
 export function LandingPage() {
   const [config, setConfig] = useState<SaasConfig>(DEFAULT_CONFIG)
   const [loading, setLoading] = useState(true)
+  const [isFirstAdmin, setIsFirstAdmin] = useState<boolean | null>(null)
 
   useEffect(() => {
     supabase
@@ -45,6 +46,9 @@ export function LandingPage() {
         }
         setLoading(false)
       })
+    supabase.rpc('is_first_saas_admin').then(({ data }) => {
+      setIsFirstAdmin(data === true)
+    })
   }, [])
 
   const [marketplace, setMarketplace] = useState<any[]>([])
@@ -102,6 +106,11 @@ export function LandingPage() {
             <span className="text-xl md:text-2xl font-black tracking-tighter">GFin <span className="text-emerald-500">SaaS</span></span>
           </div>
           <div className="flex items-center gap-3 md:gap-6">
+            {isFirstAdmin && (
+              <Link to="/setup" className="text-sm md:text-base font-bold text-amber-400 hover:text-amber-300 transition-colors hidden sm:block">
+                Configurar
+              </Link>
+            )}
             <Link to="/login" className="text-sm md:text-base font-medium text-slate-300 hover:text-white transition-colors hidden sm:block">
               Entrar
             </Link>
@@ -409,6 +418,9 @@ export function LandingPage() {
             <div>
               <h4 className="text-white font-bold mb-4">Produto</h4>
               <ul className="space-y-3">
+                {isFirstAdmin && (
+                  <li><Link to="/setup" className="text-amber-400 hover:text-amber-300 text-sm font-bold transition-colors">Configuração Inicial</Link></li>
+                )}
                 <li><Link to="/register" className="text-slate-400 hover:text-emerald-400 text-sm transition-colors">Criar Conta</Link></li>
                 <li><Link to="/login" className="text-slate-400 hover:text-emerald-400 text-sm transition-colors">Fazer Login</Link></li>
               </ul>

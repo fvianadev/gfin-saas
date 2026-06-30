@@ -8,6 +8,7 @@ export default defineConfig({
     react(),
     tailwindcss(),
   ],
+  cacheDir: 'node_modules/.vite-cache',
   optimizeDeps: {
     include: ['lucide-react'],
   },

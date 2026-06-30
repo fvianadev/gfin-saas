@@ -71,6 +71,30 @@ export function LoginPage({ onLogin }: { onLogin: (session: UserSession) => void
         throw new Error('Email not confirmed')
       }
 
+      // 2c. Fallback: primeiro admin sem metadata is_saas_admin
+      // Útil quando o admin foi criado no Supabase Dashboard sem o metadata
+      {
+        const { data: firstAdmin } = await supabase
+          .rpc('confirm_saas_admin_by_email', { p_email: authData.user.email })
+        if (firstAdmin) {
+          const { data: newAdmin } = await supabase
+            .from('saas_admins')
+            .select('email')
+            .eq('id', authData.user.id)
+            .single()
+          const session: UserSession = {
+            id: authData.user.id,
+            membro_id: null,
+            nome: newAdmin?.email || authData.user.email || '',
+            estabelecimento_id: '',
+            role: 'super_admin'
+          }
+          onLogin(session)
+          navigate('/super-admin')
+          return
+        }
+      }
+
       // 3. É um dono de estabelecimento comum — fluxo original
       const { data: estabs, error: estabError } = await supabase
         .from('estabelecimentos')

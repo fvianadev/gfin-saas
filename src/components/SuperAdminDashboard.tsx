@@ -1120,6 +1120,11 @@ function AdminsTab({ currentUserId }: { currentUserId: string }) {
   const [admins, setAdmins] = useState<SaasAdmin[]>([])
   const [loading, setLoading] = useState(true)
   const [deletingId, setDeletingId] = useState<string | null>(null)
+  const [showAddModal, setShowAddModal] = useState(false)
+  const [addEmail, setAddEmail] = useState('')
+  const [addSenha, setAddSenha] = useState('')
+  const [adding, setAdding] = useState(false)
+  const [addError, setAddError] = useState('')
 
   const fetchAdmins = async () => {
     setLoading(true)
@@ -1145,6 +1150,34 @@ function AdminsTab({ currentUserId }: { currentUserId: string }) {
     setDeletingId(null)
   }
 
+  const handleAdd = async (e: React.FormEvent) => {
+    e.preventDefault()
+    setAddError('')
+    if (!addEmail.includes('@')) { setAddError('Informe um e-mail válido.'); return }
+    if (addSenha.length < 6) { setAddError('A senha deve ter no mínimo 6 caracteres.'); return }
+    setAdding(true)
+    try {
+      const { data: authData, error: authError } = await supabase.auth.signUp({
+        email: addEmail,
+        password: addSenha,
+      })
+      if (authError) throw authError
+      if (!authData.user) throw new Error('Falha ao criar usuário.')
+      const { data: newAdmin, error: rpcError } = await supabase
+        .rpc('add_saas_admin', { p_email: addEmail })
+      if (rpcError) throw rpcError
+      setShowAddModal(false)
+      setAddEmail('')
+      setAddSenha('')
+      fetchAdmins()
+      alert(`✅ Admin "${addEmail}" adicionado com sucesso!`)
+    } catch (err: any) {
+      setAddError(err?.message || 'Erro ao adicionar admin.')
+    } finally {
+      setAdding(false)
+    }
+  }
+
   if (loading) return (
     <div className="flex items-center justify-center h-40">
       <div className="w-8 h-8 border-2 border-emerald-500 border-t-transparent rounded-full animate-spin" />
@@ -1158,14 +1191,12 @@ function AdminsTab({ currentUserId }: { currentUserId: string }) {
         <p className="text-xs font-bold uppercase tracking-widest text-slate-500">
           {admins.length} admin{admins.length !== 1 ? 's' : ''} cadastrado{admins.length !== 1 ? 's' : ''}
         </p>
-        <a
-          href="/novo-admin"
-          target="_blank"
-          rel="noopener noreferrer"
+        <button
+          onClick={() => setShowAddModal(true)}
           className="inline-flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-bold bg-emerald-500 hover:bg-emerald-400 text-white transition-all shadow-lg shadow-emerald-500/20"
         >
           <Shield size={14} /> Adicionar novo Admin
-        </a>
+        </button>
       </div>
 
       {/* Aviso informativo */}
@@ -1233,6 +1264,57 @@ function AdminsTab({ currentUserId }: { currentUserId: string }) {
           </div>
         )}
       </div>
+
+      {/* Modal Adicionar Admin */}
+      {showAddModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm overflow-y-auto">
+          <div className="bg-slate-900 border border-white/10 rounded-2xl w-full max-w-md shadow-2xl my-8">
+            <div className="p-4 sm:p-5 border-b border-white/5 flex items-center justify-between">
+              <h3 className="font-bold text-white text-base sm:text-lg">Adicionar novo Admin</h3>
+              <button onClick={() => { setShowAddModal(false); setAddError('') }} className="text-slate-500 hover:text-white p-1 rounded-lg hover:bg-white/5 transition-all"><X size={18}/></button>
+            </div>
+            <form onSubmit={handleAdd} className="p-4 sm:p-5 space-y-4">
+              <div className="space-y-1.5">
+                <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">E-mail do novo admin</label>
+                <input
+                  required type="email" value={addEmail}
+                  onChange={e => setAddEmail(e.target.value)}
+                  className="w-full bg-slate-800 border border-white/10 rounded-xl px-4 py-3 text-sm text-white outline-none focus:border-emerald-500/50 transition-all"
+                  placeholder="admin@exemplo.com"
+                />
+              </div>
+              <div className="space-y-1.5">
+                <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Senha inicial</label>
+                <input
+                  required type="password" value={addSenha}
+                  onChange={e => setAddSenha(e.target.value)}
+                  className="w-full bg-slate-800 border border-white/10 rounded-xl px-4 py-3 text-sm text-white outline-none focus:border-emerald-500/50 transition-all"
+                  placeholder="mínimo 6 caracteres"
+                />
+              </div>
+              {addError && (
+                <div className="bg-rose-600/20 border border-rose-600 text-rose-200 rounded-xl p-3 text-xs">{addError}</div>
+              )}
+              <div className="flex flex-col sm:flex-row justify-end gap-3 pt-2">
+                <button
+                  type="button"
+                  onClick={() => { setShowAddModal(false); setAddError('') }}
+                  className="w-full sm:w-auto px-5 py-3 sm:py-2.5 rounded-xl text-sm font-bold text-slate-400 hover:text-white bg-white/5 hover:bg-white/10 transition-all order-2 sm:order-1"
+                >
+                  Cancelar
+                </button>
+                <button
+                  disabled={adding}
+                  className="w-full sm:w-auto px-5 py-3 sm:py-2.5 rounded-xl text-sm font-bold bg-emerald-500 hover:bg-emerald-400 text-white disabled:opacity-50 transition-all flex items-center justify-center gap-2 order-1 sm:order-2"
+                >
+                  {adding ? <RefreshCw className="animate-spin" size={16} /> : <Shield size={16} />}
+                  {adding ? 'Adicionando...' : 'Adicionar Admin'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   )
 }
