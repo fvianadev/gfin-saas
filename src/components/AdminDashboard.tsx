@@ -1,7 +1,7 @@
 import { useState, useEffect, useMemo } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts'
-import { ArrowLeft, ArrowRight, TrendingUp, TrendingDown, Lock, Shield, Calendar, Filter, ArrowUpRight, ArrowDownLeft, Trash2, Edit2, Plus, Users, DollarSign, LayoutDashboard, MoreVertical, PieChart, List, Settings, Copy, Link2, CheckCircle, MessageCircle, ShieldAlert, History, User, Scissors, Search, X, Download, Printer, CheckSquare, Square, RefreshCw, Clock, Award, ShoppingBag, Percent, XCircle, Camera } from 'lucide-react'
+import { ArrowLeft, ArrowRight, TrendingUp, TrendingDown, Lock, Shield, Calendar, Filter, ChevronDown, ArrowUpRight, ArrowDownLeft, Trash2, Edit2, Plus, Users, DollarSign, LayoutDashboard, MoreVertical, PieChart, List, Settings, Copy, Link2, CheckCircle, MessageCircle, ShieldAlert, History, User, Scissors, Search, X, Download, Printer, CheckSquare, Square, RefreshCw, Clock, Award, ShoppingBag, Percent, XCircle, Camera } from 'lucide-react'
 import { supabase } from '../lib/supabase'
 import { TransactionModal } from './TransactionModal'
 import { formatCurrency, formatDateTime } from '../lib/format'
@@ -191,6 +191,7 @@ export function AdminDashboard({ onBack, estabelecimentoId, membroId, cargo, isO
   const [agendaFilterDataIni, setAgendaFilterDataIni] = useState<string>('')
   const [agendaFilterDataFim, setAgendaFilterDataFim] = useState<string>('')
   const [agendaSearch, setAgendaSearch] = useState('')
+  const [filtrosAbertos, setFiltrosAbertos] = useState(false)
 
   const filteredAuditData = useMemo(() => {
     return auditData.filter(log => {
@@ -2537,32 +2538,43 @@ export function AdminDashboard({ onBack, estabelecimentoId, membroId, cargo, isO
               <button onClick={fetchAgendamentos} className="p-2 text-slate-500 hover:text-emerald-500 transition-all"><RefreshCw size={18} className={carregandoAgendamentos ? 'animate-spin' : ''} /></button>
             </div>
 
-            <div className="glass-card p-4 border-white/5 space-y-3">
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
-                <div className="space-y-1">
-                  <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Profissional</label>
-                  <select value={agendaFilterProf} onChange={e => setAgendaFilterProf(e.target.value)} className="w-full bg-slate-900 border border-white/5 rounded-xl p-3 text-sm font-bold outline-none focus:border-emerald-500 transition-all">
-                    <option value="todos">Todos</option>
-                    {membros.map(m => <option key={m.id} value={m.id}>{m.nome}</option>)}
-                  </select>
-                </div>
-                <div className="space-y-1">
-                  <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Status</label>
-                  <select value={agendaFilterStatus} onChange={e => setAgendaFilterStatus(e.target.value)} className="w-full bg-slate-900 border border-white/5 rounded-xl p-3 text-sm font-bold outline-none focus:border-emerald-500 transition-all">
-                    <option value="todos">Todos</option>
-                    <option value="pendente">Pendente</option>
-                    <option value="confirmado">Confirmado</option>
-                    <option value="concluido">Concluído</option>
-                    <option value="cancelado">Cancelado</option>
-                  </select>
-                </div>
-                <div className="space-y-1">
-                  <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">De</label>
-                  <input type="date" value={agendaFilterDataIni} onChange={e => setAgendaFilterDataIni(e.target.value)} className="w-full bg-slate-900 border border-white/5 rounded-xl p-3 text-sm font-bold outline-none focus:border-emerald-500 transition-all" />
-                </div>
-                <div className="space-y-1">
-                  <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Até</label>
-                  <input type="date" value={agendaFilterDataFim} onChange={e => setAgendaFilterDataFim(e.target.value)} className="w-full bg-slate-900 border border-white/5 rounded-xl p-3 text-sm font-bold outline-none focus:border-emerald-500 transition-all" />
+            <div className="glass-card p-4 border-white/5">
+              <button
+                onClick={() => setFiltrosAbertos(!filtrosAbertos)}
+                className="flex sm:hidden items-center justify-between w-full"
+              >
+                <span className="text-xs font-bold text-slate-400 uppercase tracking-widest flex items-center gap-2">
+                  <Filter size={14} /> Filtros
+                </span>
+                <ChevronDown size={16} className={`text-slate-500 transition-transform duration-200 ${filtrosAbertos ? 'rotate-180' : ''}`} />
+              </button>
+              <div className={`mt-0 sm:mt-0 ${filtrosAbertos ? 'block' : 'hidden'} sm:block ${filtrosAbertos ? 'mt-4' : ''}`}>
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+                  <div className="space-y-1">
+                    <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Profissional</label>
+                    <select value={agendaFilterProf} onChange={e => setAgendaFilterProf(e.target.value)} className="w-full bg-slate-900 border border-white/5 rounded-xl p-3 text-sm font-bold outline-none focus:border-emerald-500 transition-all">
+                      <option value="todos">Todos</option>
+                      {membros.map(m => <option key={m.id} value={m.id}>{m.nome}</option>)}
+                    </select>
+                  </div>
+                  <div className="space-y-1">
+                    <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Status</label>
+                    <select value={agendaFilterStatus} onChange={e => setAgendaFilterStatus(e.target.value)} className="w-full bg-slate-900 border border-white/5 rounded-xl p-3 text-sm font-bold outline-none focus:border-emerald-500 transition-all">
+                      <option value="todos">Todos</option>
+                      <option value="pendente">Pendente</option>
+                      <option value="confirmado">Confirmado</option>
+                      <option value="concluido">Concluído</option>
+                      <option value="cancelado">Cancelado</option>
+                    </select>
+                  </div>
+                  <div className="space-y-1">
+                    <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">De</label>
+                    <input type="date" value={agendaFilterDataIni} onChange={e => setAgendaFilterDataIni(e.target.value)} className="w-full bg-slate-900 border border-white/5 rounded-xl p-3 text-sm font-bold outline-none focus:border-emerald-500 transition-all" />
+                  </div>
+                  <div className="space-y-1">
+                    <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Até</label>
+                    <input type="date" value={agendaFilterDataFim} onChange={e => setAgendaFilterDataFim(e.target.value)} className="w-full bg-slate-900 border border-white/5 rounded-xl p-3 text-sm font-bold outline-none focus:border-emerald-500 transition-all" />
+                  </div>
                 </div>
               </div>
             </div>
