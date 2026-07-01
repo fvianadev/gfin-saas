@@ -448,10 +448,7 @@ export function PublicBooking() {
               <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest px-1">Selecione o Dia</label>
               <div className="relative group">
                 <button
-                  onClick={() => {
-                    const el = document.getElementById('date-scroll')
-                    if (el) el.scrollBy({ left: -200, behavior: 'smooth' })
-                  }}
+                  onClick={() => { const el = document.getElementById('date-scroll'); if (el) el.scrollBy({ left: -200, behavior: 'smooth' }) }}
                   className="hidden md:flex absolute left-0 top-1/2 -translate-y-1/2 z-10 w-8 h-8 items-center justify-center rounded-xl bg-slate-900/90 border border-white/10 text-slate-400 opacity-0 group-hover:opacity-100 transition-opacity hover:text-emerald-400"
                 >
                   <ChevronLeft size={16} />
@@ -459,7 +456,6 @@ export function PublicBooking() {
                 <div
                   id="date-scroll"
                   className="flex gap-2 overflow-x-auto scrollbar-none pb-1"
-                  onWheel={e => { e.currentTarget.scrollLeft += e.deltaY; e.preventDefault() }}
                 >
                   {getNextDays(14).map(d => {
                     const key = formatDateKey(d)
@@ -468,7 +464,7 @@ export function PublicBooking() {
                       <button
                         key={key}
                         onClick={() => setSelecionado(prev => ({ ...prev, data: key, hora: '' }))}
-                        className={`shrink-0 flex flex-col items-center gap-1 px-4 py-3 rounded-2xl border transition-all min-w-[64px] ${
+                        className={`shrink-0 flex flex-col items-center gap-1 py-3 rounded-2xl border transition-all w-[80px] ${
                           isSelected
                             ? 'bg-emerald-500 border-emerald-500 text-white shadow-lg shadow-emerald-500/20'
                             : 'bg-slate-900 border-white/5 text-slate-400 hover:border-emerald-500/40 hover:text-emerald-400'
@@ -481,10 +477,7 @@ export function PublicBooking() {
                   })}
                 </div>
                 <button
-                  onClick={() => {
-                    const el = document.getElementById('date-scroll')
-                    if (el) el.scrollBy({ left: 200, behavior: 'smooth' })
-                  }}
+                  onClick={() => { const el = document.getElementById('date-scroll'); if (el) el.scrollBy({ left: 200, behavior: 'smooth' }) }}
                   className="hidden md:flex absolute right-0 top-1/2 -translate-y-1/2 z-10 w-8 h-8 items-center justify-center rounded-xl bg-slate-900/90 border border-white/10 text-slate-400 opacity-0 group-hover:opacity-100 transition-opacity hover:text-emerald-400"
                 >
                   <ChevronRight size={16} />
@@ -513,7 +506,13 @@ export function PublicBooking() {
                 ) : (
                   <>
                     {(() => {
-                      const todosSlots = ['08:00', '08:30', '09:00', '09:30', '10:00', '10:30', '11:00', '11:30', '13:00', '13:30', '14:00', '14:30', '15:00', '15:30', '16:00', '16:30', '17:00', '17:30']
+                      const agora = new Date()
+                      const isHoje = selecionado.data === formatDateKey(agora)
+                      const horaAtual = isHoje
+                        ? `${String(agora.getHours()).padStart(2, '0')}:${String(agora.getMinutes()).padStart(2, '0')}`
+                        : ''
+                      const todosSlotsBase = ['08:00', '08:30', '09:00', '09:30', '10:00', '10:30', '11:00', '11:30', '13:00', '13:30', '14:00', '14:30', '15:00', '15:30', '16:00', '16:30', '17:00', '17:30']
+                      const todosSlots = isHoje ? todosSlotsBase.filter(h => h >= horaAtual) : todosSlotsBase
                       const slotsDisponiveis = todosSlots.filter(h => {
                         const ocupadosNesseHorario = agendamentosExistentes.filter(a => a.hora === h)
                         const jaTemAgendamento = selecionado.profissional && ocupadosNesseHorario.some(a => a.membro_id === selecionado.profissional.id)
@@ -545,7 +544,7 @@ export function PublicBooking() {
                                   key={h}
                                   disabled={!disponivel}
                                   onClick={() => { if (disponivel) { setSelecionado(prev => ({ ...prev, hora: h })); setStep(4); } }}
-                                  className={`py-3 rounded-xl text-xs font-black transition-all ${
+                                  className={`h-[42px] rounded-xl text-xs font-black transition-all flex items-center justify-center ${
                                     !disponivel
                                       ? 'bg-slate-900/30 text-slate-700 border border-white/5 cursor-not-allowed line-through decoration-slate-700'
                                       : selecionado.hora === h
@@ -554,7 +553,7 @@ export function PublicBooking() {
                                   }`}
                                 >
                                   {!disponivel ? (
-                                    <span className="flex flex-col items-center gap-0.5">
+                                    <span className="flex flex-col items-center gap-0.5 leading-none">
                                       <span>{h}</span>
                                       <span className="text-[7px] text-rose-500/50 uppercase tracking-[0.15em] font-bold">Reservado</span>
                                     </span>
