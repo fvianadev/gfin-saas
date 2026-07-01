@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import { useParams, useNavigate, Link } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
-import { Calendar, Clock, User, Scissors, CheckCircle, ArrowLeft, MessageCircle, ChevronRight, Instagram, Facebook } from 'lucide-react'
+import { Calendar, Clock, User, Scissors, CheckCircle, ArrowLeft, MessageCircle, Instagram, Facebook, ChevronLeft, ChevronRight } from 'lucide-react'
 import { formatCurrency } from '../lib/format'
 
 export function PublicBooking() {
@@ -10,6 +10,28 @@ export function PublicBooking() {
   const [estab, setEstab] = useState<any>(null)
   const [loading, setLoading] = useState(true)
   const [step, setStep] = useState(1)
+
+  const diasSemana = ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb']
+
+  const formatDateLabel = (d: Date) => {
+    const today = new Date()
+    const amanha = new Date(today); amanha.setDate(amanha.getDate() + 1)
+    if (d.toDateString() === today.toDateString()) return 'Hoje'
+    if (d.toDateString() === amanha.toDateString()) return 'Amanhã'
+    return `${diasSemana[d.getDay()]} ${d.getDate()}`
+  }
+
+  const getNextDays = (n = 14) => {
+    const days: Date[] = []
+    const today = new Date()
+    for (let i = 0; i < n; i++) {
+      const d = new Date(today); d.setDate(d.getDate() + i)
+      days.push(d)
+    }
+    return days
+  }
+
+  const formatDateKey = (d: Date) => d.toISOString().split('T')[0]
 
   const applyPhoneMask = (value: string) => {
     const rawValue = value.replace(/\D/g, '')
@@ -32,7 +54,7 @@ export function PublicBooking() {
   const [selecionado, setSelecionado] = useState({
     servico: null as any,
     profissional: null as any,
-    data: '',
+    data: formatDateKey(new Date()),
     hora: '',
     clienteNome: '',
     clienteWhatsapp: ''
@@ -49,6 +71,13 @@ export function PublicBooking() {
       fetchAgendamentosDoDia()
     }
   }, [selecionado.data, estab?.id])
+
+  useEffect(() => {
+    if (step === 2 && profissionais.length === 1) {
+      setSelecionado(prev => ({ ...prev, profissional: profissionais[0] }))
+      setStep(3)
+    }
+  }, [step, profissionais])
 
   const fetchAgendamentosDoDia = async () => {
     try {
@@ -204,7 +233,7 @@ export function PublicBooking() {
     : todosServicos
 
   const resumoItems = []
-  if (selecionado.servico) resumoItems.push({ icon: Scissors, label: selecionado.servico.nome })
+  if (selecionado.servico) resumoItems.push({ icon: Scissors, label: selecionado.servico.nome, complemento: formatCurrency(selecionado.servico.preco_sugerido || 0) })
   if (selecionado.profissional) resumoItems.push({ icon: User, label: selecionado.profissional.nome })
   if (selecionado.data) resumoItems.push({
     icon: Calendar,
@@ -212,8 +241,29 @@ export function PublicBooking() {
   })
 
   if (loading) return (
-    <div className="min-h-screen bg-slate-950 flex items-center justify-center">
-      <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-emerald-500"></div>
+    <div className="min-h-screen bg-slate-950 p-6 space-y-6">
+      <div className="flex items-center gap-4">
+        <div className="w-10 h-10 rounded-xl bg-slate-800 animate-pulse" />
+        <div className="space-y-2">
+          <div className="w-32 h-3 bg-slate-800 rounded animate-pulse" />
+          <div className="w-24 h-2 bg-slate-800 rounded animate-pulse" />
+        </div>
+      </div>
+      <div className="w-48 h-6 bg-slate-800 rounded animate-pulse" />
+      <div className="flex gap-2">
+        {[1, 2, 3, 4].map(i => <div key={i} className="w-20 h-10 bg-slate-800 rounded-xl animate-pulse" />)}
+      </div>
+      <div className="grid grid-cols-2 gap-3">
+        {[1, 2, 3, 4].map(i => (
+          <div key={i} className="bg-slate-900/80 rounded-2xl overflow-hidden">
+            <div className="aspect-[3/4] bg-slate-800 animate-pulse" />
+            <div className="p-3 space-y-2">
+              <div className="w-full h-3 bg-slate-800 rounded animate-pulse" />
+              <div className="w-2/3 h-3 bg-slate-800 rounded animate-pulse" />
+            </div>
+          </div>
+        ))}
+      </div>
     </div>
   )
 
@@ -256,17 +306,36 @@ export function PublicBooking() {
         </Link>
       </header>
 
-      {/* RESUMO DINÂMICO */}
-      {step < 5 && resumoItems.length > 0 && (
-        <div className="sticky top-[76px] z-10 px-6 py-3 bg-slate-900/80 backdrop-blur-md border-b border-white/5">
-          <div className="max-w-full sm:max-w-3xl mx-auto flex items-center gap-4 sm:gap-6 flex-wrap">
-            {resumoItems.map((item, i) => (
-              <div key={i} className="flex items-center gap-2">
-                {i > 0 && <div className="w-1 h-1 rounded-full bg-emerald-500/60" />}
-                <item.icon size={12} className="text-emerald-500" />
-                <span className="text-[10px] font-bold text-slate-300 whitespace-nowrap">{item.label}</span>
+      {/* PROGRESSO + RESUMO */}
+      {step < 5 && (
+        <div className="sticky top-[76px] z-10 px-6 py-2.5 bg-slate-900/80 backdrop-blur-md border-b border-white/5">
+          <div className="max-w-full sm:max-w-3xl mx-auto flex items-center justify-between gap-4">
+            <div className="flex items-center gap-1.5">
+              {[1, 2, 3, 4].map(s => (
+                <div key={s} className="flex items-center">
+                  <div className={`w-2.5 h-2.5 rounded-full border-2 transition-all shrink-0 ${
+                    s < step
+                      ? 'bg-emerald-500 border-emerald-500'
+                      : s === step
+                        ? 'bg-emerald-500 border-emerald-500 shadow-lg shadow-emerald-500/30'
+                        : 'bg-transparent border-slate-600'
+                  }`} />
+                  {s < 4 && <div className={`w-5 h-[2px] mx-0.5 ${s < step ? 'bg-emerald-500/60' : 'bg-slate-700'}`} />}
+                </div>
+              ))}
+            </div>
+            {resumoItems.length > 0 && (
+              <div className="flex items-center gap-2 min-w-0">
+                {resumoItems.map((item, i) => (
+                  <div key={i} className="flex items-center gap-1.5 shrink-0">
+                    {i > 0 && <div className="w-[3px] h-[3px] rounded-full bg-emerald-500/50" />}
+                    <item.icon size={10} className="text-emerald-500 shrink-0" />
+                    <span className="text-[9px] font-bold text-slate-400 truncate max-w-[80px]">{item.label}</span>
+                    {item.complemento && <span className="text-[9px] font-black text-emerald-500">{item.complemento}</span>}
+                  </div>
+                ))}
               </div>
-            ))}
+            )}
           </div>
         </div>
       )}
@@ -305,30 +374,35 @@ export function PublicBooking() {
             </div>
 
             {/* Cards de Serviços */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-6">
+            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
               {servicosDaCategoria.map((item: any) => (
                 <button
                   key={item.id}
                   onClick={() => { setSelecionado(prev => ({ ...prev, servico: item })); setStep(2); }}
-                  className="glass-card p-4 border-white/5 text-left flex items-center gap-4 group active:scale-95 transition-all hover:border-emerald-500/30"
+                  className="group bg-slate-900/80 border border-white/5 rounded-2xl overflow-hidden active:scale-[0.97] transition-all hover:border-emerald-500/40 text-left"
                 >
-                  <div className="relative shrink-0 w-16 h-16 sm:w-20 sm:h-20 rounded-[inherit] overflow-hidden bg-slate-900 border border-white/5 flex items-center justify-center">
+                  <div className="aspect-[3/4] overflow-hidden bg-slate-950">
                     {item.imagem_url ? (
-                      <img src={item.imagem_url} alt={item.nome} className="w-full h-full object-cover" />
+                      <img src={item.imagem_url} alt={item.nome} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />
                     ) : (
-                      <div className="w-full h-full flex items-center justify-center text-slate-600 bg-slate-950">
-                        <Scissors size={20} />
+                      <div className="w-full h-full flex items-center justify-center text-slate-700">
+                        <Scissors size={28} />
                       </div>
                     )}
                   </div>
-                  <div className="flex-1 min-w-0">
-                    <p className="font-bold text-sm text-slate-200 group-hover:text-emerald-400 transition-colors whitespace-normal break-words">{item.nome}</p>
-                    <div className="flex items-center gap-3 mt-1.5 text-[10px] font-bold text-slate-500 uppercase">
-                      <span className="flex items-center gap-1"><Clock size={10} /> {item.duracao_minutos || 30} min</span>
-                      <span className="text-emerald-500/90">{formatCurrency(item.preco_sugerido || 0)}</span>
+                  <div className="p-3 space-y-1.5">
+                    <p className="text-xs font-bold text-slate-200 leading-tight line-clamp-2 group-hover:text-emerald-400 transition-colors">
+                      {item.nome}
+                    </p>
+                    <div className="flex items-center justify-between gap-1">
+                      <span className="text-[9px] font-bold text-slate-500 uppercase tracking-wider flex items-center gap-1">
+                        <Clock size={9} /> {item.duracao_minutos || 30}min
+                      </span>
+                      <span className="text-[11px] font-black text-emerald-500">
+                        {formatCurrency(item.preco_sugerido || 0)}
+                      </span>
                     </div>
                   </div>
-                  <ChevronRight size={18} className="text-slate-700 group-hover:text-emerald-500 transition-all shrink-0" />
                 </button>
               ))}
             </div>
@@ -337,24 +411,27 @@ export function PublicBooking() {
 
         {/* STEP 2: PROFISSIONAL */}
         {step === 2 && (
-          <div className="space-y-6 animate-in fade-in slide-in-from-right-4 duration-500">
+          <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
             <h2 className="text-xl font-black text-white leading-tight">Com <span className="text-emerald-500">quem?</span></h2>
-            <div className="grid grid-cols-1 gap-3">
+            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
               {profissionais.map(p => (
                 <button
                   key={p.id}
                   onClick={() => { setSelecionado(prev => ({ ...prev, profissional: p })); setStep(3); }}
-                  className="glass-card p-5 border-white/5 text-left flex items-center gap-4 active:scale-95 transition-all hover:border-emerald-500/30"
+                  className="group bg-slate-900/80 border border-white/5 rounded-2xl overflow-hidden active:scale-[0.97] transition-all hover:border-emerald-500/40 text-left"
                 >
-                  {p.avatar_url
-                      ? <img src={p.avatar_url} alt={p.nome} className="w-12 h-12 rounded-2xl object-cover" />
-                      : <div className="w-12 h-12 rounded-2xl bg-emerald-500/10 flex items-center justify-center text-emerald-500 font-black uppercase text-xl">
-                        {p.nome.charAt(0)}
+                  <div className="aspect-[1/1] overflow-hidden bg-slate-950">
+                    {p.avatar_url ? (
+                      <img src={p.avatar_url} alt={p.nome} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />
+                    ) : (
+                      <div className="w-full h-full flex items-center justify-center text-slate-700 bg-gradient-to-b from-emerald-500/5 to-slate-950">
+                        <User size={36} className="text-emerald-500/40" />
                       </div>
-                    }
-                  <div>
-                    <p className="font-bold text-sm">{p.nome}</p>
-                    <p className="text-[10px] text-emerald-500/60 font-bold uppercase tracking-widest">Profissional</p>
+                    )}
+                  </div>
+                  <div className="p-3 text-center">
+                    <p className="text-xs font-bold text-slate-200 group-hover:text-emerald-400 transition-colors truncate">{p.nome}</p>
+                    <p className="text-[9px] text-emerald-500/60 font-bold uppercase tracking-widest mt-0.5">Profissional</p>
                   </div>
                 </button>
               ))}
@@ -368,14 +445,51 @@ export function PublicBooking() {
             <h2 className="text-xl font-black text-white leading-tight">Escolha o <span className="text-emerald-500">horário</span></h2>
 
             <div className="space-y-3">
-              <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Selecione o Dia</label>
-              <input
-                type="date"
-                min={new Date().toISOString().split('T')[0]}
-                className="w-full bg-slate-900 border border-white/5 rounded-2xl p-5 text-sm font-bold text-white outline-none focus:border-emerald-500 transition-all"
-                value={selecionado.data}
-                onChange={e => setSelecionado(prev => ({ ...prev, data: e.target.value }))}
-              />
+              <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest px-1">Selecione o Dia</label>
+              <div className="relative group">
+                <button
+                  onClick={() => {
+                    const el = document.getElementById('date-scroll')
+                    if (el) el.scrollBy({ left: -200, behavior: 'smooth' })
+                  }}
+                  className="hidden md:flex absolute left-0 top-1/2 -translate-y-1/2 z-10 w-8 h-8 items-center justify-center rounded-xl bg-slate-900/90 border border-white/10 text-slate-400 opacity-0 group-hover:opacity-100 transition-opacity hover:text-emerald-400"
+                >
+                  <ChevronLeft size={16} />
+                </button>
+                <div
+                  id="date-scroll"
+                  className="flex gap-2 overflow-x-auto scrollbar-none pb-1"
+                  onWheel={e => { e.currentTarget.scrollLeft += e.deltaY; e.preventDefault() }}
+                >
+                  {getNextDays(14).map(d => {
+                    const key = formatDateKey(d)
+                    const isSelected = selecionado.data === key
+                    return (
+                      <button
+                        key={key}
+                        onClick={() => setSelecionado(prev => ({ ...prev, data: key, hora: '' }))}
+                        className={`shrink-0 flex flex-col items-center gap-1 px-4 py-3 rounded-2xl border transition-all min-w-[64px] ${
+                          isSelected
+                            ? 'bg-emerald-500 border-emerald-500 text-white shadow-lg shadow-emerald-500/20'
+                            : 'bg-slate-900 border-white/5 text-slate-400 hover:border-emerald-500/40 hover:text-emerald-400'
+                        }`}
+                      >
+                        <span className="text-[9px] font-bold uppercase tracking-wider">{formatDateLabel(d).split(' ')[0]}</span>
+                        <span className="text-lg font-black">{d.getDate()}</span>
+                      </button>
+                    )
+                  })}
+                </div>
+                <button
+                  onClick={() => {
+                    const el = document.getElementById('date-scroll')
+                    if (el) el.scrollBy({ left: 200, behavior: 'smooth' })
+                  }}
+                  className="hidden md:flex absolute right-0 top-1/2 -translate-y-1/2 z-10 w-8 h-8 items-center justify-center rounded-xl bg-slate-900/90 border border-white/10 text-slate-400 opacity-0 group-hover:opacity-100 transition-opacity hover:text-emerald-400"
+                >
+                  <ChevronRight size={16} />
+                </button>
+              </div>
             </div>
 
             {selecionado.data && (
@@ -503,7 +617,7 @@ export function PublicBooking() {
             <div className="space-y-4">
               <div className="space-y-1">
                 <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest px-1">Seu Nome</label>
-                <input className="w-full bg-slate-900 border border-white/5 rounded-2xl p-5 text-sm font-bold outline-none focus:border-emerald-500 transition-all placeholder:text-slate-700" value={selecionado.clienteNome} onChange={e => setSelecionado(prev => ({ ...prev, clienteNome: e.target.value }))} placeholder="Como quer ser chamado?" />
+                <input autoFocus className="w-full bg-slate-900 border border-white/5 rounded-2xl p-5 text-sm font-bold outline-none focus:border-emerald-500 transition-all placeholder:text-slate-700" value={selecionado.clienteNome} onChange={e => setSelecionado(prev => ({ ...prev, clienteNome: e.target.value }))} placeholder="Como quer ser chamado?" />
               </div>
               <div className="space-y-1">
                 <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest px-1">Seu WhatsApp</label>
@@ -515,13 +629,6 @@ export function PublicBooking() {
                   placeholder="(99) 9 9999-9999"
                 />
               </div>
-              <button
-                onClick={handleFinish}
-                disabled={isFinishing || !selecionado.clienteNome || !selecionado.clienteWhatsapp}
-                className="w-full bg-emerald-500 py-5 rounded-2xl font-black text-sm shadow-xl shadow-emerald-500/20 active:scale-95 transition-all uppercase tracking-widest disabled:opacity-40 disabled:cursor-not-allowed"
-              >
-                {isFinishing ? 'Agendando...' : 'Confirmar Agendamento'}
-              </button>
             </div>
           </div>
         )}
@@ -568,31 +675,43 @@ export function PublicBooking() {
       {/* FOOTER BAR */}
       {step < 5 && (
         <div className="fixed bottom-0 left-0 right-0 p-3 bg-slate-950/80 backdrop-blur-lg border-t border-white/5 flex items-center justify-center gap-4">
-          {(estab.configuracoes?.instagram || estab.configuracoes?.facebook) && (
-            <div className="flex items-center gap-4 mr-6">
-              {estab.configuracoes?.instagram && (
-                <a
-                  href={`https://instagram.com/${estab.configuracoes.instagram.replace('@', '')}`}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="text-slate-500 hover:text-pink-400 transition-colors p-1"
-                >
-                  <Instagram size={20} />
-                </a>
+          {step === 4 ? (
+            <button
+              onClick={handleFinish}
+              disabled={isFinishing || !selecionado.clienteNome || !selecionado.clienteWhatsapp}
+              className="w-full bg-emerald-500 py-4 rounded-2xl font-black text-sm shadow-lg shadow-emerald-500/20 active:scale-95 transition-all uppercase tracking-widest disabled:opacity-40 disabled:cursor-not-allowed"
+            >
+              {isFinishing ? 'Agendando...' : 'Confirmar Agendamento'}
+            </button>
+          ) : (
+            <>
+              {(estab.configuracoes?.instagram || estab.configuracoes?.facebook) && (
+                <div className="flex items-center gap-4 mr-6">
+                  {estab.configuracoes?.instagram && (
+                    <a
+                      href={`https://instagram.com/${estab.configuracoes.instagram.replace('@', '')}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-slate-500 hover:text-pink-400 transition-colors p-1"
+                    >
+                      <Instagram size={20} />
+                    </a>
+                  )}
+                  {estab.configuracoes?.facebook && (
+                    <a
+                      href={estab.configuracoes.facebook.startsWith('http') ? estab.configuracoes.facebook : `https://facebook.com/${estab.configuracoes.facebook}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-slate-500 hover:text-blue-400 transition-colors p-1"
+                    >
+                      <Facebook size={20} />
+                    </a>
+                  )}
+                </div>
               )}
-              {estab.configuracoes?.facebook && (
-                <a
-                  href={estab.configuracoes.facebook.startsWith('http') ? estab.configuracoes.facebook : `https://facebook.com/${estab.configuracoes.facebook}`}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="text-slate-500 hover:text-blue-400 transition-colors p-1"
-                >
-                  <Facebook size={20} />
-                </a>
-              )}
-            </div>
+              <p className="text-[9px] text-slate-500 font-bold uppercase tracking-[0.2em]">GFin • Agendamento Seguro</p>
+            </>
           )}
-          <p className="text-[9px] text-slate-500 font-bold uppercase tracking-[0.2em]">GFin • Agendamento Seguro</p>
         </div>
       )}
     </div>
