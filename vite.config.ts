@@ -13,7 +13,6 @@ export default defineConfig({
     include: ['lucide-react'],
   },
   build: {
-    cssMinify: 'esbuild',
     rollupOptions: {
       output: {}
     }

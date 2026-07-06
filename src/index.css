@@ -78,7 +78,6 @@ body {
   nav,
   aside,
   .print\\:hidden,
-  [class*="print:hidden"],
   button:not(.print-keep),
   .glass-card>.print\\:hidden {
     display: none !important;
@@ -131,8 +130,7 @@ body {
   }
 
   /* Cabeçalho do relatório (print:block) */
-  .print\\:block,
-  [class*="print:block"] {
+  .print\\:block {
     display: block !important;
     color: black !important;
   }
