@@ -12,10 +12,8 @@ export default defineConfig({
   optimizeDeps: {
     include: ['lucide-react'],
   },
-  css: {
-    minify: 'esbuild',
-  },
   build: {
+    cssMinify: 'esbuild',
     rollupOptions: {
       output: {}
     }
