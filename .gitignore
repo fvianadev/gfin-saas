@@ -28,3 +28,6 @@ mapeamento_funcionalidades.md
 
 # Removido do projeto - arquivo bloqueado no Windows
 /src/components/auth/RegisterSaasAdminPage.tsx
+
+# Old migrations (consolidated)
+supabase/migrations/202606*.sql

@@ -24,13 +24,19 @@ Guia completo para colocar o GFin em produção usando **Vercel** com **Supabase
 
 As migrations estão em `supabase/migrations/` (11 arquivos no total).
 
-**No primeiro deploy**, as migrations são aplicadas automaticamente pelo script `scripts/migrate.mjs` durante o build da Vercel (via `vercel-build`). Ele:
+As migrations **não** são executadas automaticamente durante o build. Execute manualmente antes do primeiro deploy ou sempre que houver novas migrations:
+
+```bash
+node scripts/migrate.mjs
+```
+
+Ele:
 1. Cria a tabela de controle `_schema_migrations` (se não existir)
 2. Lê os arquivos `.sql` em ordem numérica
 3. Aplica apenas os que ainda não foram executados
 4. Registra cada migration aplicada em `_schema_migrations`
 
-> **Importante:** É necessário configurar a variável `DATABASE_URL` no ambiente da Vercel (Project Settings → Environment Variables) com a connection string do Supabase.
+> **Importante:** O script lê a variável `DATABASE_URL` do ambiente local (`.env`) ou das variáveis de ambiente da Vercel (se executado via CLI da Vercel).
 
 | Ordem | Arquivo | Descrição |
 |-------|---------|-----------|
@@ -101,25 +107,24 @@ Copie `.env.example`:
 
 ### Vercel (recomendado) ✅
 
-O `vercel.json` já está configurado com redirecionamento SPA.
-
-O `package.json` contém o script `vercel-build` que roda as migrations antes do build:
-
-```json
-"vercel-build": "node scripts/migrate.mjs && npm run build"
-```
-
-O Vercel executa automaticamente o comando `vercel-build` se ele existir no `package.json`.
+O `vercel.json` já está configurado com redirecionamento SPA e `buildCommand`.
 
 1. Acesse [Vercel Dashboard](https://vercel.com/) → **Add New → Project**
 2. Importe o repositório
 3. **Framework Preset:** Vite (detectado automaticamente)
-4. **Build Command:** detectado automaticamente como `vercel-build`
+4. **Build Command:** `npm run build` (definido no `vercel.json`)
 5. **Output Directory:** `dist`
-6. Adicione as variáveis de ambiente (incluindo `DATABASE_URL`)
+6. Adicione as variáveis de ambiente (`VITE_SUPABASE_URL`, `VITE_SUPABASE_ANON_KEY`)
 7. **Deploy**
 
-> **Importante:** A `DATABASE_URL` deve ser a connection string direta do Supabase (com `postgresql://`), disponível em Project Settings → Database → Connection string.
+> ⚠️ A `DATABASE_URL` **não é mais necessária** no ambiente da Vercel. As migrations devem ser executadas manualmente (veja seção 2.2).
+
+#### Build local (teste antes do deploy)
+
+```bash
+npm run build       # build de produção
+npm run typecheck   # (opcional) verificação de tipos TypeScript
+```
 
 ---
 
