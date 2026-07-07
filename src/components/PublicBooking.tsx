@@ -135,7 +135,7 @@ export function PublicBooking() {
   const fetchDados = async (id: string) => {
     try {
       const [servRes, profRes] = await Promise.all([
-        supabase.from('servicos_produtos').select('*').eq('estabelecimento_id', id).eq('tipo', 'receita').order('categoria'),
+        supabase.from('servicos_produtos').select('*').eq('estabelecimento_id', id).eq('tipo', 'receita').gt('duracao_minutos', 0).order('categoria'),
         supabase.from('membros_equipe').select('*').eq('estabelecimento_id', id).eq('ativo', true)
       ])
 

@@ -250,7 +250,7 @@ export function AdminDashboard({ onBack, estabelecimentoId, membroId, cargo, isO
 
   const [itens, setItens] = useState<any[]>([])
   const [servicoSearch, setServicoSearch] = useState('')
-  const [novoItem, setNovoItem] = useState({ nome: '', preco: '', tipo: 'receita' as 'receita' | 'despesa', categoria: '', duracao: '30', imagem_url: '' })
+  const [novoItem, setNovoItem] = useState({ nome: '', preco: '', tipo: 'receita' as 'receita' | 'despesa', categoria: '', duracao: '0', imagem_url: '' })
   const [imageFile, setImageFile] = useState<File | null>(null)
   const [itemParaEditar, setItemParaEditar] = useState<string | null>(null)
   const [itemSaving, setItemSaving] = useState(false)
@@ -1157,7 +1157,7 @@ export function AdminDashboard({ onBack, estabelecimentoId, membroId, cargo, isO
       preco_sugerido: novoItem.preco ? parseFloat(novoItem.preco.toString().replace(',', '.')) : null,
       tipo: novoItem.tipo,
       categoria: (novoItem.categoria || '').toString().trim().toUpperCase(),
-      duracao_minutos: parseInt(novoItem.duracao) || 30,
+      duracao_minutos: isNaN(parseInt(novoItem.duracao)) ? 0 : Math.max(0, parseInt(novoItem.duracao)),
       imagem_url: finalImageUrl || null
     }
 
@@ -1172,7 +1172,7 @@ export function AdminDashboard({ onBack, estabelecimentoId, membroId, cargo, isO
 
     setItemSaving(false)
     if (!error) {
-      setNovoItem({ nome: '', preco: '', tipo: 'receita', categoria: 'Geral', duracao: '30', imagem_url: '' })
+      setNovoItem({ nome: '', preco: '', tipo: 'receita', categoria: 'Geral', duracao: '0', imagem_url: '' })
       setImageFile(null)
       setItemParaEditar(null)
       setIsItemModalOpen(false)
@@ -2125,7 +2125,7 @@ export function AdminDashboard({ onBack, estabelecimentoId, membroId, cargo, isO
               <h2 className="font-black text-lg uppercase tracking-widest text-slate-400">Serviços e Produtos</h2>
               <button onClick={() => {
                 setItemParaEditar(null)
-      setNovoItem({ nome: '', preco: '', tipo: 'receita', categoria: '', duracao: '30', imagem_url: '' })
+      setNovoItem({ nome: '', preco: '', tipo: 'receita', categoria: '', duracao: '0', imagem_url: '' })
                 setImageFile(null)
                 setIsItemModalOpen(true)
               }} className="bg-emerald-500 text-white px-4 py-2 rounded-xl font-bold text-xs shadow-lg shadow-emerald-500/20 active:scale-95 transition-all flex items-center gap-2">
@@ -2201,7 +2201,7 @@ export function AdminDashboard({ onBack, estabelecimentoId, membroId, cargo, isO
                         </div>
                         <div className="space-y-1">
                           <label className="text-[10px] font-bold text-slate-500 uppercase px-1">Duração</label>
-                          <input type="number" className="w-full bg-slate-900 border border-white/5 rounded-xl p-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/50" value={novoItem.duracao} onChange={e => setNovoItem(prev => ({ ...prev, duracao: e.target.value }))} placeholder="30" />
+                          <input type="number" min="0" className="w-full bg-slate-900 border border-white/5 rounded-xl p-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/50" value={novoItem.duracao} onChange={e => setNovoItem(prev => ({ ...prev, duracao: e.target.value }))} placeholder="30" />
                         </div>
                       </div>
                     </div>
@@ -2209,8 +2209,13 @@ export function AdminDashboard({ onBack, estabelecimentoId, membroId, cargo, isO
                       <button type="button" onClick={() => setNovoItem(prev => ({ ...prev, tipo: 'receita' }))} className={`flex-1 py-3 rounded-xl font-bold text-xs transition-all ${novoItem.tipo === 'receita' ? 'bg-emerald-500 text-white' : 'bg-slate-900 text-slate-500 border border-white/5'}`}>RECEITA</button>
                       <button type="button" onClick={() => setNovoItem(prev => ({ ...prev, tipo: 'despesa' }))} className={`flex-1 py-3 rounded-xl font-bold text-xs transition-all ${novoItem.tipo === 'despesa' ? 'bg-rose-500 text-white' : 'bg-slate-900 text-slate-500 border border-white/5'}`}>DESPESA</button>
                     </div>
-                    <button type="submit" disabled={itemSaving} className="w-full bg-emerald-500 py-4 rounded-xl font-bold shadow-lg shadow-emerald-500/20 active:scale-95 transition-all">
+                    <button type="submit" disabled={itemSaving} className="w-full bg-emerald-500 py-4 rounded-xl font-bold shadow-lg shadow-emerald-500/20 active:scale-95 transition-all flex items-center justify-center gap-2">
                       {itemSaving ? 'Salvando...' : itemParaEditar ? 'Salvar Alterações' : 'Salvar'}
+                      {novoItem.tipo === 'receita' && !itemSaving && (
+                        <span className={`text-xs font-black px-2.5 py-0.5 rounded-full ${parseInt(novoItem.duracao) > 0 ? 'bg-white text-emerald-700' : 'bg-amber-400 text-slate-950'}`}>
+                          {parseInt(novoItem.duracao) > 0 ? '✂️ Serviço' : '📦 Produto'}
+                        </span>
+                      )}
                     </button>
                   </form>
                 </div>
@@ -2243,6 +2248,11 @@ export function AdminDashboard({ onBack, estabelecimentoId, membroId, cargo, isO
                       <p className="font-bold text-sm truncate">{item.nome}</p>
                       <div className="flex items-center gap-2 mt-1">
                         <span className={`text-[9px] font-black uppercase px-2 py-0.5 rounded-full ${item.tipo === 'receita' ? 'bg-emerald-500/10 text-emerald-400' : 'bg-rose-500/10 text-rose-400'}`}>{item.tipo}</span>
+                        {item.tipo === 'receita' && item.duracao_minutos != null && (
+                          <span className={`text-[9px] font-black px-2 py-0.5 rounded-full ${item.duracao_minutos > 0 ? 'bg-blue-500/10 text-blue-400' : 'bg-amber-500/10 text-amber-400'}`}>
+                            {item.duracao_minutos > 0 ? `${item.duracao_minutos}min` : 'Produto'}
+                          </span>
+                        )}
                         {item.preco_sugerido && <span className="text-[10px] font-mono text-slate-400">{formatCurrency(item.preco_sugerido)}</span>}
                       </div>
                     </div>
@@ -2256,7 +2266,7 @@ export function AdminDashboard({ onBack, estabelecimentoId, membroId, cargo, isO
                           preco: item.preco_sugerido ? item.preco_sugerido.toString().replace('.', ',') : '',
                           tipo: item.tipo || 'receita',
                           categoria: (item.categoria || '').toString().trim().toUpperCase(),
-                          duracao: item.duracao_minutos?.toString() || '30',
+                          duracao: item.duracao_minutos?.toString() || '0',
                           imagem_url: item.imagem_url || ''
                         })
                         setImageFile(null)
