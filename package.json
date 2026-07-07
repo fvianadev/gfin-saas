@@ -9,9 +9,7 @@
     "typecheck": "tsc -b",
     "lint": "eslint .",
     "preview": "vite preview",
-    "db:clear": "node scripts/clear_db.mjs",
-    "db:setup": "node scripts/apply_migration.mjs",
-    "db:reset": "node scripts/clear_db.mjs && node scripts/apply_migration.mjs"
+    "db:reset": "node scripts/reset_db.mjs && node scripts/migrate.mjs"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.105.3",
