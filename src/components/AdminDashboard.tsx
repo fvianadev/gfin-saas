@@ -1,7 +1,7 @@
 import { useState, useEffect, useMemo } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts'
-import { ArrowLeft, ArrowRight, TrendingUp, TrendingDown, Lock, Shield, Calendar, Filter, ChevronDown, ArrowUpRight, ArrowDownLeft, Trash2, Edit2, Plus, Users, DollarSign, LayoutDashboard, MoreVertical, PieChart, List, Settings, Copy, Link2, CheckCircle, MessageCircle, ShieldAlert, History, User, Scissors, Search, X, Download, Printer, CheckSquare, Square, RefreshCw, Clock, Award, ShoppingBag, Percent, XCircle, Camera } from 'lucide-react'
+import { ArrowLeft, ArrowRight, TrendingUp, TrendingDown, Lock, Shield, Calendar, Filter, ChevronDown, ArrowUpRight, ArrowDownLeft, Trash2, Edit2, Plus, Users, DollarSign, LayoutDashboard, MoreVertical, PieChart, List, Settings, Copy, Link2, CheckCircle, MessageCircle, ShieldAlert, History, User, Scissors, Search, X, Download, Printer, CheckSquare, Square, RefreshCw, Clock, Award, ShoppingBag, Percent, XCircle, Camera, Layers, Package, FolderOpen } from 'lucide-react'
 import { supabase } from '../lib/supabase'
 import { TransactionModal } from './TransactionModal'
 import { formatCurrency, formatDateTime } from '../lib/format'
@@ -250,17 +250,83 @@ export function AdminDashboard({ onBack, estabelecimentoId, membroId, cargo, isO
 
   const [itens, setItens] = useState<any[]>([])
   const [servicoSearch, setServicoSearch] = useState('')
+  const [filtroTipo, setFiltroTipo] = useState<'todos' | 'servicos' | 'produtos'>('todos')
+  const [agruparCategoria, setAgruparCategoria] = useState(true)
   const [novoItem, setNovoItem] = useState({ nome: '', preco: '', tipo: 'receita' as 'receita' | 'despesa', categoria: '', duracao: '0', imagem_url: '' })
   const [imageFile, setImageFile] = useState<File | null>(null)
   const [itemParaEditar, setItemParaEditar] = useState<string | null>(null)
   const [itemSaving, setItemSaving] = useState(false)
   const filteredItens = useMemo(() => {
     const term = servicoSearch.toLowerCase()
-    return itens.filter(item =>
-      item.nome.toLowerCase().includes(term) ||
-      item.categoria?.toLowerCase().includes(term)
-    )
-  }, [itens, servicoSearch])
+    return itens.filter(item => {
+      if (filtroTipo === 'servicos' && (!item.duracao_minutos || item.duracao_minutos <= 0)) return false
+      if (filtroTipo === 'produtos' && item.duracao_minutos > 0) return false
+      return item.nome.toLowerCase().includes(term) ||
+        item.categoria?.toLowerCase().includes(term)
+    })
+  }, [itens, servicoSearch, filtroTipo])
+
+  const renderItemCard = (item: any) => (
+    <div key={item.id} className="group bg-slate-900/80 border border-white/5 rounded-2xl overflow-hidden hover:border-emerald-500/30 transition-all active:scale-[0.98]">
+      <div className="flex items-stretch min-h-[72px]">
+        <div className="w-[76px] shrink-0 overflow-hidden bg-slate-950">
+          {item.imagem_url ? (
+            <img src={item.imagem_url} alt={item.nome} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />
+          ) : (
+            <div className={`w-full h-full flex items-center justify-center ${
+              item.duracao_minutos > 0 ? 'text-blue-400 bg-blue-500/5' : 'text-amber-400 bg-amber-500/5'
+            }`}>
+              {item.duracao_minutos > 0 ? <Scissors size={22} /> : <Package size={22} />}
+            </div>
+          )}
+        </div>
+        <div className="flex-1 min-w-0 p-3 flex items-center gap-2">
+          <div className="flex-1 min-w-0 space-y-1">
+            <div className="flex items-center gap-2">
+              <p className="font-bold text-sm truncate group-hover:text-emerald-400 transition-colors">{item.nome}</p>
+              {item.preco_sugerido > 0 && (
+                <span className="text-xs font-black text-emerald-500 shrink-0">{formatCurrency(item.preco_sugerido)}</span>
+              )}
+            </div>
+            <div className="flex flex-wrap items-center gap-1.5">
+              {(item.categoria || '').toUpperCase() && (
+                <span className="text-[8px] font-bold text-slate-600 uppercase tracking-wider">{item.categoria?.toUpperCase() || 'GERAL'}</span>
+              )}
+              <span className={`text-[9px] font-black uppercase px-1.5 py-0.5 rounded-full ${item.tipo === 'receita' ? 'bg-emerald-500/10 text-emerald-400' : 'bg-rose-500/10 text-rose-400'}`}>{item.tipo}</span>
+              {item.tipo === 'receita' && item.duracao_minutos != null && (
+                <span className={`text-[9px] font-black px-1.5 py-0.5 rounded-full inline-flex items-center gap-1 ${
+                  item.duracao_minutos > 0 ? 'bg-blue-500/10 text-blue-400' : 'bg-amber-500/10 text-amber-400'
+                }`}>
+                  {item.duracao_minutos > 0 ? <><Clock size={9} /> {item.duracao_minutos}min</> : '📦 Produto'}
+                </span>
+              )}
+            </div>
+          </div>
+          <div className="flex gap-0.5 shrink-0 opacity-0 group-hover:opacity-100 transition-opacity">
+            <button
+              onClick={() => {
+                setItemParaEditar(item.id)
+                setNovoItem({
+                  nome: (item.nome || '').toString().trim().toUpperCase(),
+                  preco: item.preco_sugerido ? item.preco_sugerido.toString().replace('.', ',') : '',
+                  tipo: item.tipo || 'receita',
+                  categoria: (item.categoria || '').toString().trim().toUpperCase(),
+                  duracao: item.duracao_minutos?.toString() || '0',
+                  imagem_url: item.imagem_url || ''
+                })
+                setImageFile(null)
+                setIsItemModalOpen(true)
+              }}
+              className="p-1.5 rounded-lg text-slate-500 hover:bg-emerald-500/10 hover:text-emerald-400 transition-all"
+            >
+              <Edit2 size={13} />
+            </button>
+            <button onClick={() => handleDeleteItem(item.id)} className="p-1.5 rounded-lg text-slate-500 hover:bg-rose-500/10 hover:text-rose-400 transition-all"><Trash2 size={13} /></button>
+          </div>
+        </div>
+      </div>
+    </div>
+  )
 
   const [isAgendamentoModalOpen, setIsAgendamentoModalOpen] = useState(false)
   const [agendamentoParaEditar, setAgendamentoParaEditar] = useState<any>(null)
@@ -2222,6 +2288,40 @@ export function AdminDashboard({ onBack, estabelecimentoId, membroId, cargo, isO
               </div>
             )}
 
+            <div className="flex flex-wrap items-center gap-2">
+              {(['todos', 'servicos', 'produtos'] as const).map(t => (
+                <button key={t} onClick={() => setFiltroTipo(t)}
+                  className={`px-4 py-2 rounded-xl font-bold text-xs transition-all flex items-center gap-1.5 ${
+                    filtroTipo === t
+                      ? 'bg-emerald-500 text-white shadow-lg shadow-emerald-500/20'
+                      : 'bg-slate-900 text-slate-400 border border-white/5 hover:border-emerald-500/30'
+                  }`}
+                >
+                  {t === 'todos' && <Layers size={14} />}
+                  {t === 'servicos' && <Scissors size={14} />}
+                  {t === 'produtos' && <Package size={14} />}
+                  {t === 'todos' && 'Todos'}
+                  {t === 'servicos' && 'Serviços'}
+                  {t === 'produtos' && 'Produtos'}
+                  <span className="text-[9px] opacity-60">
+                    {t === 'todos' ? itens.length
+                      : t === 'servicos' ? itens.filter(i => i.duracao_minutos > 0).length
+                      : itens.filter(i => !i.duracao_minutos || i.duracao_minutos <= 0).length}
+                  </span>
+                </button>
+              ))}
+              <button onClick={() => setAgruparCategoria(!agruparCategoria)}
+                className={`ml-auto px-3 py-2 rounded-xl font-bold text-[10px] transition-all flex items-center gap-1.5 ${
+                  agruparCategoria
+                    ? 'bg-blue-500/10 text-blue-400 border border-blue-500/20'
+                    : 'bg-slate-900 text-slate-500 border border-white/5'
+                }`}
+              >
+                <FolderOpen size={13} />
+                {agruparCategoria ? 'Agrupado' : 'Lista'}
+              </button>
+            </div>
+
             <div className="relative">
               <Search size={16} className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-500" />
               <input
@@ -2233,54 +2333,32 @@ export function AdminDashboard({ onBack, estabelecimentoId, membroId, cargo, isO
               />
             </div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-              {filteredItens.map(item => (
-                <div key={item.id} className="glass-card p-4 border-white/5 flex justify-between items-center group">
-                  <div className="flex items-center gap-3 min-w-0">
-                    {item.imagem_url ? (
-                      <img src={item.imagem_url} alt={item.nome} className="w-12 h-12 rounded-xl object-cover border border-white/10 shrink-0" />
-                    ) : (
-                      <div className="w-12 h-12 rounded-xl bg-slate-900 border border-white/5 flex items-center justify-center text-slate-500 shrink-0">
-                        <Scissors size={18} />
-                      </div>
-                    )}
-                    <div className="min-w-0">
-                      <p className="font-bold text-sm truncate">{item.nome}</p>
-                      <div className="flex items-center gap-2 mt-1">
-                        <span className={`text-[9px] font-black uppercase px-2 py-0.5 rounded-full ${item.tipo === 'receita' ? 'bg-emerald-500/10 text-emerald-400' : 'bg-rose-500/10 text-rose-400'}`}>{item.tipo}</span>
-                        {item.tipo === 'receita' && item.duracao_minutos != null && (
-                          <span className={`text-[9px] font-black px-2 py-0.5 rounded-full ${item.duracao_minutos > 0 ? 'bg-blue-500/10 text-blue-400' : 'bg-amber-500/10 text-amber-400'}`}>
-                            {item.duracao_minutos > 0 ? `${item.duracao_minutos}min` : 'Produto'}
-                          </span>
-                        )}
-                        {item.preco_sugerido && <span className="text-[10px] font-mono text-slate-400">{formatCurrency(item.preco_sugerido)}</span>}
-                      </div>
+            {!agruparCategoria ? (
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                {filteredItens.map(item => renderItemCard(item))}
+              </div>
+            ) : (() => {
+              const grupos = new Map<string, any[]>()
+              filteredItens.forEach(item => {
+                const cat = (item.categoria || 'GERAL').toUpperCase()
+                if (!grupos.has(cat)) grupos.set(cat, [])
+                grupos.get(cat)!.push(item)
+              })
+              return [...grupos.entries()]
+                .sort(([a], [b]) => a.localeCompare(b))
+                .map(([cat, grupoItems]) => (
+                  <div key={cat} className="mb-8">
+                    <div className="flex items-center gap-3 mb-3">
+                      <FolderOpen size={16} className="text-emerald-500 shrink-0" />
+                      <h3 className="font-black text-sm uppercase tracking-widest text-slate-300">{cat}</h3>
+                      <span className="text-[10px] font-bold text-slate-600 bg-slate-900 px-2 py-0.5 rounded-full">{grupoItems.length} item{grupoItems.length !== 1 ? 'ns' : ''}</span>
+                    </div>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                      {grupoItems.map(item => renderItemCard(item))}
                     </div>
                   </div>
-                  <div className="flex gap-1 shrink-0">
-                    <button
-                      onClick={() => {
-                        setItemParaEditar(item.id)
-                        setNovoItem({
-                          nome: (item.nome || '').toString().trim().toUpperCase(),
-                          preco: item.preco_sugerido ? item.preco_sugerido.toString().replace('.', ',') : '',
-                          tipo: item.tipo || 'receita',
-                          categoria: (item.categoria || '').toString().trim().toUpperCase(),
-                          duracao: item.duracao_minutos?.toString() || '0',
-                          imagem_url: item.imagem_url || ''
-                        })
-                        setImageFile(null)
-                        setIsItemModalOpen(true)
-                      }}
-                      className="p-2 text-slate-500 hover:text-emerald-500 transition-all opacity-0 group-hover:opacity-100"
-                    >
-                      <Edit2 size={14} />
-                    </button>
-                    <button onClick={() => handleDeleteItem(item.id)} className="p-2 text-slate-500 hover:text-rose-500 transition-all opacity-0 group-hover:opacity-100"><Trash2 size={14} /></button>
-                  </div>
-                </div>
-              ))}
-            </div>
+                ))
+            })()}
           </div>
         )}
 
