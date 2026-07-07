@@ -31,3 +31,4 @@ mapeamento_funcionalidades.md
 
 # Old migrations (consolidated)
 supabase/migrations/202606*.sql
+scratch_run_supabase.js
