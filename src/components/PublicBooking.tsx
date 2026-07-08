@@ -72,13 +72,6 @@ export function PublicBooking() {
     }
   }, [selecionado.data, estab?.id])
 
-  useEffect(() => {
-    if (step === 2 && profissionais.length === 1) {
-      setSelecionado(prev => ({ ...prev, profissional: profissionais[0] }))
-      setStep(3)
-    }
-  }, [step, profissionais])
-
   const fetchAgendamentosDoDia = async () => {
     try {
       setCarregandoHorarios(true)
