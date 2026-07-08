@@ -13,7 +13,7 @@ export default defineConfig({
     include: ['lucide-react'],
   },
   build: {
-    outDir: 'dist',
+    outDir: process.env.VITE_OUT_DIR || 'dist',
     rollupOptions: {
       output: {
         manualChunks(id: string) {
