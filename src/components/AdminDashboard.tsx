@@ -273,56 +273,52 @@ export function AdminDashboard({ onBack, estabelecimentoId, membroId, cargo, isO
           {item.imagem_url ? (
             <img src={item.imagem_url} alt={item.nome} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />
           ) : (
-            <div className={`w-full h-full flex items-center justify-center ${
-              item.duracao_minutos > 0 ? 'text-blue-400 bg-blue-500/5' : 'text-amber-400 bg-amber-500/5'
-            }`}>
+            <div className={`w-full h-full flex items-center justify-center ${item.duracao_minutos > 0 ? 'text-blue-400 bg-blue-500/5' : 'text-amber-400 bg-amber-500/5'
+              }`}>
               {item.duracao_minutos > 0 ? <Scissors size={22} /> : <Package size={22} />}
             </div>
           )}
         </div>
-        <div className="flex-1 min-w-0 p-3 flex items-center gap-2">
-          <div className="flex-1 min-w-0 space-y-1">
-            <div className="flex items-center gap-2">
-              <p className="font-bold text-sm truncate group-hover:text-emerald-400 transition-colors">{item.nome}</p>
-              {item.preco_sugerido > 0 && (
-                <span className="text-xs font-black text-emerald-500 shrink-0">{formatCurrency(item.preco_sugerido)}</span>
-              )}
-            </div>
-            <div className="flex flex-wrap items-center gap-1.5">
-              {(item.categoria || '').toUpperCase() && (
-                <span className="text-[8px] font-bold text-slate-600 uppercase tracking-wider">{item.categoria?.toUpperCase() || 'GERAL'}</span>
-              )}
-              <span className={`text-[9px] font-black uppercase px-1.5 py-0.5 rounded-full ${item.tipo === 'receita' ? 'bg-emerald-500/10 text-emerald-400' : 'bg-rose-500/10 text-rose-400'}`}>{item.tipo}</span>
-              {item.tipo === 'receita' && item.duracao_minutos != null && (
-                <span className={`text-[9px] font-black px-1.5 py-0.5 rounded-full inline-flex items-center gap-1 ${
-                  item.duracao_minutos > 0 ? 'bg-blue-500/10 text-blue-400' : 'bg-amber-500/10 text-amber-400'
+        <div className="flex-1 min-w-0 p-3 flex flex-col justify-center gap-1">
+          <p className="text-sm font-semibold truncate group-hover:text-emerald-400 transition-colors">{item.nome}</p>
+          <div className="flex flex-wrap items-center gap-1">
+            {(item.categoria || '').toUpperCase() && (
+              <span className="text-[8px] font-bold text-slate-600 uppercase tracking-wider">{item.categoria?.toUpperCase() || 'GERAL'}</span>
+            )}
+            {item.tipo === 'receita' && item.duracao_minutos != null && (
+              <span className={`text-[8px] font-bold px-1.5 py-0.5 rounded-full inline-flex items-center gap-1 ${item.duracao_minutos > 0 ? 'bg-blue-500/10 text-blue-400' : 'bg-amber-500/10 text-amber-400'
                 }`}>
-                  {item.duracao_minutos > 0 ? <><Clock size={9} /> {item.duracao_minutos}min</> : '📦 Produto'}
-                </span>
-              )}
+                {item.duracao_minutos > 0 ? <><Clock size={8} /> {item.duracao_minutos}min</> : '📦 Produto'}
+              </span>
+            )}
+            {item.preco_sugerido > 0 && (
+              <span className="text-[11px] font-black text-emerald-500">{formatCurrency(item.preco_sugerido)}</span>
+            )}
+            <div className="flex gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
+              <button
+                onClick={() => {
+                  setItemParaEditar(item.id)
+                  setNovoItem({
+                    nome: (item.nome || '').toString().trim().toUpperCase(),
+                    preco: item.preco_sugerido ? item.preco_sugerido.toString().replace('.', ',') : '',
+                    tipo: item.tipo || 'receita',
+                    categoria: (item.categoria || '').toString().trim().toUpperCase(),
+                    duracao: item.duracao_minutos?.toString() || '0',
+                    imagem_url: item.imagem_url || ''
+                  })
+                  setImageFile(null)
+                  setIsItemModalOpen(true)
+                }}
+                className="p-1.5 rounded-lg text-slate-500 hover:bg-emerald-500/10 hover:text-emerald-400 transition-all"
+              >
+                <Edit2 size={13} />
+              </button>
+              <button onClick={() => handleDeleteItem(item.id)} className="p-1.5 rounded-lg text-slate-500 hover:bg-rose-500/10 hover:text-rose-400 transition-all">
+                <Trash2 size={13} />
+              </button>
             </div>
           </div>
-          <div className="flex gap-0.5 shrink-0 opacity-0 group-hover:opacity-100 transition-opacity">
-            <button
-              onClick={() => {
-                setItemParaEditar(item.id)
-                setNovoItem({
-                  nome: (item.nome || '').toString().trim().toUpperCase(),
-                  preco: item.preco_sugerido ? item.preco_sugerido.toString().replace('.', ',') : '',
-                  tipo: item.tipo || 'receita',
-                  categoria: (item.categoria || '').toString().trim().toUpperCase(),
-                  duracao: item.duracao_minutos?.toString() || '0',
-                  imagem_url: item.imagem_url || ''
-                })
-                setImageFile(null)
-                setIsItemModalOpen(true)
-              }}
-              className="p-1.5 rounded-lg text-slate-500 hover:bg-emerald-500/10 hover:text-emerald-400 transition-all"
-            >
-              <Edit2 size={13} />
-            </button>
-            <button onClick={() => handleDeleteItem(item.id)} className="p-1.5 rounded-lg text-slate-500 hover:bg-rose-500/10 hover:text-rose-400 transition-all"><Trash2 size={13} /></button>
-          </div>
+
         </div>
       </div>
     </div>
@@ -1176,11 +1172,11 @@ export function AdminDashboard({ onBack, estabelecimentoId, membroId, cargo, isO
     if (imageFile) {
       try {
         const fileExt = imageFile.name.split('.').pop()
-        const randomId = typeof crypto !== 'undefined' && crypto.randomUUID 
-          ? crypto.randomUUID() 
+        const randomId = typeof crypto !== 'undefined' && crypto.randomUUID
+          ? crypto.randomUUID()
           : Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15)
         const fileName = `${estabelecimentoId}/${randomId}.${fileExt}`
-        
+
         const { error: uploadError } = await supabase.storage
           .from('servicos')
           .upload(fileName, imageFile, {
@@ -1248,7 +1244,7 @@ export function AdminDashboard({ onBack, estabelecimentoId, membroId, cargo, isO
 
   const handleDeleteItem = async (id: string) => {
     if (!confirm('Tem certeza que deseja excluir este item?')) return
-    
+
     const itemDeletado = itens.find(it => it.id === id)
     const urlImagemAntiga = itemDeletado?.imagem_url
 
@@ -1548,8 +1544,8 @@ export function AdminDashboard({ onBack, estabelecimentoId, membroId, cargo, isO
 
         {subscriptionStatus.showWarning && (
           <div className={`mb-6 p-4 rounded-xl border flex flex-col sm:flex-row items-center justify-between gap-3 animate-in slide-in-from-top-4 duration-500 ${subscriptionStatus.reason === 'trial_warning'
-              ? 'bg-amber-500/10 border-amber-500/20 text-amber-400'
-              : 'bg-rose-500/10 border-rose-500/20 text-rose-400'
+            ? 'bg-amber-500/10 border-amber-500/20 text-amber-400'
+            : 'bg-rose-500/10 border-rose-500/20 text-rose-400'
             }`}>
             <div className="flex items-center gap-3">
               <div className="w-8 h-8 rounded-lg flex items-center justify-center bg-white/5 flex-shrink-0">
@@ -2191,7 +2187,7 @@ export function AdminDashboard({ onBack, estabelecimentoId, membroId, cargo, isO
               <h2 className="font-black text-lg uppercase tracking-widest text-slate-400">Serviços e Produtos</h2>
               <button onClick={() => {
                 setItemParaEditar(null)
-      setNovoItem({ nome: '', preco: '', tipo: 'receita', categoria: '', duracao: '0', imagem_url: '' })
+                setNovoItem({ nome: '', preco: '', tipo: 'receita', categoria: '', duracao: '0', imagem_url: '' })
                 setImageFile(null)
                 setIsItemModalOpen(true)
               }} className="bg-emerald-500 text-white px-4 py-2 rounded-xl font-bold text-xs shadow-lg shadow-emerald-500/20 active:scale-95 transition-all flex items-center gap-2">
@@ -2208,10 +2204,10 @@ export function AdminDashboard({ onBack, estabelecimentoId, membroId, cargo, isO
                   </div>
                   <form onSubmit={handleSaveItem} className="p-6 space-y-4 max-h-[80vh] overflow-y-auto">
                     <div className="grid grid-cols-1 gap-4">
-                        <div className="space-y-1">
-                          <label className="text-[10px] font-bold text-slate-500 uppercase px-1">Nome do Serviço/Produto</label>
-                          <input required className="w-full bg-slate-900 border border-white/5 rounded-xl p-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/50" value={novoItem.nome} onChange={e => setNovoItem(prev => ({ ...prev, nome: e.target.value.toUpperCase() }))} onBlur={() => setNovoItem(prev => ({ ...prev, nome: (prev.nome || '').toString().trim().toUpperCase() }))} placeholder="Ex: CORTE DEGRADE" />
-                        </div>
+                      <div className="space-y-1">
+                        <label className="text-[10px] font-bold text-slate-500 uppercase px-1">Nome do Serviço/Produto</label>
+                        <input required className="w-full bg-slate-900 border border-white/5 rounded-xl p-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/50" value={novoItem.nome} onChange={e => setNovoItem(prev => ({ ...prev, nome: e.target.value.toUpperCase() }))} onBlur={() => setNovoItem(prev => ({ ...prev, nome: (prev.nome || '').toString().trim().toUpperCase() }))} placeholder="Ex: CORTE DEGRADE" />
+                      </div>
                       <div className="space-y-2">
                         <label className="text-[10px] font-bold text-slate-500 uppercase px-1">Imagem do Serviço</label>
                         <div className="flex items-center gap-4">
@@ -2219,26 +2215,26 @@ export function AdminDashboard({ onBack, estabelecimentoId, membroId, cargo, isO
                             <Plus size={20} className="text-slate-500 mb-1" />
                             <span className="text-xs text-slate-400 font-bold">Upload de Imagem</span>
                             <span className="text-[9px] text-slate-600 uppercase mt-0.5">JPG, PNG ou WebP</span>
-                            <input 
-                              type="file" 
-                              accept="image/*" 
-                              className="hidden" 
+                            <input
+                              type="file"
+                              accept="image/*"
+                              className="hidden"
                               onChange={e => {
                                 const file = e.target.files?.[0]
                                 if (file) setImageFile(file)
-                              }} 
+                              }}
                             />
                           </label>
-                          
+
                           {(imageFile || novoItem.imagem_url) && (
                             <div className="relative w-24 h-24 rounded-xl overflow-hidden border border-white/10 bg-slate-900 flex-shrink-0">
-                              <img 
-                                src={imageFile ? URL.createObjectURL(imageFile) : novoItem.imagem_url} 
-                                alt="Preview" 
-                                className="w-full h-full object-cover" 
+                              <img
+                                src={imageFile ? URL.createObjectURL(imageFile) : novoItem.imagem_url}
+                                alt="Preview"
+                                className="w-full h-full object-cover"
                               />
-                              <button 
-                                type="button" 
+                              <button
+                                type="button"
                                 onClick={() => {
                                   setImageFile(null)
                                   setNovoItem(prev => ({ ...prev, imagem_url: '' }))
@@ -2267,7 +2263,7 @@ export function AdminDashboard({ onBack, estabelecimentoId, membroId, cargo, isO
                         </div>
                         <div className="space-y-1">
                           <label className="text-[10px] font-bold text-slate-500 uppercase px-1">Duração</label>
-                          <input type="number" min="0" className="w-full bg-slate-900 border border-white/5 rounded-xl p-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/50" value={novoItem.duracao} onChange={e => setNovoItem(prev => ({ ...prev, duracao: e.target.value }))} placeholder="30" />
+                          <input type="number" min="0" disabled={novoItem.tipo === 'despesa'} className={`w-full bg-slate-900 border border-white/5 rounded-xl p-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/50 ${novoItem.tipo === 'despesa' ? 'opacity-40 cursor-not-allowed' : ''}`} value={novoItem.duracao} onChange={e => setNovoItem(prev => ({ ...prev, duracao: e.target.value }))} placeholder="30" />
                         </div>
                       </div>
                     </div>
@@ -2291,11 +2287,10 @@ export function AdminDashboard({ onBack, estabelecimentoId, membroId, cargo, isO
             <div className="flex flex-wrap items-center gap-2">
               {(['todos', 'servicos', 'produtos'] as const).map(t => (
                 <button key={t} onClick={() => setFiltroTipo(t)}
-                  className={`px-4 py-2 rounded-xl font-bold text-xs transition-all flex items-center gap-1.5 ${
-                    filtroTipo === t
+                  className={`px-4 py-2 rounded-xl font-bold text-xs transition-all flex items-center gap-1.5 ${filtroTipo === t
                       ? 'bg-emerald-500 text-white shadow-lg shadow-emerald-500/20'
                       : 'bg-slate-900 text-slate-400 border border-white/5 hover:border-emerald-500/30'
-                  }`}
+                    }`}
                 >
                   {t === 'todos' && <Layers size={14} />}
                   {t === 'servicos' && <Scissors size={14} />}
@@ -2306,16 +2301,15 @@ export function AdminDashboard({ onBack, estabelecimentoId, membroId, cargo, isO
                   <span className="text-[9px] opacity-60">
                     {t === 'todos' ? itens.length
                       : t === 'servicos' ? itens.filter(i => i.duracao_minutos > 0).length
-                      : itens.filter(i => !i.duracao_minutos || i.duracao_minutos <= 0).length}
+                        : itens.filter(i => !i.duracao_minutos || i.duracao_minutos <= 0).length}
                   </span>
                 </button>
               ))}
               <button onClick={() => setAgruparCategoria(!agruparCategoria)}
-                className={`ml-auto px-3 py-2 rounded-xl font-bold text-[10px] transition-all flex items-center gap-1.5 ${
-                  agruparCategoria
+                className={`ml-auto px-3 py-2 rounded-xl font-bold text-[10px] transition-all flex items-center gap-1.5 ${agruparCategoria
                     ? 'bg-blue-500/10 text-blue-400 border border-blue-500/20'
                     : 'bg-slate-900 text-slate-500 border border-white/5'
-                }`}
+                  }`}
               >
                 <FolderOpen size={13} />
                 {agruparCategoria ? 'Agrupado' : 'Lista'}
@@ -2592,28 +2586,28 @@ export function AdminDashboard({ onBack, estabelecimentoId, membroId, cargo, isO
                   </div>
                 </div>
 
-            <div className="glass-card p-6 border-amber-500/20 space-y-4">
-              <h3 className="text-amber-400 font-bold text-sm uppercase tracking-widest flex items-center gap-2">
-                <ShieldAlert size={16} /> Dados de Teste
-              </h3>
-              <p className="text-xs text-slate-500">Gere lançamentos fictícios para testar a interface, e remova-os facilmente depois. Eles terão a tag [DEMO].</p>
-              <div className="flex flex-col sm:flex-row gap-4">
-                <button
-                  onClick={generateDemoData}
-                  disabled={configSaving}
-                  className="flex-1 py-3 bg-amber-500/10 text-amber-500 border border-amber-500/20 rounded-xl font-bold hover:bg-amber-500 hover:text-white transition-all active:scale-95"
-                >
-                  Gerar Dados Demo
-                </button>
-                <button
-                  onClick={removeDemoData}
-                  disabled={configSaving}
-                  className="flex-1 py-3 bg-rose-500/10 text-rose-500 border border-rose-500/20 rounded-xl font-bold hover:bg-rose-500 hover:text-white transition-all active:scale-95"
-                >
-                  Limpar Dados Demo
-                </button>
-              </div>
-            </div>
+                <div className="glass-card p-6 border-amber-500/20 space-y-4">
+                  <h3 className="text-amber-400 font-bold text-sm uppercase tracking-widest flex items-center gap-2">
+                    <ShieldAlert size={16} /> Dados de Teste
+                  </h3>
+                  <p className="text-xs text-slate-500">Gere lançamentos fictícios para testar a interface, e remova-os facilmente depois. Eles terão a tag [DEMO].</p>
+                  <div className="flex flex-col sm:flex-row gap-4">
+                    <button
+                      onClick={generateDemoData}
+                      disabled={configSaving}
+                      className="flex-1 py-3 bg-amber-500/10 text-amber-500 border border-amber-500/20 rounded-xl font-bold hover:bg-amber-500 hover:text-white transition-all active:scale-95"
+                    >
+                      Gerar Dados Demo
+                    </button>
+                    <button
+                      onClick={removeDemoData}
+                      disabled={configSaving}
+                      className="flex-1 py-3 bg-rose-500/10 text-rose-500 border border-rose-500/20 rounded-xl font-bold hover:bg-rose-500 hover:text-white transition-all active:scale-95"
+                    >
+                      Limpar Dados Demo
+                    </button>
+                  </div>
+                </div>
               </div>
             )}
           </div>
@@ -2700,8 +2694,8 @@ export function AdminDashboard({ onBack, estabelecimentoId, membroId, cargo, isO
                           <div className="flex items-center gap-2">
                             <p className="font-bold text-sm text-white">{ag.cliente_nome}</p>
                             <span className={`text-[8px] font-black uppercase px-2 py-0.5 rounded-full ${ag.status === 'pendente' ? 'bg-amber-500/10 text-amber-500' :
-                                ag.status === 'confirmado' ? 'bg-emerald-500/10 text-emerald-500' :
-                                  ag.status === 'concluido' ? 'bg-indigo-500/10 text-indigo-400' : 'bg-slate-800 text-slate-500'
+                              ag.status === 'confirmado' ? 'bg-emerald-500/10 text-emerald-500' :
+                                ag.status === 'concluido' ? 'bg-indigo-500/10 text-indigo-400' : 'bg-slate-800 text-slate-500'
                               }`}>
                               {ag.status}
                             </span>
@@ -2719,8 +2713,8 @@ export function AdminDashboard({ onBack, estabelecimentoId, membroId, cargo, isO
                           <button
                             onClick={() => handleAgendamentoAction(ag, 'confirmado')}
                             className={`px-4 py-2 rounded-xl text-[10px] font-black uppercase transition-all ${ag.status === 'confirmado'
-                                ? 'bg-emerald-500/20 text-emerald-500 cursor-default'
-                                : 'bg-emerald-500 text-white shadow-lg shadow-emerald-500/20 active:scale-95'
+                              ? 'bg-emerald-500/20 text-emerald-500 cursor-default'
+                              : 'bg-emerald-500 text-white shadow-lg shadow-emerald-500/20 active:scale-95'
                               }`}
                             title="Confirmar"
                           >
@@ -2855,8 +2849,8 @@ export function AdminDashboard({ onBack, estabelecimentoId, membroId, cargo, isO
                         <div key={log.id} className="p-4 space-y-3 hover:bg-white/[0.02] transition-colors">
                           <div className="flex justify-between items-center">
                             <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-md border font-black uppercase text-[8px] tracking-wider ${isExc ? 'bg-rose-500/10 text-rose-400 border-rose-500/20' :
-                                isEdi ? 'bg-blue-500/10 text-blue-400 border-blue-500/20' :
-                                  'bg-emerald-500/10 text-emerald-400 border-emerald-500/20'
+                              isEdi ? 'bg-blue-500/10 text-blue-400 border-blue-500/20' :
+                                'bg-emerald-500/10 text-emerald-400 border-emerald-500/20'
                               }`}>
                               {isExc ? <Trash2 size={10} /> : isEdi ? <Edit2 size={10} /> : <Plus size={10} />}
                               {isExc ? 'Exclusão' : isEdi ? 'Edição' : 'Retroativo'}
@@ -2929,8 +2923,8 @@ export function AdminDashboard({ onBack, estabelecimentoId, membroId, cargo, isO
                             <td className="px-6 py-4 text-xs font-black text-slate-200">{log.membros_equipe?.nome}</td>
                             <td className="px-6 py-4 text-xs">
                               <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md border font-bold uppercase text-[9px] tracking-wider ${isExc ? 'bg-rose-500/10 text-rose-400 border-rose-500/20' :
-                                  isEdi ? 'bg-blue-500/10 text-blue-400 border-blue-500/20' :
-                                    'bg-emerald-500/10 text-emerald-400 border-emerald-500/20'
+                                isEdi ? 'bg-blue-500/10 text-blue-400 border-blue-500/20' :
+                                  'bg-emerald-500/10 text-emerald-400 border-emerald-500/20'
                                 }`}>
                                 {isExc ? <Trash2 size={10} /> : isEdi ? <Edit2 size={10} /> : <Plus size={10} />}
                                 {isExc ? 'Exclusão' : isEdi ? 'Edição' : 'Retroativo'}
@@ -3154,16 +3148,16 @@ export function AdminDashboard({ onBack, estabelecimentoId, membroId, cargo, isO
       {feedbackModal && feedbackModal.isOpen && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-in fade-in duration-200">
           <div className={`w-full max-w-md rounded-3xl p-6 sm:p-8 shadow-2xl animate-in zoom-in-95 duration-200 text-center relative overflow-hidden border backdrop-blur-xl ${feedbackModal.variant === 'success'
-              ? 'bg-emerald-500/10 border-emerald-500/20'
-              : feedbackModal.variant === 'error'
-                ? 'bg-rose-500/10 border-rose-500/20'
-                : 'bg-amber-500/10 border-amber-500/20'
+            ? 'bg-emerald-500/10 border-emerald-500/20'
+            : feedbackModal.variant === 'error'
+              ? 'bg-rose-500/10 border-rose-500/20'
+              : 'bg-amber-500/10 border-amber-500/20'
             }`}>
             <div className={`w-14 h-14 rounded-2xl flex items-center justify-center mx-auto mb-5 border shadow-lg ${feedbackModal.variant === 'success'
-                ? 'bg-emerald-500/20 text-emerald-400 border-emerald-500/30 shadow-emerald-500/5'
-                : feedbackModal.variant === 'error'
-                  ? 'bg-rose-500/20 text-rose-400 border-rose-500/30 shadow-rose-500/5'
-                  : 'bg-amber-500/20 text-amber-400 border-amber-500/30 shadow-amber-500/5'
+              ? 'bg-emerald-500/20 text-emerald-400 border-emerald-500/30 shadow-emerald-500/5'
+              : feedbackModal.variant === 'error'
+                ? 'bg-rose-500/20 text-rose-400 border-rose-500/30 shadow-rose-500/5'
+                : 'bg-amber-500/20 text-amber-400 border-amber-500/30 shadow-amber-500/5'
               }`}>
               {feedbackModal.variant === 'success' && <CheckCircle size={26} />}
               {feedbackModal.variant === 'error' && <XCircle size={26} />}
@@ -3171,10 +3165,10 @@ export function AdminDashboard({ onBack, estabelecimentoId, membroId, cargo, isO
             </div>
 
             <h4 className={`font-black text-base uppercase tracking-widest mb-2 ${feedbackModal.variant === 'success'
-                ? 'text-emerald-400'
-                : feedbackModal.variant === 'error'
-                  ? 'text-rose-400'
-                  : 'text-amber-400'
+              ? 'text-emerald-400'
+              : feedbackModal.variant === 'error'
+                ? 'text-rose-400'
+                : 'text-amber-400'
               }`}>
               {feedbackModal.title}
             </h4>
@@ -3202,8 +3196,8 @@ export function AdminDashboard({ onBack, estabelecimentoId, membroId, cargo, isO
               <button
                 onClick={feedbackModal.onConfirm}
                 className={`w-full font-black py-3.5 rounded-2xl shadow-xl transition-all active:scale-95 text-xs uppercase tracking-widest ${feedbackModal.variant === 'success'
-                    ? 'bg-emerald-500 hover:bg-emerald-400 text-white shadow-emerald-500/20'
-                    : 'bg-rose-500 hover:bg-rose-400 text-white shadow-rose-500/20'
+                  ? 'bg-emerald-500 hover:bg-emerald-400 text-white shadow-emerald-500/20'
+                  : 'bg-rose-500 hover:bg-rose-400 text-white shadow-rose-500/20'
                   }`}
               >
                 Entendi
