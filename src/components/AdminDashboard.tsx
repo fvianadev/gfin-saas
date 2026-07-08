@@ -250,7 +250,7 @@ export function AdminDashboard({ onBack, estabelecimentoId, membroId, cargo, isO
 
   const [itens, setItens] = useState<any[]>([])
   const [servicoSearch, setServicoSearch] = useState('')
-  const [filtroTipo, setFiltroTipo] = useState<'todos' | 'servicos' | 'produtos'>('todos')
+  const [filtroTipo, setFiltroTipo] = useState<'todos' | 'servicos' | 'produtos' | 'despesas'>('todos')
   const [agruparCategoria, setAgruparCategoria] = useState(true)
   const [novoItem, setNovoItem] = useState({ nome: '', preco: '', tipo: 'receita' as 'receita' | 'despesa', categoria: '', duracao: '0', imagem_url: '' })
   const [imageFile, setImageFile] = useState<File | null>(null)
@@ -259,8 +259,9 @@ export function AdminDashboard({ onBack, estabelecimentoId, membroId, cargo, isO
   const filteredItens = useMemo(() => {
     const term = servicoSearch.toLowerCase()
     return itens.filter(item => {
-      if (filtroTipo === 'servicos' && (!item.duracao_minutos || item.duracao_minutos <= 0)) return false
-      if (filtroTipo === 'produtos' && item.duracao_minutos > 0) return false
+      if (filtroTipo === 'servicos' && (item.tipo !== 'receita' || !item.duracao_minutos || item.duracao_minutos <= 0)) return false
+      if (filtroTipo === 'produtos' && (item.tipo !== 'receita' || item.duracao_minutos > 0)) return false
+      if (filtroTipo === 'despesas' && item.tipo !== 'despesa') return false
       return item.nome.toLowerCase().includes(term) ||
         item.categoria?.toLowerCase().includes(term)
     })
@@ -2294,7 +2295,7 @@ export function AdminDashboard({ onBack, estabelecimentoId, membroId, cargo, isO
             )}
 
             <div className="flex flex-wrap items-center gap-2">
-              {(['todos', 'servicos', 'produtos'] as const).map(t => (
+              {(['todos', 'servicos', 'produtos', 'despesas'] as const).map(t => (
                 <button key={t} onClick={() => setFiltroTipo(t)}
                   className={`px-4 py-2 rounded-xl font-bold text-xs transition-all flex items-center gap-1.5 ${filtroTipo === t
                       ? 'bg-emerald-500 text-white shadow-lg shadow-emerald-500/20'
@@ -2304,13 +2305,16 @@ export function AdminDashboard({ onBack, estabelecimentoId, membroId, cargo, isO
                   {t === 'todos' && <Layers size={14} />}
                   {t === 'servicos' && <Scissors size={14} />}
                   {t === 'produtos' && <Package size={14} />}
+                  {t === 'despesas' && <TrendingDown size={14} />}
                   {t === 'todos' && 'Todos'}
                   {t === 'servicos' && 'Serviços'}
                   {t === 'produtos' && 'Produtos'}
+                  {t === 'despesas' && 'Despesas'}
                   <span className="text-[9px] opacity-60">
                     {t === 'todos' ? itens.length
-                      : t === 'servicos' ? itens.filter(i => i.duracao_minutos > 0).length
-                        : itens.filter(i => !i.duracao_minutos || i.duracao_minutos <= 0).length}
+                      : t === 'servicos' ? itens.filter(i => i.tipo === 'receita' && i.duracao_minutos > 0).length
+                        : t === 'produtos' ? itens.filter(i => i.tipo === 'receita' && (!i.duracao_minutos || i.duracao_minutos <= 0)).length
+                          : itens.filter(i => i.tipo === 'despesa').length}
                   </span>
                 </button>
               ))}
