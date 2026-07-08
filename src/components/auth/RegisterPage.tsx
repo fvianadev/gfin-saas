@@ -100,6 +100,11 @@ export function RegisterPage({ onLogin }: { onLogin: (session: UserSession) => v
           setLoading(false);
           return;
         }
+        if (lowerAuthMsg.includes('confirmation') || lowerAuthMsg.includes('smtp') || lowerAuthMsg.includes('failed to send')) {
+          setErrorMessage('Erro ao enviar e‑mail de confirmação. Verifique as configurações de Auth (SMTP) no painel do Supabase ou desative a confirmação de e‑mail para testes.');
+          setLoading(false);
+          return;
+        }
         setErrorMessage(authError.message);
         setLoading(false);
         return;
@@ -187,9 +192,7 @@ export function RegisterPage({ onLogin }: { onLogin: (session: UserSession) => v
             if (msg.includes('rate limit') || msg.includes('limit exceeded')) {
               return 'Muitas tentativas de cadastro seguidas. Aguarde alguns minutos antes de tentar novamente.';
             }
-            if (msg.includes('confirmation') || msg.includes('smtp') || msg.includes('failed to send')) {
-              return 'Erro ao enviar e‑mail de confirmação. Verifique as configurações de Auth ou desative a confirmação de e‑mail para testes.';
-            }
+
           }
           // PostgREST errors (from table inserts)
           if (error?.code) {

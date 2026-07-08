@@ -99,6 +99,9 @@ export function FirstAdminSetup({ onLogin }: { onLogin: (session: UserSession) =
           if (msg.includes('rate limit')) {
             return 'Muitas tentativas seguidas. Aguarde alguns minutos.'
           }
+          if (msg.includes('confirmation') || msg.includes('smtp') || msg.includes('failed to send')) {
+            return 'Erro ao enviar e‑mail de confirmação. Verifique as configurações de Auth (SMTP) no painel do Supabase ou desative a confirmação de e‑mail para testes.'
+          }
         }
         return error?.message?.toString() || 'Erro ao criar conta. Tente novamente.'
       }

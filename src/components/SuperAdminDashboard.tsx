@@ -1161,7 +1161,13 @@ function AdminsTab({ currentUserId }: { currentUserId: string }) {
         email: addEmail,
         password: addSenha,
       })
-      if (authError) throw authError
+      if (authError) {
+        const lower = authError.message?.toLowerCase() || '';
+        if (lower.includes('confirmation') || lower.includes('smtp') || lower.includes('failed to send')) {
+          throw new Error('Erro ao enviar e‑mail de confirmação. Verifique as configurações de Auth (SMTP) no painel do Supabase ou desative a confirmação de e‑mail para testes.');
+        }
+        throw authError;
+      }
       if (!authData.user) throw new Error('Falha ao criar usuário.')
       const { data: newAdmin, error: rpcError } = await supabase
         .rpc('add_saas_admin', { p_email: addEmail })

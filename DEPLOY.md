@@ -54,21 +54,25 @@ Após o deploy, em **Authentication → URL Configuration**:
 | Site URL | `https://seu-dominio.vercel.app` (ou `*.netlify.app`) |
 | Redirect URLs | `https://seu-dominio.vercel.app/**` |
 
-### 2.4 SMTP em Produção
+### 2.4 SMTP em Produção ⚠️ Obrigatório
 
-Para e-mails de confirmação e recuperação de senha:
+Sem SMTP configurado, o cadastro de usuários falha com **"Error sending confirmation email"** e a recuperação de senha também não funciona.
+
+**Opção A — Configurar SMTP (recomendado):**
 
 1. **Authentication → Providers → Email** → habilite **Confirm email**
 2. **Project Settings → Auth → SMTP Settings** → **Enable Custom SMTP**
 
-**Opções de provedor:**
-
 | Provedor | SMTP Host | Porta | Observação |
 |----------|-----------|-------|------------|
-| Gmail | `smtp.gmail.com` | 587 | Usar App Password (16 caracteres) |
 | Resend (recomendado) | `smtp.resend.com` | 465/587 | Usar API Key `re_...` |
+| Gmail | `smtp.gmail.com` | 587 | Usar App Password (16 caracteres) |
 
 > **Resend:** Comece com `onboarding@resend.dev`. Após verificar seu domínio, troque para `noreply@seudominio.com`.
+
+**Opção B — Desativar confirmação de e-mail (apenas para dev/testes):**
+
+Em **Authentication → Providers → Email** → desabilite **Confirm email**. Os usuários serão logados automaticamente após o cadastro, sem necessidade de confirmar e-mail.
 
 ---
 

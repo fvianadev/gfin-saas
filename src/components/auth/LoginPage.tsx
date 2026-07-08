@@ -143,7 +143,12 @@ export function LoginPage({ onLogin }: { onLogin: (session: UserSession) => void
       if (error) throw error
       setForgotSuccess(true)
     } catch (err: any) {
-      alert('Erro ao enviar e-mail de recuperação: ' + err.message)
+      const lowerMsg = (err?.message || '').toString().toLowerCase()
+      if (lowerMsg.includes('confirmation') || lowerMsg.includes('smtp') || lowerMsg.includes('failed to send')) {
+        alert('Erro ao enviar e‑mail de recuperação. Verifique as configurações de Auth (SMTP) no painel do Supabase.')
+      } else {
+        alert('Erro ao enviar e‑mail de recuperação: ' + (err?.message || ''))
+      }
     } finally {
       setForgotLoading(false)
     }
