@@ -269,7 +269,7 @@ export function AdminDashboard({ onBack, estabelecimentoId, membroId, cargo, isO
   const renderItemCard = (item: any) => (
     <div key={item.id} className="group bg-slate-900/80 border border-white/5 rounded-2xl overflow-hidden hover:border-emerald-500/30 transition-all active:scale-[0.98]">
       <div className="flex items-stretch min-h-[72px]">
-        <div className="w-[76px] shrink-0 overflow-hidden bg-slate-950">
+        <div className="w-[76px] shrink-0 overflow-hidden bg-slate-950 relative">
           {item.imagem_url ? (
             <img src={item.imagem_url} alt={item.nome} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />
           ) : (
@@ -278,6 +278,15 @@ export function AdminDashboard({ onBack, estabelecimentoId, membroId, cargo, isO
               {item.duracao_minutos > 0 ? <Scissors size={22} /> : <Package size={22} />}
             </div>
           )}
+          <div className={`absolute top-0 left-0 w-3 h-3 flex items-center justify-center ${
+            item.tipo === 'receita' ? 'bg-emerald-500' : 'bg-rose-500'
+          }`}>
+            {item.tipo === 'receita' ? (
+              <TrendingUp size={7} className="text-white" />
+            ) : (
+              <TrendingDown size={7} className="text-white" />
+            )}
+          </div>
         </div>
         <div className="flex-1 min-w-0 p-3 flex flex-col justify-center gap-1">
           <p className="text-sm font-semibold truncate group-hover:text-emerald-400 transition-colors">{item.nome}</p>
