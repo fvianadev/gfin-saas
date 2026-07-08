@@ -29,6 +29,27 @@ mapeamento_funcionalidades.md
 # Removido do projeto - arquivo bloqueado no Windows
 /src/components/auth/RegisterSaasAdminPage.tsx
 
-# Old migrations (consolidated)
-supabase/migrations/202606*.sql
 scratch_run_supabase.js
+
+# Old migrations (consolidated, locked by Windows)
+supabase/migrations/202606*.sql
+
+# Scripts removidos do repositório (stubs vazios retidos pelo Windows)
+/scripts/apply_migration.mjs
+/scripts/check_db.mjs
+/scripts/check_prices.mjs
+/scripts/check_rpc.mjs
+/scripts/clear_db.mjs
+/scripts/create-storage-buckets.sh
+/scripts/debug_db.cjs
+/scripts/debug_public.mjs
+/scripts/fix_config.mjs
+/scripts/fix_perms.mjs
+/scripts/seed-data.cjs
+/scripts/test_agend_anon.mjs
+/scripts/test_anon.mjs
+/scripts/test_estab_anon.mjs
+/scripts/test_insert_anon.mjs
+/scripts/test_marketplace.mjs
+/scripts/test_reset_pwd.mjs
+/scripts/test_smtp_direct.mjs

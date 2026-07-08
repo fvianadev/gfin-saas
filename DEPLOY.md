@@ -22,7 +22,7 @@ Guia completo para colocar o GFin em produção usando **Vercel** com **Supabase
 
 ### 2.2 Aplicar Migrations
 
-As migrations estão em `supabase/migrations/` (11 arquivos no total).
+As migrations estão em `supabase/migrations/` (4 arquivos consolidados).
 
 As migrations **não** são executadas automaticamente durante o build. Execute manualmente antes do primeiro deploy ou sempre que houver novas migrations:
 
@@ -40,25 +40,10 @@ Ele:
 
 | Ordem | Arquivo | Descrição |
 |-------|---------|-----------|
-| 1 | `20260601000000_initial_schema.sql` | Schema inicial (tabelas, RLS, funções) |
-| 2 | `20260602000000_add_aviso_trial_dias.sql` | Coluna aviso_trial_dias |
-| 3 | `20260604000000_staff_gerencia_agenda.sql` | Staff gerencia agenda |
-| 4 | `20260606000000_auto_create_saas_admins.sql` | Criação automática de admins |
-| 5 | `20260607000000_delete_saas_user_rpc.sql` | RPC para deletar usuário |
-| 6 | `20260613000000_add_imagem_url_to_servicos.sql` | Imagem em serviços + bucket `servicos` |
-| 7 | `20260613000001_create_logos_bucket.sql` | Bucket `logos` + políticas |
-| 8 | `20260614000000_add_avatar_url_to_membros.sql` | Avatar em membros + bucket `avatars` |
-| 9 | `20260615000000_create_marketplace_destaques.sql` | Marketplace + bucket `marketplace` |
-| 10 | `20260616000000_add_valor_assinatura.sql` | Coluna valor_assinatura |
-| 11 | `20260617000000_super_admin_singleton.sql` | Singleton de super admin + RPC `is_first_saas_admin()` |
-| 12 | `20260621000000_admin_functions.sql` | RPCs de gestão de admins (add, confirm, reset) |
-
-**Executar migrations manualmente (opcional):**
-```bash
-node scripts/migrate.mjs
-```
-
-> O script lê a `DATABASE_URL` do arquivo `.env` ou das variáveis de ambiente.
+| 1 | `20260701000000_001_schema.sql` | Schema inicial (tabelas, RLS, funções) |
+| 2 | `20260701000001_002_storage.sql` | Buckets de storage + políticas |
+| 3 | `20260701000002_003_marketplace.sql` | Marketplace + destaques |
+| 4 | `20260701000003_004_admin_rpcs.sql` | RPCs de gestão de admins e funções administrativas |
 
 ### 2.3 Configurar Autenticação
 
