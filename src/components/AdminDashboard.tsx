@@ -241,7 +241,7 @@ export function AdminDashboard({ onBack, estabelecimentoId, membroId, cargo, isO
 
   const [estab, setEstab] = useState<any>(null)
   const [saasConfig, setSaasConfig] = useState<any>(null)
-  const [configForm, setConfigForm] = useState({ nome: '', logo_url: '', whatsapp: '', instagram: '', facebook: '' })
+  const [configForm, setConfigForm] = useState({ nome: '', logo_url: '', whatsapp: '', instagram: '', facebook: '', endereco_cep: '', endereco_logradouro: '', endereco_numero: '', endereco_complemento: '', endereco_bairro: '', endereco_cidade: '', endereco_estado: '' })
   const [configSaving, setConfigSaving] = useState(false)
   const [configSaved, setConfigSaved] = useState(false)
   const [logoFile, setLogoFile] = useState<File | null>(null)
@@ -688,7 +688,14 @@ export function AdminDashboard({ onBack, estabelecimentoId, membroId, cargo, isO
         logo_url: data.configuracoes?.logo_url || '',
         whatsapp: data.configuracoes?.whatsapp || '',
         instagram: data.configuracoes?.instagram || '',
-        facebook: data.configuracoes?.facebook || ''
+        facebook: data.configuracoes?.facebook || '',
+        endereco_cep: data.configuracoes?.endereco_cep || '',
+        endereco_logradouro: data.configuracoes?.endereco_logradouro || '',
+        endereco_numero: data.configuracoes?.endereco_numero || '',
+        endereco_complemento: data.configuracoes?.endereco_complemento || '',
+        endereco_bairro: data.configuracoes?.endereco_bairro || '',
+        endereco_cidade: data.configuracoes?.endereco_cidade || '',
+        endereco_estado: data.configuracoes?.endereco_estado || ''
       })
     }
   }
@@ -767,7 +774,14 @@ export function AdminDashboard({ onBack, estabelecimentoId, membroId, cargo, isO
         logo_url: finalLogoUrl,
         whatsapp: configForm.whatsapp,
         instagram: configForm.instagram,
-        facebook: configForm.facebook
+        facebook: configForm.facebook,
+        endereco_cep: configForm.endereco_cep,
+        endereco_logradouro: configForm.endereco_logradouro,
+        endereco_numero: configForm.endereco_numero,
+        endereco_complemento: configForm.endereco_complemento,
+        endereco_bairro: configForm.endereco_bairro,
+        endereco_cidade: configForm.endereco_cidade,
+        endereco_estado: configForm.endereco_estado
       }
     }).eq('id', estabelecimentoId)
 
@@ -2540,6 +2554,43 @@ export function AdminDashboard({ onBack, estabelecimentoId, membroId, cargo, isO
                 <div className="space-y-1">
                   <label className="text-[10px] font-bold text-slate-500 uppercase px-1">Facebook</label>
                   <input className="w-full bg-slate-900 border border-white/5 rounded-xl p-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/50" value={configForm.facebook} onChange={e => setConfigForm(prev => ({ ...prev, facebook: e.target.value }))} placeholder="https://facebook.com/suapagina" />
+                </div>
+                <div className="border-t border-white/5 my-2 pt-4">
+                  <h4 className="text-[10px] font-bold text-slate-500 uppercase px-1 mb-3">Endereço Completo</h4>
+                  <div className="grid grid-cols-3 gap-3">
+                    <div className="col-span-1 space-y-1">
+                      <label className="text-[10px] font-bold text-slate-500 uppercase px-1">CEP</label>
+                      <input className="w-full bg-slate-900 border border-white/5 rounded-xl p-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/50" value={configForm.endereco_cep} onChange={e => setConfigForm(prev => ({ ...prev, endereco_cep: e.target.value }))} placeholder="00000-000" />
+                    </div>
+                    <div className="col-span-2 space-y-1">
+                      <label className="text-[10px] font-bold text-slate-500 uppercase px-1">Logradouro</label>
+                      <input className="w-full bg-slate-900 border border-white/5 rounded-xl p-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/50" value={configForm.endereco_logradouro} onChange={e => setConfigForm(prev => ({ ...prev, endereco_logradouro: e.target.value }))} placeholder="Rua, Avenida..." />
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-3 gap-3 mt-3">
+                    <div className="space-y-1">
+                      <label className="text-[10px] font-bold text-slate-500 uppercase px-1">Número</label>
+                      <input className="w-full bg-slate-900 border border-white/5 rounded-xl p-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/50" value={configForm.endereco_numero} onChange={e => setConfigForm(prev => ({ ...prev, endereco_numero: e.target.value }))} placeholder="Nº" />
+                    </div>
+                    <div className="space-y-1">
+                      <label className="text-[10px] font-bold text-slate-500 uppercase px-1">Complemento</label>
+                      <input className="w-full bg-slate-900 border border-white/5 rounded-xl p-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/50" value={configForm.endereco_complemento} onChange={e => setConfigForm(prev => ({ ...prev, endereco_complemento: e.target.value }))} placeholder="Sala, Bloco..." />
+                    </div>
+                    <div className="space-y-1">
+                      <label className="text-[10px] font-bold text-slate-500 uppercase px-1">Bairro</label>
+                      <input className="w-full bg-slate-900 border border-white/5 rounded-xl p-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/50" value={configForm.endereco_bairro} onChange={e => setConfigForm(prev => ({ ...prev, endereco_bairro: e.target.value }))} placeholder="Bairro" />
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-2 gap-3 mt-3">
+                    <div className="space-y-1">
+                      <label className="text-[10px] font-bold text-slate-500 uppercase px-1">Cidade</label>
+                      <input className="w-full bg-slate-900 border border-white/5 rounded-xl p-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/50" value={configForm.endereco_cidade} onChange={e => setConfigForm(prev => ({ ...prev, endereco_cidade: e.target.value }))} placeholder="Cidade" />
+                    </div>
+                    <div className="space-y-1">
+                      <label className="text-[10px] font-bold text-slate-500 uppercase px-1">Estado</label>
+                      <input className="w-full bg-slate-900 border border-white/5 rounded-xl p-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/50" value={configForm.endereco_estado} onChange={e => setConfigForm(prev => ({ ...prev, endereco_estado: e.target.value }))} placeholder="UF" maxLength={2} />
+                    </div>
+                  </div>
                 </div>
                 <button type="submit" disabled={configSaving} className={`w-full py-4 rounded-xl font-bold shadow-lg active:scale-95 transition-all disabled:opacity-50 ${configSaved ? 'bg-teal-500 shadow-teal-500/20' : 'bg-emerald-500 shadow-emerald-500/20'}`}>{configSaved ? '✓ Salvo!' : configSaving ? 'Salvando...' : 'Salvar Configurações'}</button>
               </form>
