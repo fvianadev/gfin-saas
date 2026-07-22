@@ -8,7 +8,8 @@ import {
   Shield, Search, ChevronDown, X, CheckCircle, Clock, AlertCircle,
   Edit3, Save, RefreshCw, ExternalLink, Crown, Zap, Star,
   Phone, Mail, Instagram, Globe, BarChart2, Activity, Package,
-  DollarSign, MessageCircle, CalendarDays, CreditCard, Banknote, ArrowRight, History
+  DollarSign, MessageCircle, CalendarDays, CreditCard, Banknote, ArrowRight, History,
+  Menu
 } from 'lucide-react'
 import {
   AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, BarChart, Bar
@@ -1960,33 +1961,36 @@ export function SuperAdminDashboard({ onLogout }: { onLogout: () => void }) {
           onClick={() => setSidebarOpen(!sidebarOpen)}
           className="w-8 h-8 flex items-center justify-center rounded-xl bg-white/5 text-slate-400"
         >
-          {sidebarOpen ? <X size={16} /> : <ChevronDown size={16} />}
+          {sidebarOpen ? <X size={16} /> : <Menu size={16} />}
         </button>
       </div>
 
-      {/* MOBILE DROPDOWN MENU */}
+      {/* MOBILE OVERLAY MENU */}
       {sidebarOpen && (
-        <div className="lg:hidden bg-slate-900/95 border-b border-white/5 px-4 py-3 space-y-1 backdrop-blur-md">
-          {TABS.map(t => {
-            const Icon = t.icon
-            const active = activeTab === t.id
-            return (
-              <button
-                key={t.id}
-                onClick={() => { setActiveTab(t.id); setSidebarOpen(false) }}
-                className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-bold transition-all text-left ${active ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20' : 'text-slate-500 hover:text-white hover:bg-white/5'}`}
-              >
-                <Icon size={16} />
-                {t.label}
-              </button>
-            )
-          })}
-          <button
-            onClick={onLogout}
-            className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-bold text-slate-500 hover:text-rose-400 transition-all"
-          >
-            <LogOut size={16} /> Sair
-          </button>
+        <div className="lg:hidden fixed inset-0 z-50">
+          <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={() => setSidebarOpen(false)} />
+          <div className="absolute top-16 right-3 left-3 bg-slate-900/95 border border-white/10 px-4 py-3 space-y-1 rounded-2xl shadow-2xl backdrop-blur-md">
+            {TABS.map(t => {
+              const Icon = t.icon
+              const active = activeTab === t.id
+              return (
+                <button
+                  key={t.id}
+                  onClick={() => { setActiveTab(t.id); setSidebarOpen(false) }}
+                  className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-bold transition-all text-left ${active ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20' : 'text-slate-500 hover:text-white hover:bg-white/5'}`}
+                >
+                  <Icon size={16} />
+                  {t.label}
+                </button>
+              )
+            })}
+            <button
+              onClick={onLogout}
+              className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-bold text-slate-500 hover:text-rose-400 transition-all"
+            >
+              <LogOut size={16} /> Sair
+            </button>
+          </div>
         </div>
       )}
 
@@ -2027,9 +2031,9 @@ export function SuperAdminDashboard({ onLogout }: { onLogout: () => void }) {
         {activeTab === 'configuracoes' && <ConfiguracoesTab onSaved={fetchData} />}
       </main>
 
-      {/* MOBILE BOTTOM NAV */}
+      {/* MOBILE BOTTOM NAV - só 3 primeiros + botão Mais */}
       <nav className="lg:hidden fixed bottom-0 inset-x-0 bg-slate-900/95 backdrop-blur-md border-t border-white/5 flex items-center justify-around px-2 py-2 z-30">
-        {TABS.map(t => {
+        {TABS.slice(0, 3).map(t => {
           const Icon = t.icon
           const active = activeTab === t.id
           return (
@@ -2043,6 +2047,13 @@ export function SuperAdminDashboard({ onLogout }: { onLogout: () => void }) {
             </button>
           )
         })}
+        <button
+          onClick={() => setSidebarOpen(!sidebarOpen)}
+          className={`flex flex-col items-center gap-0.5 px-4 py-1.5 rounded-xl transition-all ${sidebarOpen ? 'text-emerald-400' : 'text-slate-600 hover:text-slate-400'}`}
+        >
+          <Menu size={18} />
+          <span className="text-[9px] font-bold uppercase tracking-wider">Mais</span>
+        </button>
       </nav>
 
     </div>
