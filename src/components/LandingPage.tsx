@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { Link } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 import { CheckCircle2, Scissors, CalendarCheck, TrendingUp, Users, Shield, ArrowRight, Mail, Phone, Instagram, Star, Clock, ChevronLeft, ChevronRight } from 'lucide-react'
@@ -101,6 +101,31 @@ export function LandingPage() {
     return null
   }
 
+  const SECTION_IDS = ['hero', 'marketplace', 'sobre', 'como-funciona', 'beneficios', 'cta']
+  const [activeSection, setActiveSection] = useState('hero')
+
+  useEffect(() => {
+    const observer = new IntersectionObserver((entries) => {
+      entries.forEach((entry) => {
+        if (entry.isIntersecting) {
+          setActiveSection(entry.target.id)
+        }
+      })
+    }, { rootMargin: '-40% 0px -55% 0px' })
+
+    SECTION_IDS.forEach((id) => {
+      const el = document.getElementById(id)
+      if (el) observer.observe(el)
+    })
+
+    return () => observer.disconnect()
+  }, [])
+
+  const scrollToSection = useCallback((id: string) => {
+    const el = document.getElementById(id)
+    if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' })
+  }, [])
+
   return (
     <div className="min-h-screen bg-slate-950 text-white font-sans selection:bg-emerald-500/30">
 
@@ -132,7 +157,7 @@ export function LandingPage() {
       <main className="pt-24 md:pt-32 pb-16">
 
         {/* HERO SECTION */}
-        <section className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-8 md:pt-20 pb-14 md:pb-28 text-center">
+        <section id="hero" className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-8 md:pt-20 pb-14 md:pb-28 text-center">
           <div className="absolute top-1/3 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[400px] md:w-[800px] h-[400px] md:h-[800px] bg-emerald-500/15 blur-[150px] rounded-full pointer-events-none" />
           <div className="absolute top-2/3 left-1/4 w-[200px] h-[200px] bg-violet-500/10 blur-[100px] rounded-full pointer-events-none" />
           
@@ -177,7 +202,7 @@ export function LandingPage() {
 
         {/* MARKETPLACE */}
         {(!marketplaceLoading && marketplace.length === 0) ? null : (
-          <section className="py-8 md:py-12 bg-slate-900/30">
+          <section id="marketplace" className="py-8 md:py-12 bg-slate-900/30">
             <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
               <div className="flex flex-col md:flex-row justify-between items-end mb-6 md:mb-8 gap-4">
                 <div>
@@ -299,7 +324,7 @@ export function LandingPage() {
         )}
 
         {/* SOBRE O SISTEMA */}
-        <section className="py-12 md:py-16 bg-slate-900/50 border-y border-white/5">
+        <section id="sobre" className="py-12 md:py-16 bg-slate-900/50 border-y border-white/5">
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
             <div className="text-center mb-12 md:mb-16">
               <h2 className="text-3xl md:text-4xl font-bold mb-4">Tudo que seu negócio precisa</h2>
@@ -328,7 +353,7 @@ export function LandingPage() {
         </section>
 
         {/* COMO FUNCIONA */}
-        <section className="py-12 md:py-24">
+        <section id="como-funciona" className="py-12 md:py-24">
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
             <div className="text-center mb-8 md:mb-16">
               <h2 className="text-2xl md:text-4xl font-bold mb-3">Como Funciona</h2>
@@ -358,7 +383,7 @@ export function LandingPage() {
         </section>
 
         {/* BENEFÍCIOS */}
-        <section className="py-12 md:py-16 bg-emerald-950/20 border-y border-emerald-500/10">
+        <section id="beneficios" className="py-12 md:py-16 bg-emerald-950/20 border-y border-emerald-500/10">
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
             <div className="grid md:grid-cols-2 gap-12 items-center">
               <div>
@@ -398,7 +423,7 @@ export function LandingPage() {
         </section>
 
         {/* CTA FINAL */}
-        <section className="relative py-16 md:py-24 text-center px-4 overflow-hidden">
+        <section id="cta" className="relative py-16 md:py-24 text-center px-4 overflow-hidden">
           <div className="absolute inset-0 bg-gradient-to-b from-emerald-500/5 to-transparent pointer-events-none" />
           <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[400px] h-[400px] bg-emerald-500/10 blur-[120px] rounded-full pointer-events-none" />
           <div className="relative z-10">
@@ -476,6 +501,33 @@ export function LandingPage() {
           </div>
         </div>
       </footer>
+
+      {/* NAVEGAÇÃO POR SEÇÕES - DOTS */}
+      <nav className="fixed right-2 md:right-6 top-1/2 -translate-y-1/2 z-40 flex flex-col gap-5 md:gap-4">
+        {SECTION_IDS.map((id) => (
+          <button
+            key={id}
+            onClick={() => scrollToSection(id)}
+            className="group relative flex items-center justify-center p-1.5 -m-1.5"
+            aria-label={`Ir para ${id}`}
+          >
+            <span
+              className={`block rounded-full transition-all duration-300 ${
+                activeSection === id
+                  ? 'w-3 h-3 bg-emerald-500 shadow-[0_0_10px_rgba(52,211,153,0.6)]'
+                  : 'w-2.5 h-2.5 bg-slate-500 hover:bg-slate-300'
+              }`}
+            />
+            <span className="absolute right-full mr-4 px-2 py-1 bg-slate-900/90 border border-white/10 text-xs font-bold text-slate-300 rounded-md opacity-0 group-hover:opacity-100 transition-opacity duration-200 whitespace-nowrap pointer-events-none">
+              {id === 'hero' ? 'Início' :
+               id === 'marketplace' ? 'Assinantes' :
+               id === 'sobre' ? 'Recursos' :
+               id === 'como-funciona' ? 'Como Funciona' :
+               id === 'beneficios' ? 'Benefícios' : 'CTA'}
+            </span>
+          </button>
+        ))}
+      </nav>
     </div>
   )
 }
